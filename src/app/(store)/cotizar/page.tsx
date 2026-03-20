@@ -69,7 +69,7 @@ function CotizarContent() {
         <div className="w-20 h-20 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-6">
           <Check size={40} className="text-emerald-400" />
         </div>
-        <h1 className="font-display text-3xl font-bold text-white">Cotizacion Enviada</h1>
+        <h1 className="font-display text-3xl font-bold text-white">Cotización Enviada</h1>
         <p className="text-zinc-500 mt-3 leading-relaxed">
           Hemos recibido tu solicitud. Un asesor especializado te contactara en las proximas 2 horas habiles para darte seguimiento.
         </p>
@@ -92,7 +92,7 @@ function CotizarContent() {
         </div>
         <div className="flex gap-3 justify-center mt-8">
           <Link href="/productos" className="px-6 py-2.5 rounded-full border border-white/[0.06] text-[13px] font-medium text-zinc-400 hover:bg-white/[0.03]">
-            Ver mas equipos
+            Ver más equipos
           </Link>
         </div>
       </div>
@@ -108,9 +108,9 @@ function CotizarContent() {
       <div className="text-center mb-10">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20 mb-4">
           <Zap size={12} className="text-[#E8821C]" />
-          <span className="text-[11px] font-semibold text-[#E8821C] uppercase tracking-wider">Ultimo paso</span>
+          <span className="text-[11px] font-semibold text-[#E8821C] uppercase tracking-wider">Último paso</span>
         </div>
-        <h1 className="font-display text-3xl font-bold text-white tracking-tight">Solicitar Cotizacion</h1>
+        <h1 className="font-display text-3xl font-bold text-white tracking-tight">Solicitar Cotización</h1>
         <p className="text-zinc-500 text-[14px] mt-2">Completa tus datos y recibiras una propuesta formal en tu correo</p>
       </div>
 
@@ -125,7 +125,7 @@ function CotizarContent() {
               { label: 'Nombre completo', value: nombre, set: setNombre, icon: User, placeholder: 'Tu nombre', full: false },
               { label: 'Empresa', value: empresa, set: setEmpresa, icon: Building2, placeholder: 'Nombre de tu empresa', full: false },
               { label: 'Email', value: email, set: setEmail, icon: Mail, placeholder: 'tu@empresa.com', full: false },
-              { label: 'Telefono', value: telefono, set: setTelefono, icon: Phone, placeholder: '+507 6000-0000', full: false },
+              { label: 'Teléfono', value: telefono, set: setTelefono, icon: Phone, placeholder: '+507 6000-0000', full: false },
             ].map((f) => {
               const Icon = f.icon;
               return (
@@ -171,7 +171,7 @@ function CotizarContent() {
             ) : (
               <>
                 <Send size={16} />
-                Enviar Solicitud de Cotizacion
+                Enviar Solicitud de Cotización
                 <ArrowLeft size={14} className="rotate-180 group-hover:translate-x-0.5 transition-transform" />
               </>
             )}
@@ -182,7 +182,7 @@ function CotizarContent() {
         <div className="lg:col-span-2">
           <div className="glass rounded-2xl p-5 sticky top-20">
             <h2 className="text-[13px] font-semibold text-zinc-300 mb-4 flex items-center gap-2">
-              <Package size={14} className="text-[#E8821C]" /> Tu Configuracion
+              <Package size={14} className="text-[#E8821C]" /> Tu Configuración
             </h2>
 
             {product ? (
@@ -236,16 +236,16 @@ function CotizarContent() {
             ) : (
               <div className="text-center py-8">
                 <Package size={32} className="text-zinc-700 mx-auto mb-3" />
-                <p className="text-[13px] text-zinc-500">Selecciona un equipo del catalogo para comenzar</p>
+                <p className="text-[13px] text-zinc-500">Selecciona un equipo del catálogo para comenzar</p>
                 <Link href="/productos" className="inline-flex items-center gap-1.5 mt-3 text-[12px] text-[#E8821C] hover:underline">
-                  Ver catalogo <ArrowLeft size={12} className="rotate-180" />
+                  Ver catálogo <ArrowLeft size={12} className="rotate-180" />
                 </Link>
               </div>
             )}
 
             <div className="mt-4 p-3 bg-white/[0.02] rounded-lg border border-white/[0.04]">
               <p className="text-[10px] text-zinc-600 leading-relaxed">
-                * Los precios son referenciales en USD. La cotizacion formal incluira condiciones de pago, tiempos de entrega y garantia.
+                * Los precios son referenciales en USD. La cotización formal incluirá condiciones de pago, tiempos de entrega y garantía.
               </p>
             </div>
           </div>

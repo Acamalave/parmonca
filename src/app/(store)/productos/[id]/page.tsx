@@ -32,7 +32,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
       <Link href="/productos" className="inline-flex items-center gap-1.5 text-[13px] text-zinc-500 hover:text-[#E8821C] transition-colors mb-6">
-        <ArrowLeft size={14} />Volver al catalogo
+        <ArrowLeft size={14} />Volver al catálogo
       </Link>
 
       {/* Product Hero */}
@@ -75,7 +75,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           {/* Specs Accordion */}
           <button onClick={() => setSpecsOpen(!specsOpen)}
             className="flex items-center justify-between w-full mt-6 py-3 border-t border-b border-white/[0.06] text-[13px] font-semibold text-zinc-300 hover:text-white transition-colors">
-            Especificaciones Tecnicas
+            Especificaciones Técnicas
             <ChevronDown size={16} className={cn('transition-transform', specsOpen && 'rotate-180')} />
           </button>
           {specsOpen && (
@@ -105,7 +105,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         <div className="text-center mb-8">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#E8821C] mb-2">Personaliza tu equipo</p>
           <h2 className="font-display text-2xl font-bold text-white tracking-tight">Accesorios y Complementos</h2>
-          <p className="text-zinc-500 text-[13px] mt-1">Selecciona los accesorios para tu configuracion</p>
+          <p className="text-zinc-500 text-[13px] mt-1">Selecciona los accesorios para tu configuración</p>
         </div>
 
         {/* Category Filter */}
@@ -178,7 +178,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               </div>
               <Link href={`/cotizar?producto=${product.slug}&accesorios=${selectedAccesorios.join(',')}&cantidad=${cantidad}`}
                 className="flex items-center gap-2 h-11 px-6 bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white font-semibold rounded-full hover:shadow-[0_0_25px_#E8821C40] transition-all active:scale-[0.97] group whitespace-nowrap">
-                Solicitar Cotizacion
+                Solicitar Cotización
                 <ArrowRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </div>

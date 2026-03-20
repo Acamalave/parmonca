@@ -26,12 +26,12 @@ export default function ProductosPage() {
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20 mb-6">
                 <Zap size={12} className="text-[#E8821C]" />
-                <span className="text-[11px] font-semibold text-[#E8821C] uppercase tracking-wider">Primera plataforma de cotizacion online</span>
+                <span className="text-[11px] font-semibold text-[#E8821C] uppercase tracking-wider">Primera plataforma de cotización online</span>
               </div>
               <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-[1.1] tracking-tight">
-                Tu proximo<br />
+                Tu próximo<br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#E8821C] to-[#FF9F43]">montacarga</span><br />
-                esta aqui.
+                está aquí.
               </h1>
               <p className="text-zinc-500 text-lg mt-6 max-w-md leading-relaxed">
                 Configura, personaliza y cotiza maquinaria industrial en minutos. Sin intermediarios. Sin esperas.
@@ -39,7 +39,7 @@ export default function ProductosPage() {
               <div className="flex flex-wrap gap-3 mt-8">
                 <Link href="#catalogo"
                   className="flex items-center gap-2 h-12 px-6 bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white font-semibold rounded-full hover:shadow-[0_0_30px_#E8821C40] transition-all active:scale-[0.97] group">
-                  Explorar Catalogo
+                  Explorar Catálogo
                   <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
                 </Link>
                 <Link href="/cotizar"
@@ -50,8 +50,8 @@ export default function ProductosPage() {
               {/* Trust signals */}
               <div className="flex items-center gap-6 mt-10">
                 {[
-                  { icon: Shield, text: 'Garantia incluida' },
-                  { icon: Truck, text: 'Envio a 7 paises' },
+                  { icon: Shield, text: 'Garantía incluida' },
+                  { icon: Truck, text: 'Envío a 7 países' },
                   { icon: Battery, text: 'Soporte 24/7' },
                 ].map((t) => {
                   const Icon = t.icon;
@@ -70,7 +70,7 @@ export default function ProductosPage() {
               <div className="absolute inset-0 bg-gradient-to-br from-[#E8821C]/[0.06] to-transparent rounded-3xl blur-[60px]" />
               <div className="relative">
                 <Image
-                  src="/images/products/tan35d.jpeg"
+                  src="/images/products/tan35d-hero.png"
                   alt="Montacarga ANDINO TAN35D"
                   width={600}
                   height={500}
@@ -103,11 +103,11 @@ export default function ProductosPage() {
             Maquinaria de clase mundial
           </h2>
           <p className="text-zinc-500 mt-3 max-w-lg mx-auto">
-            Cada equipo incluye garantia, soporte tecnico y opciones de financiamiento
+            Cada equipo incluye garantía, soporte técnico y opciones de financiamiento
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {storeProducts.map((product) => (
             <Link key={product.id} href={`/productos/${product.slug}`}
               className="group relative rounded-2xl overflow-hidden bg-[#111113] border border-white/[0.08] hover:border-[#E8821C]/30 transition-all duration-500">
@@ -121,13 +121,13 @@ export default function ProductosPage() {
               )}
 
               {/* Image */}
-              <div className="relative aspect-[4/3] bg-black flex items-center justify-center overflow-hidden rounded-t-2xl">
+              <div className="relative aspect-[4/3] bg-black flex items-center justify-center overflow-hidden rounded-t-2xl p-6">
                 <Image
                   src={product.imagen}
                   alt={`${product.marca} ${product.modelo}`}
                   width={400}
                   height={300}
-                  className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-700"
+                  className="object-contain max-w-full max-h-full group-hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#08080A] via-transparent to-transparent opacity-40" />
               </div>
@@ -181,10 +181,10 @@ export default function ProductosPage() {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
               {[
-                { num: '01', title: 'Cotiza Online', desc: 'Configura tu equipo y recibe una cotizacion profesional en minutos' },
+                { num: '01', title: 'Cotiza Online', desc: 'Configura tu equipo y recibe una cotización profesional en minutos' },
                 { num: '02', title: 'Personaliza', desc: 'Agrega accesorios de seguridad, productividad y tecnologia' },
-                { num: '03', title: 'Financiamiento', desc: 'Opciones flexibles de pago adaptadas a tu operacion' },
-                { num: '04', title: 'Entrega Regional', desc: 'Cobertura en 7 paises de America Latina con soporte local' },
+                { num: '03', title: 'Financiamiento', desc: 'Opciones flexibles de pago adaptadas a tu operación' },
+                { num: '04', title: 'Entrega Regional', desc: 'Cobertura en 7 países de América Latina con soporte local' },
               ].map((step) => (
                 <div key={step.num}>
                   <span className="font-num text-3xl font-bold text-[#E8821C]/20">{step.num}</span>
