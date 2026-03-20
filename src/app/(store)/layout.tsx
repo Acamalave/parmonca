@@ -55,14 +55,17 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
 
       {/* Footer */}
       <footer className="border-t border-white/[0.04] mt-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Image src="/images/isotipo-white.png" alt="PARMONCA" width={24} height={24} />
-              <span className="text-[13px] text-zinc-600">Partes y Montacargas</span>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+          <div className="flex flex-col items-center gap-6 text-center">
+            <Image src="/images/logo-white.png" alt="PARMONCA - Partes y Montacargas" width={220} height={60} className="h-12 w-auto object-contain opacity-70" />
+            <p className="text-[11px] text-zinc-500">Panama | Costa Rica | Venezuela | Guatemala | Honduras | Nicaragua | Haiti</p>
+            <div className="flex items-center gap-4">
+              <Link href="/login" className="text-[11px] text-zinc-500 hover:text-[#E8821C] transition-colors">Acceso Colaboradores</Link>
+              <span className="text-zinc-600">•</span>
+              <a href="https://www.accioscore.com" target="_blank" rel="noopener noreferrer" className="text-[11px] text-zinc-500 hover:text-[#7c3aed] transition-colors">
+                Desarrollado por <span className="text-[#7c3aed] font-medium">Accios Core</span>
+              </a>
             </div>
-            <p className="text-[11px] text-zinc-700">Panama | Costa Rica | Venezuela | Guatemala | Honduras | Nicaragua | Haiti</p>
-            <Link href="/login" className="text-[11px] text-zinc-700 hover:text-[#E8821C] transition-colors">Acceso Colaboradores</Link>
           </div>
         </div>
       </footer>
