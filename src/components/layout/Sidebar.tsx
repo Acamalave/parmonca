@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useCRM } from '@/context/CRMContext';
+import { useTheme } from '@/context/ThemeContext';
 import {
   LayoutDashboard,
   Users,
@@ -18,6 +19,8 @@ import {
   ChevronsRight,
   Wrench,
   LogOut,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 const navItems = [
@@ -39,6 +42,7 @@ interface SidebarProps {
 export default function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar } = useCRM();
+  const { isDark, toggleTheme } = useTheme();
 
   return (
     <>
@@ -52,7 +56,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       <aside
         className={cn(
           'fixed top-0 left-0 z-50 h-full flex flex-col transition-all duration-300 lg:static lg:z-auto',
-          'bg-[#0E0E11]/95 backdrop-blur-xl border-r border-white/[0.06]',
+          'bg-[var(--color-surface)] backdrop-blur-xl border-r border-[var(--color-border)]',
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
           sidebarCollapsed ? 'lg:w-[68px]' : 'lg:w-[240px]',
           'w-[240px]'
@@ -60,12 +64,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       >
         {/* Logo */}
         <div className={cn(
-          'h-14 flex items-center border-b border-white/[0.04] transition-all',
+          'h-14 flex items-center border-b border-[var(--color-border)] transition-all',
           sidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4'
         )}>
           <Link href="/dashboard" className="flex items-center gap-2 overflow-hidden">
             <Image
-              src="/images/isotipo-white.png"
+              src={isDark ? '/images/isotipo-white.png' : '/images/isotipo.png'}
               alt="PARMONCA"
               width={30}
               height={30}
@@ -73,7 +77,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             />
             {!sidebarCollapsed && (
               <Image
-                src="/images/logo-white.png"
+                src={isDark ? '/images/logo-white.png' : '/images/logo-dark.png'}
                 alt="PARMONCA"
                 width={130}
                 height={38}
@@ -83,7 +87,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           </Link>
           <button
             onClick={onClose}
-            className="lg:hidden p-1.5 rounded-lg hover:bg-white/5 text-zinc-500"
+            className="lg:hidden p-1.5 rounded-lg hover:bg-[var(--color-surface-hover)] text-[var(--color-text-secondary)]"
           >
             <X size={16} />
           </button>
@@ -92,7 +96,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         {/* Navigation */}
         <nav className={cn('flex-1 py-3 space-y-0.5 overflow-y-auto', sidebarCollapsed ? 'px-1.5' : 'px-2.5')}>
           {!sidebarCollapsed && (
-            <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-zinc-700 px-2.5 mb-2">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-muted)] px-2.5 mb-2">
               Menu
             </p>
           )}
@@ -110,7 +114,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                   sidebarCollapsed ? 'justify-center p-2.5' : 'gap-2.5 px-2.5 py-2',
                   isActive
                     ? 'bg-[#E8821C]/10 text-[#E8821C]'
-                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]'
+                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-hover)]'
                 )}
               >
                 <Icon
@@ -131,15 +135,26 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           })}
         </nav>
 
-        {/* Collapse toggle (desktop only) */}
+        {/* Theme toggle + Collapse toggle */}
         <div className={cn(
-          'hidden lg:flex border-t border-white/[0.04]',
-          sidebarCollapsed ? 'justify-center p-2' : 'px-3 py-2'
+          'hidden lg:flex flex-col border-t border-[var(--color-border)]',
+          sidebarCollapsed ? 'items-center p-2 gap-1' : 'px-3 py-2 gap-1'
         )}>
+          <button
+            onClick={toggleTheme}
+            title={isDark ? 'Modo claro' : 'Modo oscuro'}
+            className={cn(
+              'flex items-center gap-2 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] transition-colors text-[12px]',
+              sidebarCollapsed ? 'p-2' : 'px-2.5 py-1.5 w-full'
+            )}
+          >
+            {isDark ? <Sun size={14} /> : <Moon size={14} />}
+            {!sidebarCollapsed && <span>{isDark ? 'Modo claro' : 'Modo oscuro'}</span>}
+          </button>
           <button
             onClick={toggleSidebar}
             className={cn(
-              'flex items-center gap-2 rounded-lg text-zinc-600 hover:text-zinc-400 hover:bg-white/[0.03] transition-colors text-[12px]',
+              'flex items-center gap-2 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] transition-colors text-[12px]',
               sidebarCollapsed ? 'p-2' : 'px-2.5 py-1.5 w-full'
             )}
           >
@@ -156,11 +171,11 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
         {/* User */}
         <div className={cn(
-          'border-t border-white/[0.04]',
+          'border-t border-[var(--color-border)]',
           sidebarCollapsed ? 'p-1.5' : 'p-2.5'
         )}>
           <div className={cn(
-            'flex items-center rounded-lg hover:bg-white/[0.03] transition-colors cursor-pointer',
+            'flex items-center rounded-lg hover:bg-[var(--color-surface-hover)] transition-colors cursor-pointer',
             sidebarCollapsed ? 'justify-center p-2' : 'gap-2.5 px-2 py-2'
           )}>
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#E8821C] to-[#C96A10] flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0">
@@ -168,8 +183,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             </div>
             {!sidebarCollapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-medium text-zinc-300 truncate">Acacio Malave</p>
-                <p className="text-[10px] text-zinc-600 truncate">Super Admin</p>
+                <p className="text-[12px] font-medium text-[var(--color-text-secondary)] truncate">Acacio Malave</p>
+                <p className="text-[10px] text-[var(--color-text-muted)] truncate">Super Admin</p>
               </div>
             )}
           </div>

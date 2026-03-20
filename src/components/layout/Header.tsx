@@ -20,19 +20,19 @@ export default function Header({ onMenuClick }: HeaderProps) {
       <div className="flex items-center gap-3 flex-1">
         <button
           onClick={onMenuClick}
-          className="lg:hidden p-1.5 rounded-lg hover:bg-white/5 text-zinc-500"
+          className="lg:hidden p-1.5 rounded-lg hover:bg-[var(--color-surface-hover)] text-[var(--color-text-secondary)]"
         >
           <Menu size={18} />
         </button>
 
         <div className="relative max-w-sm flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar..."
-            className="w-full h-8 pl-8 pr-3 rounded-lg bg-white/[0.04] border border-white/[0.06] text-[13px] text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-[#E8821C]/30 focus:bg-white/[0.06] transition-all"
+            className="w-full h-8 pl-8 pr-3 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/30 focus:bg-[var(--color-surface-hover)] transition-all"
           />
         </div>
       </div>
@@ -58,7 +58,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         <div className="relative">
           <button
             onClick={() => setShowNotif(!showNotif)}
-            className="relative p-1.5 rounded-lg hover:bg-white/5 text-zinc-500 transition-colors"
+            className="relative p-1.5 rounded-lg hover:bg-[var(--color-surface-hover)] text-[var(--color-text-secondary)] transition-colors"
           >
             <Bell size={17} />
             {unread > 0 && (
@@ -71,9 +71,9 @@ export default function Header({ onMenuClick }: HeaderProps) {
           {showNotif && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowNotif(false)} />
-              <div className="absolute right-0 top-10 w-80 glass-strong rounded-xl overflow-hidden z-50 shadow-2xl shadow-black/40">
-                <div className="px-4 py-2.5 border-b border-white/[0.06]">
-                  <h3 className="font-semibold text-[13px] text-zinc-300">Notificaciones</h3>
+              <div className="absolute right-0 top-10 w-80 glass-strong rounded-xl overflow-hidden z-50 shadow-2xl">
+                <div className="px-4 py-2.5 border-b border-[var(--color-border)]">
+                  <h3 className="font-semibold text-[13px] text-[var(--color-text-primary)]">Notificaciones</h3>
                 </div>
                 <div className="max-h-72 overflow-y-auto">
                   {notificaciones.map((n) => (
@@ -81,10 +81,10 @@ export default function Header({ onMenuClick }: HeaderProps) {
                       key={n.id}
                       href={n.link || '#'}
                       onClick={() => setShowNotif(false)}
-                      className={`block px-4 py-2.5 hover:bg-white/[0.03] transition-colors border-b border-white/[0.03] last:border-0 ${!n.leida ? 'bg-[#E8821C]/[0.04]' : ''}`}
+                      className={`block px-4 py-2.5 hover:bg-[var(--color-surface-hover)] transition-colors border-b border-[var(--color-border)] last:border-0 ${!n.leida ? 'bg-[#E8821C]/[0.04]' : ''}`}
                     >
-                      <p className="text-[13px] font-medium text-zinc-300">{n.titulo}</p>
-                      <p className="text-[11px] text-zinc-600 mt-0.5 leading-relaxed">{n.mensaje}</p>
+                      <p className="text-[13px] font-medium text-[var(--color-text-primary)]">{n.titulo}</p>
+                      <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5 leading-relaxed">{n.mensaje}</p>
                     </Link>
                   ))}
                 </div>
