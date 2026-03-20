@@ -147,42 +147,53 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
       {/* Sticky Quote Bar */}
       <div className="sticky bottom-0 z-40 -mx-4 sm:-mx-6 px-4 sm:px-6">
-        <div className="glass-strong rounded-t-2xl p-4 sm:p-5 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
-          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center gap-4">
-            {/* Summary */}
-            <div className="flex-1 flex flex-wrap items-center gap-4 sm:gap-6">
-              <div>
-                <p className="text-[10px] text-zinc-600 uppercase">Equipo</p>
-                <p className="text-[13px] font-semibold text-white">{product.marca} {product.modelo}</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-zinc-600 uppercase">Accesorios</p>
-                <p className="text-[13px] font-semibold text-zinc-300">{selectedAccesorios.length} seleccionados</p>
-              </div>
-              {/* Quantity */}
-              <div className="flex items-center gap-2">
-                <button onClick={() => setCantidad(Math.max(1, cantidad - 1))}
-                  className="w-7 h-7 rounded-md bg-white/[0.06] border border-white/[0.06] flex items-center justify-center text-zinc-400 hover:text-white">
-                  <Minus size={12} />
-                </button>
-                <span className="font-num text-[14px] font-semibold text-white w-6 text-center">{cantidad}</span>
-                <button onClick={() => setCantidad(cantidad + 1)}
-                  className="w-7 h-7 rounded-md bg-white/[0.06] border border-white/[0.06] flex items-center justify-center text-zinc-400 hover:text-white">
-                  <Plus size={12} />
-                </button>
-              </div>
-            </div>
-
-            {/* Total + CTA */}
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-[10px] text-zinc-600 uppercase">Total estimado</p>
-                <p className="font-num text-2xl font-bold text-white">{formatCurrency(precioTotal)}</p>
+        <div className="rounded-t-2xl p-3 sm:p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.6)]" style={{ background: 'linear-gradient(180deg, #1a1a1d 0%, #111113 100%)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="max-w-5xl mx-auto">
+            {/* Mobile layout */}
+            <div className="flex items-center justify-between gap-3 sm:hidden">
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-zinc-500 uppercase">Total</p>
+                <p className="font-num text-xl font-bold text-white truncate">{formatCurrency(precioTotal)}</p>
+                <p className="text-[10px] text-zinc-600">{selectedAccesorios.length > 0 ? `${selectedAccesorios.length} accesorios` : product.modelo} · x{cantidad}</p>
               </div>
               <Link href={`/cotizar?producto=${product.slug}&accesorios=${selectedAccesorios.join(',')}&cantidad=${cantidad}`}
-                className="flex items-center gap-2 h-11 px-6 bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white font-semibold rounded-full hover:shadow-[0_0_25px_#E8821C40] transition-all active:scale-[0.97] group whitespace-nowrap">
+                className="flex items-center gap-1.5 h-10 px-5 bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold rounded-full whitespace-nowrap active:scale-[0.97]">
+                Cotizar
+                <ArrowRight size={14} />
+              </Link>
+            </div>
+
+            {/* Desktop layout */}
+            <div className="hidden sm:flex items-center gap-6">
+              <div className="flex items-center gap-5 flex-1">
+                <div>
+                  <p className="text-[10px] text-zinc-600 uppercase">Equipo</p>
+                  <p className="text-[13px] font-semibold text-white">{product.marca} {product.modelo}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-zinc-600 uppercase">Accesorios</p>
+                  <p className="text-[13px] font-semibold text-zinc-300">{selectedAccesorios.length} seleccionados</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setCantidad(Math.max(1, cantidad - 1))}
+                    className="w-7 h-7 rounded-md bg-white/[0.06] border border-white/[0.06] flex items-center justify-center text-zinc-400 hover:text-white">
+                    <Minus size={12} />
+                  </button>
+                  <span className="font-num text-[14px] font-semibold text-white w-6 text-center">{cantidad}</span>
+                  <button onClick={() => setCantidad(cantidad + 1)}
+                    className="w-7 h-7 rounded-md bg-white/[0.06] border border-white/[0.06] flex items-center justify-center text-zinc-400 hover:text-white">
+                    <Plus size={12} />
+                  </button>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-zinc-600 uppercase">Total estimado</p>
+                <p className="font-num text-xl font-bold text-white">{formatCurrency(precioTotal)}</p>
+              </div>
+              <Link href={`/cotizar?producto=${product.slug}&accesorios=${selectedAccesorios.join(',')}&cantidad=${cantidad}`}
+                className="flex items-center gap-2 h-10 px-6 bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold rounded-full hover:shadow-[0_0_25px_#E8821C40] transition-all active:scale-[0.97] group whitespace-nowrap">
                 Solicitar Cotización
-                <ArrowRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
+                <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </div>
           </div>
