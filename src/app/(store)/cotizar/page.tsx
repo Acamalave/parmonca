@@ -31,6 +31,37 @@ function CotizarContent() {
   const [pais, setPais] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
+    setSending(true);
+    setError('');
+    try {
+      const res = await fetch('/api/cotizacion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre, empresa, email, telefono, pais, mensaje,
+          producto: product ? {
+            modelo: product.modelo,
+            marca: product.marca,
+            categoria: product.categoriaLabel,
+            precio: product.precioDesde,
+            imagen: product.imagen,
+          } : null,
+          accesorios: selectedAccesorios.map(a => ({ nombre: a.nombre, precio: a.precio })),
+          cantidad, subtotal, impuesto, total,
+        }),
+      });
+      if (!res.ok) throw new Error('Error al enviar');
+      setSent(true);
+    } catch {
+      setError('Error al enviar. Intenta de nuevo.');
+    } finally {
+      setSending(false);
+    }
+  };
 
   if (sent) {
     return (
@@ -129,12 +160,21 @@ function CotizarContent() {
             </div>
           </div>
 
-          <button onClick={() => setSent(true)}
-            disabled={!nombre || !email || !telefono}
+          {error && (
+            <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-[13px] text-red-400">{error}</div>
+          )}
+          <button onClick={handleSubmit}
+            disabled={!nombre || !email || !telefono || sending}
             className="w-full mt-6 h-12 bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white font-semibold rounded-xl hover:shadow-[0_0_30px_#E8821C40] transition-all active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 group">
-            <Send size={16} />
-            Enviar Solicitud de Cotizacion
-            <ArrowLeft size={14} className="rotate-180 group-hover:translate-x-0.5 transition-transform" />
+            {sending ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <>
+                <Send size={16} />
+                Enviar Solicitud de Cotizacion
+                <ArrowLeft size={14} className="rotate-180 group-hover:translate-x-0.5 transition-transform" />
+              </>
+            )}
           </button>
         </div>
 
