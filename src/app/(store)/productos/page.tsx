@@ -29,12 +29,12 @@ export default function ProductosPage() {
                 <span className="text-[11px] font-semibold text-[#E8821C] uppercase tracking-wider">Primera plataforma de cotización online</span>
               </div>
               <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-[1.1] tracking-tight">
-                Tu próximo<br />
+                Cotiza tu<br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#E8821C] to-[#FF9F43]">montacarga</span><br />
-                está aquí.
+                en minutos.
               </h1>
               <p className="text-zinc-500 text-lg mt-6 max-w-md leading-relaxed">
-                Configura, personaliza y cotiza maquinaria industrial en minutos. Sin intermediarios. Sin esperas.
+                Sin llamadas, sin esperas, sin intermediarios. Elige tu equipo, personalízalo y recibe tu cotización al instante.
               </p>
               <div className="flex flex-wrap gap-3 mt-8">
                 <Link href="#catalogo"

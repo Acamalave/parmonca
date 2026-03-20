@@ -113,21 +113,30 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           return (
             <div key={cat} className="mb-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-600 mb-2">{label}</p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col gap-1.5">
                 {catAccs.map((acc) => {
                   const selected = selectedAccesorios.includes(acc.id);
                   return (
-                    <button key={acc.id} onClick={() => toggleAccesorio(acc.id)}
-                      className={cn('flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] transition-all',
-                        selected
-                          ? 'bg-[#E8821C]/15 text-[#E8821C] border border-[#E8821C]/30'
-                          : 'bg-white/[0.03] text-zinc-400 border border-white/[0.06] hover:border-white/[0.12] hover:text-zinc-300')}>
-                      {selected && <Check size={12} className="flex-shrink-0" />}
-                      <span className="font-medium">{acc.nombre}</span>
-                      <span className={cn('font-num text-[11px]', selected ? 'text-[#E8821C]/70' : 'text-zinc-600')}>
-                        +{formatCurrency(acc.precio)}
-                      </span>
-                    </button>
+                    <div key={acc.id}>
+                      <button onClick={() => toggleAccesorio(acc.id)}
+                        className={cn('w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] transition-all text-left',
+                          selected
+                            ? 'bg-[#E8821C]/15 text-[#E8821C] border border-[#E8821C]/30'
+                            : 'bg-white/[0.03] text-zinc-400 border border-white/[0.06] hover:border-white/[0.12] hover:text-zinc-300')}>
+                        <div className={cn('w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-all',
+                          selected ? 'bg-[#E8821C] border-[#E8821C]' : 'border-zinc-700')}>
+                          {selected && <Check size={10} className="text-white" />}
+                        </div>
+                        <span className="font-medium flex-1">{acc.nombre}</span>
+                        <span className={cn('font-num text-[11px]', selected ? 'text-[#E8821C]/70' : 'text-zinc-600')}>
+                          +{formatCurrency(acc.precio)}
+                        </span>
+                        <ChevronDown size={12} className={cn('text-zinc-600 transition-transform', selected && 'rotate-180')} />
+                      </button>
+                      {selected && (
+                        <p className="text-[11px] text-zinc-500 px-9 py-1.5 leading-relaxed">{acc.descripcion}</p>
+                      )}
+                    </div>
                   );
                 })}
               </div>
