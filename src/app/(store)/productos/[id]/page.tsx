@@ -3,17 +3,14 @@
 import { use, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Check, Plus, Minus, Shield, Wrench, HardHat, Cpu, Zap, ArrowRight, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Check, Plus, Minus, Zap, ArrowRight, ChevronDown } from 'lucide-react';
 import { storeProducts, accesorios, Accesorio } from '@/lib/store-data';
 import { formatCurrency, cn } from '@/lib/utils';
-
-const catIcons: Record<string, typeof Shield> = { seguridad: Shield, productividad: Wrench, proteccion: HardHat, tecnologia: Cpu };
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const product = storeProducts.find(p => p.slug === id);
   const [selectedAccesorios, setSelectedAccesorios] = useState<string[]>([]);
-  const [catFilter, setCatFilter] = useState<string>('todos');
   const [specsOpen, setSpecsOpen] = useState(false);
   const [cantidad, setCantidad] = useState(1);
 
@@ -26,8 +23,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const precioAccesorios = accesorios.filter(a => selectedAccesorios.includes(a.id)).reduce((sum, a) => sum + a.precio, 0);
   const precioUnitario = product.precioDesde + precioAccesorios;
   const precioTotal = precioUnitario * cantidad;
-
-  const filteredAccesorios = catFilter === 'todos' ? accesorios : accesorios.filter(a => a.categoria === catFilter);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
@@ -102,44 +97,43 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
       {/* Accessories Configurator */}
       <section className="mb-12">
-        <div className="text-center mb-8">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#E8821C] mb-2">Personaliza tu equipo</p>
-          <h2 className="font-display text-2xl font-bold text-white tracking-tight">Accesorios y Complementos</h2>
-          <p className="text-zinc-500 text-[13px] mt-1">Selecciona los accesorios para tu configuración</p>
+        <div className="mb-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#E8821C] mb-1">Personaliza</p>
+          <h2 className="font-display text-xl font-bold text-white tracking-tight">Agrega accesorios</h2>
         </div>
 
-        {/* Category Filter */}
-        <div className="flex flex-wrap gap-2 justify-center mb-6">
-          {[{ id: 'todos', label: 'Todos' }, { id: 'seguridad', label: 'Seguridad' }, { id: 'productividad', label: 'Productividad' }, { id: 'proteccion', label: 'Proteccion' }, { id: 'tecnologia', label: 'Tecnologia' }].map(c => (
-            <button key={c.id} onClick={() => setCatFilter(c.id)}
-              className={cn('px-4 py-2 rounded-full text-[12px] font-medium transition-all',
-                catFilter === c.id ? 'bg-[#E8821C] text-white glow-brand-sm' : 'bg-white/[0.04] text-zinc-500 hover:text-zinc-300 border border-white/[0.06]')}>
-              {c.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {filteredAccesorios.map((acc) => {
-            const selected = selectedAccesorios.includes(acc.id);
-            const CatIcon = catIcons[acc.categoria] || Shield;
-            return (
-              <button key={acc.id} onClick={() => toggleAccesorio(acc.id)}
-                className={cn('text-left p-4 rounded-xl border transition-all',
-                  selected ? 'border-[#E8821C]/40 bg-[#E8821C]/[0.06]' : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1]')}>
-                <div className="flex items-start justify-between">
-                  <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center',
-                    selected ? 'bg-[#E8821C] text-white' : 'bg-white/[0.04] text-zinc-500')}>
-                    {selected ? <Check size={14} /> : <CatIcon size={14} />}
-                  </div>
-                  <span className="font-num text-[14px] font-bold text-white">{formatCurrency(acc.precio)}</span>
-                </div>
-                <h4 className="text-[13px] font-semibold text-zinc-200 mt-3">{acc.nombre}</h4>
-                <p className="text-[11px] text-zinc-500 mt-0.5 leading-relaxed">{acc.descripcion}</p>
-              </button>
-            );
-          })}
-        </div>
+        {/* Grouped by category - compact rows */}
+        {[
+          { cat: 'seguridad', label: 'Seguridad' },
+          { cat: 'productividad', label: 'Productividad' },
+          { cat: 'proteccion', label: 'Protección' },
+          { cat: 'tecnologia', label: 'Tecnología' },
+        ].map(({ cat, label }) => {
+          const catAccs = accesorios.filter(a => a.categoria === cat);
+          return (
+            <div key={cat} className="mb-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-600 mb-2">{label}</p>
+              <div className="flex flex-wrap gap-2">
+                {catAccs.map((acc) => {
+                  const selected = selectedAccesorios.includes(acc.id);
+                  return (
+                    <button key={acc.id} onClick={() => toggleAccesorio(acc.id)}
+                      className={cn('flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] transition-all',
+                        selected
+                          ? 'bg-[#E8821C]/15 text-[#E8821C] border border-[#E8821C]/30'
+                          : 'bg-white/[0.03] text-zinc-400 border border-white/[0.06] hover:border-white/[0.12] hover:text-zinc-300')}>
+                      {selected && <Check size={12} className="flex-shrink-0" />}
+                      <span className="font-medium">{acc.nombre}</span>
+                      <span className={cn('font-num text-[11px]', selected ? 'text-[#E8821C]/70' : 'text-zinc-600')}>
+                        +{formatCurrency(acc.precio)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </section>
 
       {/* Sticky Quote Bar */}
