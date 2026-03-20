@@ -43,7 +43,7 @@ export const storeProducts: StoreProduct[] = [
     categoriaLabel: 'Montacarga Electrico',
     capacidad: '2,500 kg',
     motor: 'Electrico',
-    imagen: '/images/products/cpd25f8.jpeg',
+    imagen: '/images/products/cpd25f8.png',
     precioDesde: 18500,
     badge: 'Mas Vendido',
     specs: {
@@ -75,7 +75,7 @@ export const storeProducts: StoreProduct[] = [
     categoriaLabel: 'Montacarga Combustion',
     capacidad: '3,500 kg',
     motor: 'Diesel',
-    imagen: '/images/products/tan35d.jpeg',
+    imagen: '/images/products/tan35d.png',
     precioDesde: 22000,
     badge: 'Heavy Duty',
     specs: {
@@ -106,7 +106,7 @@ export const storeProducts: StoreProduct[] = [
     categoriaLabel: 'Apilador Electrico',
     capacidad: '1,500 kg',
     motor: 'Electrico',
-    imagen: '/images/products/uprr15li.jpeg',
+    imagen: '/images/products/uprr15li.png',
     precioDesde: 8500,
     badge: 'Compacto',
     specs: {

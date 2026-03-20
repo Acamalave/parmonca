@@ -70,11 +70,11 @@ export default function ProductosPage() {
               <div className="absolute inset-0 bg-gradient-to-br from-[#E8821C]/[0.06] to-transparent rounded-3xl blur-[60px]" />
               <div className="relative">
                 <Image
-                  src="/images/products/tan35d.jpeg"
+                  src="/images/products/tan35d.png"
                   alt="Montacarga ANDINO TAN35D"
                   width={600}
                   height={500}
-                  className="relative z-10 drop-shadow-[0_20px_60px_rgba(232,130,28,0.15)] mix-blend-lighten"
+                  className="relative z-10 drop-shadow-[0_20px_60px_rgba(232,130,28,0.15)]"
                   priority
                 />
                 <div className="absolute bottom-4 left-4 right-4 glass rounded-xl p-4 z-20">
@@ -127,7 +127,7 @@ export default function ProductosPage() {
                   alt={`${product.marca} ${product.modelo}`}
                   width={400}
                   height={300}
-                  className="object-contain max-h-full group-hover:scale-105 transition-transform duration-700 drop-shadow-[0_10px_30px_rgba(232,130,28,0.1)] mix-blend-lighten"
+                  className="object-contain max-h-full group-hover:scale-105 transition-transform duration-700 drop-shadow-[0_10px_30px_rgba(232,130,28,0.1)]"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#08080A] via-transparent to-transparent opacity-60" />
               </div>
