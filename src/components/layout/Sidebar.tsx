@@ -17,6 +17,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Wrench,
+  LogOut,
 } from 'lucide-react';
 
 const navItems = [
@@ -172,6 +173,17 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               </div>
             )}
           </div>
+          <Link
+            href="/login"
+            title={sidebarCollapsed ? 'Cerrar Sesion' : undefined}
+            className={cn(
+              'flex items-center rounded-lg text-red-400/60 hover:text-red-400 hover:bg-red-500/[0.06] transition-colors mt-1',
+              sidebarCollapsed ? 'justify-center p-2' : 'gap-2 px-2 py-1.5'
+            )}
+          >
+            <LogOut size={14} />
+            {!sidebarCollapsed && <span className="text-[11px]">Cerrar Sesion</span>}
+          </Link>
         </div>
       </aside>
     </>

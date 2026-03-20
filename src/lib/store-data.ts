@@ -75,7 +75,7 @@ export const storeProducts: StoreProduct[] = [
     categoriaLabel: 'Montacarga Combustion',
     capacidad: '3,500 kg',
     motor: 'Diesel',
-    imagen: '/images/products/tan35d.png',
+    imagen: '/images/products/tan35d.jpeg',
     precioDesde: 22000,
     badge: 'Heavy Duty',
     specs: {
@@ -106,7 +106,7 @@ export const storeProducts: StoreProduct[] = [
     categoriaLabel: 'Apilador Electrico',
     capacidad: '1,500 kg',
     motor: 'Electrico',
-    imagen: '/images/products/uprr15li.png',
+    imagen: '/images/products/uprr15li.jpeg',
     precioDesde: 8500,
     badge: 'Compacto',
     specs: {

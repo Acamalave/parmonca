@@ -45,7 +45,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             alt={`${product.marca} ${product.modelo}`}
             width={500}
             height={400}
-            className="relative z-10 object-contain max-h-[380px] drop-shadow-[0_20px_50px_rgba(232,130,28,0.12)]"
+            className="relative z-10 object-contain max-h-[380px] drop-shadow-[0_20px_50px_rgba(232,130,28,0.12)] mix-blend-lighten"
             priority
           />
           {product.badge && (
