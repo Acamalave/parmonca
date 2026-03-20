@@ -63,38 +63,202 @@ function CotizarContent() {
     }
   };
 
+  // Generate tomorrow's date at 2:00 PM
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const callDay = dayNames[tomorrow.getDay()];
+  const callDate = `${tomorrow.getDate()} de ${monthNames[tomorrow.getMonth()]}`;
+
+  // Schedule options
+  const opt2 = new Date(tomorrow);
+  opt2.setDate(opt2.getDate() + 1);
+  const opt2Day = dayNames[opt2.getDay()];
+  const opt2Date = `${opt2.getDate()} de ${monthNames[opt2.getMonth()]}`;
+
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [scheduledSlot, setScheduledSlot] = useState('');
+
   if (sent) {
     return (
-      <div className="max-w-lg mx-auto text-center py-20 px-4">
-        <div className="w-20 h-20 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-6">
-          <Check size={40} className="text-emerald-400" />
+      <div className="max-w-2xl mx-auto py-12 px-4">
+        {/* Success header */}
+        <div className="text-center mb-10">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-5">
+            <Check size={32} className="text-emerald-400" />
+          </div>
+          <h1 className="font-display text-2xl font-bold text-white">¡Cotización enviada!</h1>
+          <p className="text-zinc-500 text-[14px] mt-2">Tu solicitud fue recibida. Esto es lo que sigue:</p>
         </div>
-        <h1 className="font-display text-3xl font-bold text-white">Cotización Enviada</h1>
-        <p className="text-zinc-500 mt-3 leading-relaxed">
-          Hemos recibido tu solicitud. Un asesor especializado te contactara en las proximas 2 horas habiles para darte seguimiento.
-        </p>
-        <div className="glass rounded-xl p-5 mt-8 text-left">
-          <p className="text-[10px] uppercase tracking-wider text-zinc-600 mb-3">Resumen</p>
-          {product && (
-            <div className="flex items-center gap-3 pb-3 border-b border-white/[0.04]">
-              <Image src={product.imagen} alt={product.modelo} width={60} height={60} className="object-contain" />
-              <div>
-                <p className="text-[13px] font-semibold text-white">{product.marca} {product.modelo}</p>
-                <p className="text-[11px] text-zinc-500">Cant: {cantidad} · {selectedAccesorios.length} accesorios</p>
-              </div>
-              <p className="ml-auto font-num text-lg font-bold text-[#E8821C]">{formatCurrency(total)}</p>
+
+        {/* Order summary card */}
+        {product && (
+          <div className="glass rounded-xl p-4 mb-8 flex items-center gap-4">
+            <Image src={product.imagenNoBg} alt={product.modelo} width={60} height={60} className="object-contain" />
+            <div className="flex-1">
+              <p className="text-[10px] text-[#E8821C] font-bold uppercase tracking-wider">{product.marca}</p>
+              <p className="text-[14px] font-semibold text-white">{product.modelo}</p>
+              <p className="text-[11px] text-zinc-500">{cantidad} und. · {selectedAccesorios.length} accesorios</p>
             </div>
-          )}
-          <div className="mt-3 space-y-1">
-            <p className="text-[12px] text-zinc-400"><span className="text-zinc-600">Contacto:</span> {nombre}</p>
-            <p className="text-[12px] text-zinc-400"><span className="text-zinc-600">Email:</span> {email}</p>
+            <p className="font-num text-xl font-bold text-[#E8821C]">{formatCurrency(total)}</p>
+          </div>
+        )}
+
+        {/* Timeline */}
+        <div className="space-y-0">
+          {/* Step 1 - Done */}
+          <div className="flex gap-4">
+            <div className="flex flex-col items-center">
+              <div className="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                <Check size={16} className="text-white" />
+              </div>
+              <div className="w-0.5 h-full bg-emerald-500/30 my-1" />
+            </div>
+            <div className="pb-6">
+              <p className="text-[13px] font-semibold text-white">Cotización recibida</p>
+              <p className="text-[12px] text-zinc-500 mt-0.5">Tu configuración fue registrada en nuestro sistema</p>
+              <p className="text-[11px] text-emerald-400 mt-1 font-medium">Completado — Ahora</p>
+            </div>
+          </div>
+
+          {/* Step 2 - Email */}
+          <div className="flex gap-4">
+            <div className="flex flex-col items-center">
+              <div className="w-9 h-9 rounded-full bg-[#E8821C]/20 border border-[#E8821C]/30 flex items-center justify-center flex-shrink-0">
+                <Mail size={15} className="text-[#E8821C]" />
+              </div>
+              <div className="w-0.5 h-full bg-white/[0.06] my-1" />
+            </div>
+            <div className="pb-6">
+              <p className="text-[13px] font-semibold text-white">Propuesta en tu correo</p>
+              <p className="text-[12px] text-zinc-500 mt-0.5">Recibirás un email con el detalle completo de tu cotización y condiciones comerciales</p>
+              <p className="text-[11px] text-[#E8821C] mt-1 font-medium">En camino — Próximos minutos</p>
+            </div>
+          </div>
+
+          {/* Step 3 - Call */}
+          <div className="flex gap-4">
+            <div className="flex flex-col items-center">
+              <div className="w-9 h-9 rounded-full bg-white/[0.04] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
+                <Phone size={15} className="text-zinc-400" />
+              </div>
+              <div className="w-0.5 h-full bg-white/[0.06] my-1" />
+            </div>
+            <div className="pb-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[13px] font-semibold text-white">Llamada con tu asesor</p>
+                  <p className="text-[12px] text-zinc-500 mt-0.5">
+                    Un especialista te contactará para verificar que el equipo seleccionado se adapta a tu operación y guiarte con el siguiente paso.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06]">
+                <span className="text-[12px] font-num font-medium text-white">{callDay} {callDate} · 2:00 PM</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 4 - Delivery */}
+          <div className="flex gap-4">
+            <div className="flex flex-col items-center">
+              <div className="w-9 h-9 rounded-full bg-white/[0.04] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
+                <Package size={15} className="text-zinc-500" />
+              </div>
+            </div>
+            <div>
+              <p className="text-[13px] font-semibold text-zinc-400">Confirmación y entrega</p>
+              <p className="text-[12px] text-zinc-600 mt-0.5">Cierre de condiciones, financiamiento y coordinación de entrega</p>
+            </div>
           </div>
         </div>
-        <div className="flex gap-3 justify-center mt-8">
-          <Link href="/productos" className="px-6 py-2.5 rounded-full border border-white/[0.06] text-[13px] font-medium text-zinc-400 hover:bg-white/[0.03]">
+
+        {/* CTA */}
+        <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+          <button onClick={() => setShowContactModal(true)}
+            className="flex items-center justify-center gap-2 h-11 px-6 bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white font-semibold rounded-full hover:shadow-[0_0_25px_#E8821C40] transition-all active:scale-[0.97]">
+            <Phone size={15} />
+            Contactar ahora
+          </button>
+          <Link href="/productos"
+            className="flex items-center justify-center gap-2 h-11 px-6 border border-white/[0.08] text-zinc-400 font-medium rounded-full hover:bg-white/[0.03] transition-all">
             Ver más equipos
           </Link>
         </div>
+
+        {/* Contact Modal */}
+        {showContactModal && (
+          <>
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50" onClick={() => setShowContactModal(false)} />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="glass-strong rounded-2xl p-6 max-w-md w-full shadow-2xl">
+                {!scheduledSlot ? (
+                  <>
+                    <div className="text-center mb-6">
+                      <div className="w-12 h-12 rounded-xl bg-[#E8821C]/10 border border-[#E8821C]/20 flex items-center justify-center mx-auto mb-3">
+                        <Phone size={20} className="text-[#E8821C]" />
+                      </div>
+                      <h3 className="font-display text-lg font-bold text-white">Agenda tu llamada</h3>
+                      <p className="text-[13px] text-zinc-500 mt-1">
+                        En este momento nuestros asesores no están disponibles. Elige un horario y te contactaremos puntualmente.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <button onClick={() => setScheduledSlot(`${callDay} ${callDate} a las 10:00 AM`)}
+                        className="w-full flex items-center justify-between p-3 rounded-lg border border-white/[0.06] hover:border-[#E8821C]/30 hover:bg-[#E8821C]/[0.04] transition-all text-left">
+                        <div>
+                          <p className="text-[13px] font-medium text-white">{callDay} {callDate}</p>
+                          <p className="text-[11px] text-zinc-500">Horario de la mañana</p>
+                        </div>
+                        <span className="font-num text-[14px] font-semibold text-[#E8821C]">10:00 AM</span>
+                      </button>
+
+                      <button onClick={() => setScheduledSlot(`${callDay} ${callDate} a las 3:00 PM`)}
+                        className="w-full flex items-center justify-between p-3 rounded-lg border border-white/[0.06] hover:border-[#E8821C]/30 hover:bg-[#E8821C]/[0.04] transition-all text-left">
+                        <div>
+                          <p className="text-[13px] font-medium text-white">{callDay} {callDate}</p>
+                          <p className="text-[11px] text-zinc-500">Horario de la tarde</p>
+                        </div>
+                        <span className="font-num text-[14px] font-semibold text-[#E8821C]">3:00 PM</span>
+                      </button>
+
+                      <button onClick={() => setScheduledSlot(`${opt2Day} ${opt2Date} a las 10:00 AM`)}
+                        className="w-full flex items-center justify-between p-3 rounded-lg border border-white/[0.06] hover:border-[#E8821C]/30 hover:bg-[#E8821C]/[0.04] transition-all text-left">
+                        <div>
+                          <p className="text-[13px] font-medium text-white">{opt2Day} {opt2Date}</p>
+                          <p className="text-[11px] text-zinc-500">Horario de la mañana</p>
+                        </div>
+                        <span className="font-num text-[14px] font-semibold text-[#E8821C]">10:00 AM</span>
+                      </button>
+                    </div>
+
+                    <button onClick={() => setShowContactModal(false)}
+                      className="w-full mt-4 text-[12px] text-zinc-600 hover:text-zinc-400 transition-colors py-2">
+                      Cancelar
+                    </button>
+                  </>
+                ) : (
+                  <div className="text-center py-4">
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-4">
+                      <Check size={28} className="text-emerald-400" />
+                    </div>
+                    <h3 className="font-display text-lg font-bold text-white">¡Llamada agendada!</h3>
+                    <p className="text-[13px] text-zinc-500 mt-2">
+                      Te contactaremos el <span className="text-white font-medium">{scheduledSlot}</span>
+                    </p>
+                    <p className="text-[12px] text-zinc-600 mt-1">Recibirás un recordatorio por email</p>
+                    <button onClick={() => setShowContactModal(false)}
+                      className="mt-5 px-6 py-2 rounded-full bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold hover:shadow-[0_0_20px_#E8821C40] transition-all">
+                      Entendido
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     );
   }
