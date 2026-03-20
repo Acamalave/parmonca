@@ -187,71 +187,91 @@ function CotizarContent() {
           </Link>
         </div>
 
-        {/* Contact Modal */}
+        {/* Contact Modal - Apple inspired */}
         {showContactModal && (
           <>
-            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50" onClick={() => setShowContactModal(false)} />
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-50" onClick={() => setShowContactModal(false)} />
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="glass-strong rounded-2xl p-6 max-w-md w-full shadow-2xl">
+              <div className="w-full max-w-[360px] rounded-[20px] overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.6)]" style={{ background: 'linear-gradient(180deg, #1c1c1e 0%, #141414 100%)' }}>
                 {!scheduledSlot ? (
                   <>
-                    <div className="text-center mb-6">
-                      <div className="w-12 h-12 rounded-xl bg-[#E8821C]/10 border border-[#E8821C]/20 flex items-center justify-center mx-auto mb-3">
-                        <Phone size={20} className="text-[#E8821C]" />
+                    {/* Header */}
+                    <div className="px-6 pt-7 pb-5 text-center">
+                      <div className="w-[52px] h-[52px] rounded-full bg-gradient-to-b from-[#E8821C] to-[#C96A10] flex items-center justify-center mx-auto mb-4 shadow-[0_4px_20px_rgba(232,130,28,0.3)]">
+                        <Phone size={22} className="text-white" />
                       </div>
-                      <h3 className="font-display text-lg font-bold text-white">Agenda tu llamada</h3>
-                      <p className="text-[13px] text-zinc-500 mt-1">
-                        En este momento nuestros asesores no están disponibles. Elige un horario y te contactaremos puntualmente.
+                      <h3 className="text-[17px] font-semibold text-white tracking-tight">Agenda tu llamada</h3>
+                      <p className="text-[13px] text-zinc-500 mt-1.5 leading-relaxed">
+                        Nuestros asesores no están disponibles en este momento
                       </p>
                     </div>
 
-                    <div className="space-y-2">
+                    {/* Divider */}
+                    <div className="h-px bg-white/[0.08] mx-5" />
+
+                    {/* Slots */}
+                    <div className="px-5 py-3">
+                      <p className="text-[11px] font-medium text-zinc-600 uppercase tracking-wider mb-2 px-1">Elige un horario</p>
+
                       <button onClick={() => setScheduledSlot(`${callDay} ${callDate} a las 10:00 AM`)}
-                        className="w-full flex items-center justify-between p-3 rounded-lg border border-white/[0.06] hover:border-[#E8821C]/30 hover:bg-[#E8821C]/[0.04] transition-all text-left">
-                        <div>
-                          <p className="text-[13px] font-medium text-white">{callDay} {callDate}</p>
-                          <p className="text-[11px] text-zinc-500">Horario de la mañana</p>
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-[12px] hover:bg-white/[0.05] active:bg-white/[0.08] transition-all text-left group">
+                        <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                          <span className="text-[14px]">🌅</span>
                         </div>
-                        <span className="font-num text-[14px] font-semibold text-[#E8821C]">10:00 AM</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[14px] font-medium text-white">{callDay}</p>
+                          <p className="text-[12px] text-zinc-500">{callDate}</p>
+                        </div>
+                        <span className="font-num text-[15px] font-semibold text-[#E8821C]">10 AM</span>
                       </button>
 
                       <button onClick={() => setScheduledSlot(`${callDay} ${callDate} a las 3:00 PM`)}
-                        className="w-full flex items-center justify-between p-3 rounded-lg border border-white/[0.06] hover:border-[#E8821C]/30 hover:bg-[#E8821C]/[0.04] transition-all text-left">
-                        <div>
-                          <p className="text-[13px] font-medium text-white">{callDay} {callDate}</p>
-                          <p className="text-[11px] text-zinc-500">Horario de la tarde</p>
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-[12px] hover:bg-white/[0.05] active:bg-white/[0.08] transition-all text-left group">
+                        <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                          <span className="text-[14px]">☀️</span>
                         </div>
-                        <span className="font-num text-[14px] font-semibold text-[#E8821C]">3:00 PM</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[14px] font-medium text-white">{callDay}</p>
+                          <p className="text-[12px] text-zinc-500">{callDate}</p>
+                        </div>
+                        <span className="font-num text-[15px] font-semibold text-[#E8821C]">3 PM</span>
                       </button>
 
                       <button onClick={() => setScheduledSlot(`${opt2Day} ${opt2Date} a las 10:00 AM`)}
-                        className="w-full flex items-center justify-between p-3 rounded-lg border border-white/[0.06] hover:border-[#E8821C]/30 hover:bg-[#E8821C]/[0.04] transition-all text-left">
-                        <div>
-                          <p className="text-[13px] font-medium text-white">{opt2Day} {opt2Date}</p>
-                          <p className="text-[11px] text-zinc-500">Horario de la mañana</p>
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-[12px] hover:bg-white/[0.05] active:bg-white/[0.08] transition-all text-left group">
+                        <div className="w-10 h-10 rounded-full bg-violet-500/10 flex items-center justify-center flex-shrink-0">
+                          <span className="text-[14px]">📅</span>
                         </div>
-                        <span className="font-num text-[14px] font-semibold text-[#E8821C]">10:00 AM</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[14px] font-medium text-white">{opt2Day}</p>
+                          <p className="text-[12px] text-zinc-500">{opt2Date}</p>
+                        </div>
+                        <span className="font-num text-[15px] font-semibold text-[#E8821C]">10 AM</span>
                       </button>
                     </div>
 
+                    {/* Cancel button - Apple style full-width */}
+                    <div className="h-px bg-white/[0.08]" />
                     <button onClick={() => setShowContactModal(false)}
-                      className="w-full mt-4 text-[12px] text-zinc-600 hover:text-zinc-400 transition-colors py-2">
+                      className="w-full py-4 text-[15px] font-medium text-[#E8821C] hover:bg-white/[0.03] active:bg-white/[0.06] transition-colors">
                       Cancelar
                     </button>
                   </>
                 ) : (
-                  <div className="text-center py-4">
-                    <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-4">
-                      <Check size={28} className="text-emerald-400" />
+                  <div className="text-center px-6 py-8">
+                    <div className="w-16 h-16 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto mb-4">
+                      <Check size={30} className="text-emerald-400" />
                     </div>
-                    <h3 className="font-display text-lg font-bold text-white">¡Llamada agendada!</h3>
-                    <p className="text-[13px] text-zinc-500 mt-2">
-                      Te contactaremos el <span className="text-white font-medium">{scheduledSlot}</span>
+                    <h3 className="text-[17px] font-semibold text-white">Llamada agendada</h3>
+                    <p className="text-[14px] text-zinc-400 mt-2">
+                      {scheduledSlot}
                     </p>
-                    <p className="text-[12px] text-zinc-600 mt-1">Recibirás un recordatorio por email</p>
+                    <p className="text-[12px] text-zinc-600 mt-1">Recibirás un recordatorio</p>
+
+                    <div className="h-px bg-white/[0.08] mt-6" />
                     <button onClick={() => setShowContactModal(false)}
-                      className="mt-5 px-6 py-2 rounded-full bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold hover:shadow-[0_0_20px_#E8821C40] transition-all">
-                      Entendido
+                      className="w-full pt-4 text-[15px] font-medium text-[#E8821C] hover:opacity-80 transition-opacity">
+                      Listo
                     </button>
                   </div>
                 )}
