@@ -36,11 +36,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         <div className="relative glass rounded-2xl overflow-hidden flex items-center justify-center min-h-[400px]">
           <div className="absolute inset-0 bg-gradient-to-br from-[#E8821C]/[0.03] to-transparent" />
           <Image
-            src={product.imagen}
+            src={product.imagenNoBg}
             alt={`${product.marca} ${product.modelo}`}
             width={500}
             height={400}
-            className="relative z-10 object-contain max-h-[380px] drop-shadow-[0_20px_50px_rgba(232,130,28,0.12)]"
+            className="relative z-10 object-contain max-h-[380px] drop-shadow-[0_20px_50px_rgba(232,130,28,0.2)]"
             priority
           />
           {product.badge && (

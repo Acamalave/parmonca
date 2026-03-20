@@ -8,6 +8,7 @@ export interface StoreProduct {
   capacidad: string;
   motor: string;
   imagen: string;
+  imagenNoBg: string;
   precioDesde: number;
   badge?: string;
   specs: {
@@ -44,6 +45,7 @@ export const storeProducts: StoreProduct[] = [
     capacidad: '2,000 kg',
     motor: 'Eléctrico Li-Ion',
     imagen: '/images/products/u20w3li.jpeg',
+    imagenNoBg: '/images/products/u20w3li-nobg.png',
     precioDesde: 19800,
     badge: 'Eléctrico',
     specs: {
@@ -76,6 +78,7 @@ export const storeProducts: StoreProduct[] = [
     capacidad: '3,500 kg',
     motor: 'Diesel',
     imagen: '/images/products/tan35d.jpeg',
+    imagenNoBg: '/images/products/tan35d-nobg.png',
     precioDesde: 22000,
     badge: 'Mas Vendido',
     specs: {
@@ -107,6 +110,7 @@ export const storeProducts: StoreProduct[] = [
     capacidad: '1,500 kg',
     motor: 'Eléctrico',
     imagen: '/images/products/uprr15li.jpeg',
+    imagenNoBg: '/images/products/uprr15li-nobg.png',
     precioDesde: 8500,
     badge: 'Compacto',
     specs: {
