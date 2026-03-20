@@ -70,7 +70,7 @@ export default function ProductosPage() {
               <div className="absolute inset-0 bg-gradient-to-br from-[#E8821C]/[0.06] to-transparent rounded-3xl blur-[60px]" />
               <div className="relative">
                 <Image
-                  src="/images/products/tan35d.png"
+                  src="/images/products/tan35d.jpeg"
                   alt="Montacarga ANDINO TAN35D"
                   width={600}
                   height={500}
@@ -107,7 +107,7 @@ export default function ProductosPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
           {storeProducts.map((product) => (
             <Link key={product.id} href={`/productos/${product.slug}`}
               className="group relative rounded-2xl overflow-hidden bg-[#111113] border border-white/[0.08] hover:border-[#E8821C]/30 transition-all duration-500">
@@ -121,13 +121,13 @@ export default function ProductosPage() {
               )}
 
               {/* Image */}
-              <div className="relative aspect-[4/3] bg-gradient-to-b from-white/[0.02] to-transparent flex items-center justify-center p-8 overflow-hidden">
+              <div className="relative aspect-[4/3] bg-black flex items-center justify-center overflow-hidden rounded-t-2xl">
                 <Image
                   src={product.imagen}
                   alt={`${product.marca} ${product.modelo}`}
                   width={400}
                   height={300}
-                  className="object-contain max-h-full group-hover:scale-105 transition-transform duration-700 drop-shadow-[0_10px_30px_rgba(232,130,28,0.15)]"
+                  className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#08080A] via-transparent to-transparent opacity-40" />
               </div>
