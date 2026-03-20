@@ -9,7 +9,7 @@ import { formatCurrency, formatDate, getStatusColor, getStatusLabel, getInitials
 export default function ClienteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const cliente = clientes.find(c => c.id === id);
-  if (!cliente) return <div className="flex items-center justify-center h-64"><p className="text-zinc-500">Cliente no encontrado</p></div>;
+  if (!cliente) return <div className="flex items-center justify-center h-64"><p className="text-[var(--color-text-secondary)]">Cliente no encontrado</p></div>;
 
   const clienteCotizaciones = cotizaciones.filter(c => c.clienteId === id);
   const clienteFacturas = facturas.filter(f => f.clienteId === id);
@@ -20,7 +20,7 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="max-w-5xl mx-auto space-y-5">
-      <Link href="/clientes" className="inline-flex items-center gap-1.5 text-[13px] text-zinc-500 hover:text-[#E8821C] transition-colors">
+      <Link href="/clientes" className="inline-flex items-center gap-1.5 text-[13px] text-[var(--color-text-secondary)] hover:text-[#E8821C] transition-colors">
         <ArrowLeft size={14} />Volver a Clientes
       </Link>
 
@@ -32,8 +32,8 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
           <div className="flex-1">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h1 className="text-lg font-bold text-white font-display">{cliente.nombre}</h1>
-                <p className="text-zinc-500 text-[13px] mt-0.5">{cliente.contactoPrincipal} · {cliente.cargoContacto}</p>
+                <h1 className="text-lg font-bold text-[var(--color-text-primary)] font-display">{cliente.nombre}</h1>
+                <p className="text-[var(--color-text-secondary)] text-[13px] mt-0.5">{cliente.contactoPrincipal} · {cliente.cargoContacto}</p>
               </div>
               <div className="flex gap-2">
                 <span className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold ${getStatusColor(cliente.tipo)}`}>{getStatusLabel(cliente.tipo)}</span>
@@ -43,17 +43,17 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-4">
-              <div className="flex items-center gap-2 text-[13px] text-zinc-400"><Mail size={13} className="text-zinc-600" />{cliente.email}</div>
-              <div className="flex items-center gap-2 text-[13px] text-zinc-400"><Phone size={13} className="text-zinc-600" />{cliente.telefono}</div>
-              <div className="flex items-center gap-2 text-[13px] text-zinc-400"><MapPin size={13} className="text-zinc-600" />{cliente.ciudad}, {cliente.pais}</div>
-              <div className="flex items-center gap-2 text-[13px] text-zinc-400"><Building2 size={13} className="text-zinc-600" />{cliente.empresaAsignada} (Markup: {cliente.markup}%)</div>
+              <div className="flex items-center gap-2 text-[13px] text-[var(--color-text-secondary)]"><Mail size={13} className="text-[var(--color-text-muted)]" />{cliente.email}</div>
+              <div className="flex items-center gap-2 text-[13px] text-[var(--color-text-secondary)]"><Phone size={13} className="text-[var(--color-text-muted)]" />{cliente.telefono}</div>
+              <div className="flex items-center gap-2 text-[13px] text-[var(--color-text-secondary)]"><MapPin size={13} className="text-[var(--color-text-muted)]" />{cliente.ciudad}, {cliente.pais}</div>
+              <div className="flex items-center gap-2 text-[13px] text-[var(--color-text-secondary)]"><Building2 size={13} className="text-[var(--color-text-muted)]" />{cliente.empresaAsignada} (Markup: {cliente.markup}%)</div>
             </div>
           </div>
         </div>
         {cliente.notas && (
-          <div className="mt-4 p-3 bg-white/[0.03] rounded-lg border border-white/[0.04]">
-            <div className="flex items-center gap-1.5 text-[10px] text-zinc-600 mb-1"><MessageSquare size={10} />Notas</div>
-            <p className="text-[13px] text-zinc-400">{cliente.notas}</p>
+          <div className="mt-4 p-3 bg-[var(--color-surface-glass)] rounded-lg border border-[var(--color-border)]">
+            <div className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)] mb-1"><MessageSquare size={10} />Notas</div>
+            <p className="text-[13px] text-[var(--color-text-secondary)]">{cliente.notas}</p>
           </div>
         )}
       </div>
@@ -61,22 +61,22 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'Cotizaciones', value: clienteCotizaciones.length, color: 'text-blue-400' },
-          { label: 'Facturas', value: clienteFacturas.length, color: 'text-zinc-300' },
+          { label: 'Facturas', value: clienteFacturas.length, color: 'text-[var(--color-text-secondary)]' },
           { label: 'Pagado', value: formatCurrency(clienteFacturas.filter(f => f.estado === 'pagada').reduce((a, f) => a + f.total, 0)), color: 'text-emerald-400' },
           { label: 'Por cobrar', value: formatCurrency(clienteFacturas.filter(f => f.estado === 'vencida').reduce((a, f) => a + f.total, 0)), color: 'text-red-400' },
         ].map(s => (
           <div key={s.label} className="glass rounded-xl p-3 text-center">
             <p className={`text-xl font-bold ${s.color} font-num`}>{s.value}</p>
-            <p className="text-[10px] text-zinc-600 mt-0.5 uppercase tracking-wider">{s.label}</p>
+            <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5 uppercase tracking-wider">{s.label}</p>
           </div>
         ))}
       </div>
 
       <div className="glass rounded-xl p-5">
-        <h2 className="text-[13px] font-semibold text-zinc-300 mb-4">Historial</h2>
+        <h2 className="text-[13px] font-semibold text-[var(--color-text-secondary)] mb-4">Historial</h2>
         <div className="space-y-3">
           {timeline.length === 0 ? (
-            <p className="text-[13px] text-zinc-600 text-center py-8">Sin actividades registradas</p>
+            <p className="text-[13px] text-[var(--color-text-muted)] text-center py-8">Sin actividades registradas</p>
           ) : timeline.map((item, i) => {
             const Icon = item.icon;
             return (
@@ -85,15 +85,15 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
                   <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${item.tipo === 'cotizacion' ? 'bg-blue-500/10 text-blue-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
                     <Icon size={13} />
                   </div>
-                  {i < timeline.length - 1 && <div className="w-px h-full bg-white/[0.04] mt-1" />}
+                  {i < timeline.length - 1 && <div className="w-px h-full bg-[var(--color-border)] mt-1" />}
                 </div>
                 <div className="pb-3">
                   <div className="flex items-center gap-2">
-                    <p className="text-[13px] font-medium text-zinc-300">{item.titulo}</p>
+                    <p className="text-[13px] font-medium text-[var(--color-text-secondary)]">{item.titulo}</p>
                     <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${getStatusColor(item.estado)}`}>{getStatusLabel(item.estado)}</span>
                   </div>
-                  <p className="text-[11px] text-zinc-500 mt-0.5">{item.detalle}</p>
-                  <p className="text-[10px] text-zinc-600 mt-1 flex items-center gap-1"><Calendar size={9} />{formatDate(item.fecha)}</p>
+                  <p className="text-[11px] text-[var(--color-text-secondary)] mt-0.5">{item.detalle}</p>
+                  <p className="text-[10px] text-[var(--color-text-muted)] mt-1 flex items-center gap-1"><Calendar size={9} />{formatDate(item.fecha)}</p>
                 </div>
               </div>
             );

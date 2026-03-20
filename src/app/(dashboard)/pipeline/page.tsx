@@ -28,8 +28,8 @@ export default function PipelinePage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-display text-2xl font-bold text-white tracking-tight">Pipeline de Ventas</h1>
-        <p className="text-sm text-zinc-600 mt-0.5">Arrastra las tarjetas entre columnas</p>
+        <h1 className="font-display text-2xl font-bold text-[var(--color-text-primary)] tracking-tight">Pipeline de Ventas</h1>
+        <p className="text-sm text-[var(--color-text-muted)] mt-0.5">Arrastra las tarjetas entre columnas</p>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1">
@@ -40,10 +40,10 @@ export default function PipelinePage() {
             <div key={etapa.id} className="glass rounded-lg px-3 py-2 flex items-center gap-2 min-w-fit">
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: etapa.dot }} />
               <div>
-                <p className="text-[10px] text-zinc-600">{etapa.label}</p>
-                <p className="text-[13px] font-bold text-white">{formatCurrency(total)}</p>
+                <p className="text-[10px] text-[var(--color-text-muted)]">{etapa.label}</p>
+                <p className="text-[13px] font-bold text-[var(--color-text-primary)]">{formatCurrency(total)}</p>
               </div>
-              <span className="text-[10px] bg-white/[0.06] px-1.5 py-0.5 rounded font-semibold text-zinc-500">{ec.length}</span>
+              <span className="text-[10px] bg-[var(--color-surface-hover)] px-1.5 py-0.5 rounded font-semibold text-[var(--color-text-secondary)]">{ec.length}</span>
             </div>
           );
         })}
@@ -57,26 +57,26 @@ export default function PipelinePage() {
               onDragOver={(e) => e.preventDefault()} onDrop={() => handleDrop(etapa.id)}>
               <div className="flex items-center gap-2 mb-2 px-0.5">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: etapa.dot }} />
-                <h3 className="text-[12px] font-semibold text-zinc-400">{etapa.label}</h3>
-                <span className="text-[10px] bg-white/[0.04] px-1.5 py-0.5 rounded font-medium text-zinc-600 ml-auto">{ec.length}</span>
+                <h3 className="text-[12px] font-semibold text-[var(--color-text-secondary)]">{etapa.label}</h3>
+                <span className="text-[10px] bg-[var(--color-surface-glass)] px-1.5 py-0.5 rounded font-medium text-[var(--color-text-muted)] ml-auto">{ec.length}</span>
               </div>
-              <div className="space-y-2 min-h-[400px] bg-white/[0.01] rounded-xl p-1.5 border border-white/[0.03]">
+              <div className="space-y-2 min-h-[400px] bg-[var(--color-surface-glass)] rounded-xl p-1.5 border border-[var(--color-border)]">
                 {ec.map((card) => (
                   <div key={card.id} draggable onDragStart={() => setDraggedCard(card.id)}
-                    className={`glass rounded-lg p-3 cursor-grab active:cursor-grabbing hover:bg-white/[0.04] transition-all ${draggedCard === card.id ? 'opacity-40 scale-95' : ''}`}>
+                    className={`glass rounded-lg p-3 cursor-grab active:cursor-grabbing hover:bg-[var(--color-surface-glass)] transition-all ${draggedCard === card.id ? 'opacity-40 scale-95' : ''}`}>
                     <div className="flex items-start justify-between">
-                      <h4 className="text-[13px] font-medium text-zinc-200 leading-tight">{card.clienteNombre}</h4>
-                      <GripVertical size={12} className="text-zinc-700 flex-shrink-0 mt-0.5" />
+                      <h4 className="text-[13px] font-medium text-[var(--color-text-secondary)] leading-tight">{card.clienteNombre}</h4>
+                      <GripVertical size={12} className="text-[var(--color-text-muted)] flex-shrink-0 mt-0.5" />
                     </div>
                     <div className="mt-2.5 space-y-1">
-                      <div className="flex items-center gap-1.5 text-[11px] text-zinc-500"><DollarSign size={11} /><span className="font-bold text-white">{formatCurrency(card.monto)}</span></div>
-                      <div className="flex items-center gap-1.5 text-[11px] text-zinc-600"><User size={11} /><span>{card.comercial}</span></div>
-                      <div className="flex items-center gap-1.5 text-[11px] text-zinc-600"><Clock size={11} /><span>{card.diasEnEtapa}d en esta etapa</span></div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-secondary)]"><DollarSign size={11} /><span className="font-bold text-[var(--color-text-primary)]">{formatCurrency(card.monto)}</span></div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]"><User size={11} /><span>{card.comercial}</span></div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]"><Clock size={11} /><span>{card.diasEnEtapa}d en esta etapa</span></div>
                     </div>
                   </div>
                 ))}
                 {ec.length === 0 && (
-                  <div className="flex items-center justify-center h-20 text-[11px] text-zinc-700 border border-dashed border-white/[0.06] rounded-lg">Arrastra aqui</div>
+                  <div className="flex items-center justify-center h-20 text-[11px] text-[var(--color-text-muted)] border border-dashed border-[var(--color-border)] rounded-lg">Arrastra aqui</div>
                 )}
               </div>
             </div>

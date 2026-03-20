@@ -53,10 +53,10 @@ export default function DashboardPage() {
     <div className="space-y-5 max-w-7xl mx-auto">
       <div className="flex items-end justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold text-white tracking-tight">Command Center</h1>
-          <p className="text-zinc-600 text-sm mt-0.5">Resumen de operaciones en tiempo real</p>
+          <h1 className="font-display text-2xl font-bold text-[var(--color-text-primary)] tracking-tight">Command Center</h1>
+          <p className="text-[var(--color-text-muted)] text-sm mt-0.5">Resumen de operaciones en tiempo real</p>
         </div>
-        <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-zinc-600">
+        <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]">
           <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot" />
           En vivo
         </div>
@@ -67,14 +67,14 @@ export default function DashboardPage() {
         {kpis.map((kpi) => {
           const Icon = kpi.icon;
           return (
-            <div key={kpi.label} className="glass rounded-xl p-4 hover:bg-white/[0.04] transition-all">
+            <div key={kpi.label} className="glass rounded-xl p-4 hover:bg-[var(--color-surface-glass)] transition-all">
               <div className="flex items-start justify-between mb-3">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-600">{kpi.label}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-muted)]">{kpi.label}</p>
                 <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${kpi.gradient} flex items-center justify-center`}>
                   <Icon size={15} className={kpi.iconColor} style={{ filter: `drop-shadow(0 0 4px ${kpi.glowColor}40)` }} />
                 </div>
               </div>
-              <p className="text-xl font-num font-semibold text-white tracking-tight leading-none">{kpi.value}</p>
+              <p className="text-xl font-num font-semibold text-[var(--color-text-primary)] tracking-tight leading-none">{kpi.value}</p>
               <div className="flex items-center gap-1 mt-2">
                 {kpi.up ? <ArrowUpRight size={11} className="text-emerald-400" /> : <AlertTriangle size={10} className="text-amber-400" />}
                 <span className={`text-[10px] font-medium ${kpi.up ? 'text-emerald-400' : 'text-amber-400'}`}>{kpi.change}</span>
@@ -88,8 +88,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
         <div className="lg:col-span-3 glass rounded-xl p-4">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[13px] font-semibold text-zinc-300">Ingresos Mensuales</h3>
-            <span className="text-[10px] text-zinc-600 bg-white/[0.04] px-2 py-0.5 rounded">USD</span>
+            <h3 className="text-[13px] font-semibold text-[var(--color-text-secondary)]">Ingresos Mensuales</h3>
+            <span className="text-[10px] text-[var(--color-text-muted)] bg-[var(--color-surface-glass)] px-2 py-0.5 rounded">USD</span>
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={ventasMensuales} barSize={28}>
@@ -105,7 +105,7 @@ export default function DashboardPage() {
 
         <div className="lg:col-span-2 glass rounded-xl p-4">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[13px] font-semibold text-zinc-300">Tasa de Conversion</h3>
+            <h3 className="text-[13px] font-semibold text-[var(--color-text-secondary)]">Tasa de Conversion</h3>
             <span className="text-lg font-num font-bold text-[#E8821C]">{tasaConversion}%</span>
           </div>
           <ResponsiveContainer width="100%" height={220}>
@@ -124,20 +124,20 @@ export default function DashboardPage() {
       {/* Bottom */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <div className="glass rounded-xl p-4">
-          <h3 className="text-[13px] font-semibold text-zinc-300 mb-4">Ranking Asesores</h3>
+          <h3 className="text-[13px] font-semibold text-[var(--color-text-secondary)] mb-4">Ranking Asesores</h3>
           <div className="space-y-3">
             {asesores.map((a, i) => (
               <div key={a.nombre} className="flex items-center gap-3">
                 <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold ${
                   i === 0 ? 'bg-gradient-to-br from-[#E8821C] to-[#C96A10] text-white' :
-                  i === 1 ? 'bg-white/[0.06] text-zinc-400' : 'bg-white/[0.03] text-zinc-500'
+                  i === 1 ? 'bg-[var(--color-surface-hover)] text-[var(--color-text-secondary)]' : 'bg-[var(--color-surface-glass)] text-[var(--color-text-secondary)]'
                 }`}>{i === 0 ? <Zap size={13} /> : `#${i + 1}`}</div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[13px] font-medium text-zinc-300">{a.nombre}</span>
-                    <span className="text-[13px] font-num font-semibold text-white">{formatCurrency(a.monto)}</span>
+                    <span className="text-[13px] font-medium text-[var(--color-text-secondary)]">{a.nombre}</span>
+                    <span className="text-[13px] font-num font-semibold text-[var(--color-text-primary)]">{formatCurrency(a.monto)}</span>
                   </div>
-                  <div className="h-1 bg-white/[0.04] rounded-full overflow-hidden">
+                  <div className="h-1 bg-[var(--color-surface-glass)] rounded-full overflow-hidden">
                     <div className="h-full rounded-full bg-gradient-to-r from-[#E8821C] to-[#FF9F43]" style={{ width: `${(a.monto / 200000) * 100}%` }} />
                   </div>
                 </div>
@@ -147,7 +147,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="glass rounded-xl p-4">
-          <h3 className="text-[13px] font-semibold text-zinc-300 mb-4">Alertas Activas</h3>
+          <h3 className="text-[13px] font-semibold text-[var(--color-text-secondary)] mb-4">Alertas Activas</h3>
           <div className="space-y-2">
             <Link href="/facturas" className="flex items-center gap-3 p-3 rounded-lg bg-red-500/[0.06] border border-red-500/10 hover:bg-red-500/[0.1] transition-colors group">
               <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center"><AlertTriangle size={15} className="text-red-400" /></div>
