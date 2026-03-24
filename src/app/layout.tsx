@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 const themeScript = `
   (function() {
     var t = localStorage.getItem('parmonca-theme');
-    if (t === 'dark' || !t) document.documentElement.classList.add('dark');
+    if (t === 'dark') document.documentElement.classList.add('dark');
   })();
 `;
 

@@ -4,12 +4,14 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Zap, ArrowRight } from 'lucide-react';
+import { useTheme } from '@/context/ThemeContext';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { isDark } = useTheme();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +24,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
       {/* Ambient background */}
-      <div className="absolute inset-0 bg-[#08080A]">
+      <div className="absolute inset-0 bg-[var(--color-void)]">
         <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-[#E8821C]/[0.04] rounded-full blur-[150px] animate-pulse" />
         <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-[#E8821C]/[0.03] rounded-full blur-[120px]" style={{ animationDelay: '1s', animationDuration: '4s' }} />
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#E8821C]/20 to-transparent" />
@@ -30,7 +32,7 @@ export default function LoginPage() {
 
       {/* Grid pattern overlay */}
       <div className="absolute inset-0 opacity-[0.02]" style={{
-        backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+        backgroundImage: `linear-gradient(var(--color-border) 1px, transparent 1px), linear-gradient(90deg, var(--color-border) 1px, transparent 1px)`,
         backgroundSize: '60px 60px'
       }} />
 
@@ -38,13 +40,17 @@ export default function LoginPage() {
       <div className="relative z-10 w-full max-w-[420px] mx-4">
         {/* Brand */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-[#E8821C] to-[#C96A10] mb-5 glow-brand">
-            <Zap size={26} className="text-white" />
-          </div>
-          <h1 className="font-display text-3xl font-bold text-white tracking-tight">
+          <Image
+            src={isDark ? '/images/isotipo-white.png' : '/images/isotipo.png'}
+            alt="PARMONCA"
+            width={56}
+            height={56}
+            className="mx-auto mb-5"
+          />
+          <h1 className="font-display text-3xl font-bold text-[var(--color-text-primary)] tracking-tight">
             PARMONCA
           </h1>
-          <p className="text-zinc-600 text-sm mt-2 tracking-wide">
+          <p className="text-[var(--color-text-muted)] text-sm mt-2 tracking-wide">
             Plataforma Inteligente de Ventas
           </p>
         </div>
@@ -53,7 +59,7 @@ export default function LoginPage() {
         <div className="glass-strong rounded-2xl p-7">
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-zinc-500 mb-2">
+              <label className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-secondary)] mb-2">
                 Correo electronico
               </label>
               <input
@@ -61,12 +67,12 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="tu@parmonca.com"
-                className="w-full h-11 px-4 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#E8821C]/40 focus:bg-white/[0.06] transition-all"
+                className="w-full h-11 px-4 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/40 focus:bg-[var(--color-surface-hover)] transition-all"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-zinc-500 mb-2">
+              <label className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-secondary)] mb-2">
                 Contrasena
               </label>
               <input
@@ -74,7 +80,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full h-11 px-4 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#E8821C]/40 focus:bg-white/[0.06] transition-all"
+                className="w-full h-11 px-4 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/40 focus:bg-[var(--color-surface-hover)] transition-all"
               />
             </div>
 
@@ -95,7 +101,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-[11px] text-zinc-700 mt-5">
+        <p className="text-center text-[11px] text-[var(--color-text-muted)] mt-5">
           Demo — usa cualquier credencial
         </p>
       </div>
