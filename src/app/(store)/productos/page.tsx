@@ -29,12 +29,12 @@ export default function ProductosPage() {
                 <span className="text-[11px] font-semibold text-[#E8821C] uppercase tracking-wider">Primera plataforma de cotización online</span>
               </div>
               <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-[var(--color-text-primary)] leading-[1.1] tracking-tight">
-                Cotiza tu<br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#E8821C] to-[#FF9F43]">montacarga</span><br />
-                en minutos.
+                Tu próximo<br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#E8821C] to-[#FF9F43]">equipo</span> está<br />
+                aquí.
               </h1>
               <p className="text-[var(--color-text-secondary)] text-lg mt-6 max-w-md leading-relaxed">
-                Sin llamadas, sin esperas, sin intermediarios. Elige tu equipo, personalízalo y recibe tu cotización al instante.
+                Montacargas, apiladores y maquinaria industrial. Cotiza online, personaliza y recibe tu propuesta al instante.
               </p>
               <div className="flex flex-wrap gap-3 mt-8">
                 <Link href="#catalogo"
