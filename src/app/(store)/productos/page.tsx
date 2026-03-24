@@ -70,7 +70,7 @@ export default function ProductosPage() {
               <div className="absolute inset-0 bg-gradient-to-br from-[#E8821C]/[0.06] to-transparent rounded-3xl blur-[60px]" />
               <div className="relative">
                 <Image
-                  src="/images/products/tan35d-hero.png"
+                  src="/images/products/tan35d-hero-nobg.png"
                   alt="Montacarga ANDINO TAN35D"
                   width={600}
                   height={500}
