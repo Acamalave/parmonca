@@ -16,10 +16,10 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
       <nav className="fixed top-0 left-0 right-0 z-50 glass-strong">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link href="/productos" className="flex items-center">
-            {/* Mobile: solo isotipo */}
-            <Image src={isDark ? '/images/isotipo-white.png' : '/images/isotipo.png'} alt="PARMONCA" width={36} height={36} className="sm:hidden" />
-            {/* Desktop: logo completo */}
-            <Image src={isDark ? '/images/logo-white-clean.png' : '/images/logo-dark.png'} alt="PARMONCA" width={200} height={50} className="hidden sm:block h-9 w-auto object-contain" />
+            {/* Mobile: logo con nombre */}
+            <Image src={isDark ? '/images/logo-white-clean.png' : '/images/logo-dark.png'} alt="PARMONCA" width={160} height={40} className="sm:hidden h-8 w-auto object-contain" />
+            {/* Desktop: logo completo más grande */}
+            <Image src={isDark ? '/images/logo-white-clean.png' : '/images/logo-dark.png'} alt="PARMONCA" width={200} height={50} className="hidden sm:block h-10 w-auto object-contain" />
           </Link>
 
           <div className="hidden md:flex items-center gap-8">
