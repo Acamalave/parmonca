@@ -41,6 +41,21 @@ export async function POST(request: NextRequest) {
   try {
     const body: CotizacionRequest = await request.json();
 
+    // Validate required fields
+    if (!body.nombre || !body.email || !body.telefono) {
+      return NextResponse.json(
+        { error: 'Nombre, email y teléfono son obligatorios' },
+        { status: 400 }
+      );
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
+      return NextResponse.json(
+        { error: 'Email inválido' },
+        { status: 400 }
+      );
+    }
+
     const modalidadLabel = body.modalidad === 'alquiler'
       ? `Alquiler${body.periodo ? ` (${body.periodo})` : ''}`
       : 'Compra';

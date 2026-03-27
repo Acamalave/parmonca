@@ -24,8 +24,8 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
 
           <div className="hidden md:flex items-center gap-8">
             <Link href="/productos" className="text-[13px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors">Maquinaria</Link>
-            <Link href="/productos#montacarga" className="text-[13px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors">Montacargas</Link>
-            <Link href="/productos#apilador" className="text-[13px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors">Apiladores</Link>
+            <Link href="/productos#catalogo" className="text-[13px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors">Catálogo</Link>
+            <Link href="/productos#asesor" className="text-[13px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors">Asesor Virtual</Link>
             <Link href="/cotizar" className="text-[13px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors">Cotizar</Link>
           </div>
 
@@ -52,6 +52,8 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
         {menuOpen && (
           <div className="md:hidden border-t border-[var(--color-border)] px-4 py-4 space-y-3">
             <Link href="/productos" onClick={() => setMenuOpen(false)} className="block text-[14px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">Maquinaria</Link>
+            <Link href="/productos#catalogo" onClick={() => setMenuOpen(false)} className="block text-[14px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">Catálogo</Link>
+            <Link href="/productos#asesor" onClick={() => setMenuOpen(false)} className="block text-[14px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">Asesor Virtual</Link>
             <Link href="/cotizar" onClick={() => setMenuOpen(false)} className="block text-[14px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">Cotizar</Link>
           </div>
         )}
