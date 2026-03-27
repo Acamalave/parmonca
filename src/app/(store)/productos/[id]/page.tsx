@@ -44,14 +44,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       {/* Product Hero */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
         {/* Image */}
-        <div className="relative glass rounded-2xl overflow-hidden flex items-center justify-center min-h-[400px]">
+        <div className="relative glass rounded-2xl overflow-hidden flex items-center justify-center min-h-[400px] p-8">
           <div className="absolute inset-0 bg-gradient-to-br from-[#E8821C]/[0.03] to-transparent" />
           <Image
             src={product.imagenNoBg}
             alt={`${product.marca} ${product.modelo}`}
             width={500}
-            height={400}
-            className="relative z-10 object-contain max-h-[380px] drop-shadow-[0_20px_50px_rgba(232,130,28,0.2)]"
+            height={500}
+            className="relative z-10 object-contain w-full h-full max-h-[420px] drop-shadow-[0_20px_50px_rgba(232,130,28,0.2)]"
             priority
           />
           {product.badge && (

@@ -105,8 +105,8 @@ export default function ProductosPage() {
                   src="/images/products/aec35-hero-nobg.png"
                   alt="Montacarga Eléctrico ANDINO AEC35"
                   width={600}
-                  height={500}
-                  className="relative z-10 drop-shadow-[0_20px_60px_rgba(232,130,28,0.15)]"
+                  height={600}
+                  className="relative z-10 object-contain w-full h-auto drop-shadow-[0_20px_60px_rgba(232,130,28,0.15)]"
                   priority
                 />
                 <div className="absolute bottom-4 left-4 right-4 glass rounded-xl p-4 z-20">
@@ -336,13 +336,13 @@ export default function ProductosPage() {
               )}
 
               {/* Image */}
-              <div className="relative aspect-[4/3] bg-[var(--color-surface-elevated)] flex items-center justify-center overflow-hidden rounded-t-2xl p-6">
+              <div className="relative aspect-square bg-[var(--color-surface-elevated)] flex items-center justify-center overflow-hidden rounded-t-2xl p-8">
                 <Image
                   src={product.imagen}
                   alt={`${product.marca} ${product.modelo}`}
                   width={400}
-                  height={300}
-                  className="object-contain max-w-full max-h-full group-hover:scale-105 transition-transform duration-700"
+                  height={400}
+                  className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-700"
                 />
               </div>
 
