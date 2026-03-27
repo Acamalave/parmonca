@@ -1,18 +1,26 @@
 'use client';
 
 import { use, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeft, Check, Plus, Minus, Zap, ArrowRight, ChevronDown } from 'lucide-react';
-import { storeProducts, accesorios, Accesorio } from '@/lib/store-data';
+import { storeProducts, accesorios, periodoLabels, type Modalidad, type PeriodoAlquiler } from '@/lib/store-data';
 import { formatCurrency, cn } from '@/lib/utils';
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const searchParams = useSearchParams();
   const product = storeProducts.find(p => p.slug === id);
   const [selectedAccesorios, setSelectedAccesorios] = useState<string[]>([]);
   const [specsOpen, setSpecsOpen] = useState(false);
   const [cantidad, setCantidad] = useState(1);
+
+  // Modalidad from URL or default
+  const initialModalidad = (searchParams.get('modalidad') as Modalidad) || 'venta';
+  const initialPeriodo = (searchParams.get('periodo') as PeriodoAlquiler) || 'mensual';
+  const [modalidad, setModalidad] = useState<Modalidad>(initialModalidad);
+  const [periodo, setPeriodo] = useState<PeriodoAlquiler>(initialPeriodo);
 
   if (!product) return <div className="flex items-center justify-center h-[60vh]"><p className="text-[var(--color-text-secondary)]">Producto no encontrado</p></div>;
 
@@ -21,8 +29,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   };
 
   const precioAccesorios = accesorios.filter(a => selectedAccesorios.includes(a.id)).reduce((sum, a) => sum + a.precio, 0);
-  const precioUnitario = product.precioDesde + precioAccesorios;
+  const precioBase = modalidad === 'alquiler' ? product.preciosAlquiler[periodo] : product.precioDesde;
+  const precioUnitario = precioBase + (modalidad === 'venta' ? precioAccesorios : 0);
   const precioTotal = precioUnitario * cantidad;
+
+  const cotizarUrl = `/cotizar?producto=${product.slug}&accesorios=${selectedAccesorios.join(',')}&cantidad=${cantidad}&modalidad=${modalidad}${modalidad === 'alquiler' ? `&periodo=${periodo}` : ''}`;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
@@ -55,6 +66,61 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#E8821C]">{product.marca}</p>
           <h1 className="font-display text-4xl font-bold text-[var(--color-text-primary)] mt-1 tracking-tight">{product.modelo}</h1>
           <p className="text-[var(--color-text-secondary)] text-[13px] mt-1">{product.categoriaLabel} · Capacidad {product.capacidad}</p>
+
+          {/* Modalidad Toggle */}
+          <div className="mt-5 p-4 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)]">
+            <div className="flex h-10 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] p-1 mb-3">
+              {[
+                { value: 'venta' as Modalidad, label: 'Comprar' },
+                { value: 'alquiler' as Modalidad, label: 'Alquilar' },
+              ].map(opt => (
+                <button key={opt.value} onClick={() => setModalidad(opt.value)}
+                  className={cn(
+                    'flex-1 rounded-lg text-[13px] font-semibold transition-all',
+                    modalidad === opt.value
+                      ? 'bg-[#E8821C] text-white shadow-sm'
+                      : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                  )}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {modalidad === 'alquiler' && (
+              <div className="flex h-9 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] p-0.5 mb-3">
+                {(['diario', 'semanal', 'mensual', 'anual'] as PeriodoAlquiler[]).map(p => (
+                  <button key={p} onClick={() => setPeriodo(p)}
+                    className={cn(
+                      'flex-1 rounded-md text-[11px] font-medium transition-all',
+                      periodo === p
+                        ? 'bg-[var(--color-surface-hover)] text-[var(--color-text-primary)] border border-[var(--color-border)]'
+                        : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+                    )}>
+                    {periodoLabels[p]}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider">
+                  {modalidad === 'alquiler' ? `Precio por ${periodoLabels[periodo].toLowerCase()}` : 'Precio base'}
+                </p>
+                <p className="font-num text-3xl font-bold text-[var(--color-text-primary)] mt-0.5">
+                  {formatCurrency(precioBase)}
+                  {modalidad === 'alquiler' && <span className="text-[14px] font-normal text-[var(--color-text-muted)]">/{periodoLabels[periodo]}</span>}
+                </p>
+              </div>
+              {modalidad === 'venta' && (
+                <p className="text-[11px] text-[var(--color-text-muted)]">USD · Consultar financiamiento</p>
+              )}
+              {modalidad === 'alquiler' && (
+                <p className="text-[11px] text-[var(--color-text-muted)]">Incluye mantenimiento básico</p>
+              )}
+            </div>
+          </div>
+
           <p className="text-[var(--color-text-secondary)] text-[14px] mt-4 leading-relaxed">{product.descripcion}</p>
 
           {/* Features */}
@@ -84,14 +150,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             </div>
           )}
 
-          {/* Price */}
-          <div className="flex items-end justify-between mt-6 pt-4 border-t border-[var(--color-border)]">
-            <div>
-              <p className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider">Precio base</p>
-              <p className="font-num text-3xl font-bold text-[var(--color-text-primary)] mt-0.5">{formatCurrency(product.precioDesde)}</p>
+          {/* Monthly cost comparison (only for venta) */}
+          {modalidad === 'venta' && (
+            <div className="mt-4 p-3 rounded-lg bg-emerald-500/[0.06] border border-emerald-500/15">
+              <p className="text-[11px] text-emerald-400 font-medium">
+                Costo operativo mensual estimado: {formatCurrency(product.costoOperativo.combustibleMes + product.costoOperativo.mantenimientoMes)}
+                <span className="text-[var(--color-text-muted)]"> (energía + mantenimiento)</span>
+              </p>
             </div>
-            <p className="text-[11px] text-[var(--color-text-muted)]">USD · Consultar financiamiento</p>
-          </div>
+          )}
         </div>
       </div>
 
@@ -100,9 +167,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         <div className="mb-6">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#E8821C] mb-1">Personaliza</p>
           <h2 className="font-display text-xl font-bold text-[var(--color-text-primary)] tracking-tight">Agrega accesorios</h2>
+          {modalidad === 'alquiler' && (
+            <p className="text-[12px] text-[var(--color-text-secondary)] mt-1">Los accesorios se cotizan por separado en modalidad de alquiler</p>
+          )}
         </div>
 
-        {/* Grouped by category - compact rows */}
         {[
           { cat: 'seguridad', label: 'Seguridad' },
           { cat: 'productividad', label: 'Productividad' },
@@ -152,11 +221,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             {/* Mobile layout */}
             <div className="flex items-center justify-between gap-3 sm:hidden">
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] text-[var(--color-text-muted)] uppercase">Total</p>
+                <p className="text-[10px] text-[var(--color-text-muted)] uppercase">
+                  {modalidad === 'alquiler' ? `Total/${periodoLabels[periodo]}` : 'Total'}
+                </p>
                 <p className="font-num text-xl font-bold text-[var(--color-text-primary)] truncate">{formatCurrency(precioTotal)}</p>
-                <p className="text-[10px] text-[var(--color-text-muted)]">{selectedAccesorios.length > 0 ? `${selectedAccesorios.length} accesorios` : product.modelo} · x{cantidad}</p>
+                <p className="text-[10px] text-[var(--color-text-muted)]">
+                  {modalidad === 'alquiler' ? 'Alquiler' : 'Compra'} · {selectedAccesorios.length > 0 ? `${selectedAccesorios.length} acc.` : product.modelo} · x{cantidad}
+                </p>
               </div>
-              <Link href={`/cotizar?producto=${product.slug}&accesorios=${selectedAccesorios.join(',')}&cantidad=${cantidad}`}
+              <Link href={cotizarUrl}
                 className="flex items-center gap-1.5 h-10 px-5 bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold rounded-full whitespace-nowrap active:scale-[0.97]">
                 Cotizar
                 <ArrowRight size={14} />
@@ -169,6 +242,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 <div>
                   <p className="text-[10px] text-[var(--color-text-muted)] uppercase">Equipo</p>
                   <p className="text-[13px] font-semibold text-[var(--color-text-primary)]">{product.marca} {product.modelo}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-[var(--color-text-muted)] uppercase">Modalidad</p>
+                  <p className="text-[13px] font-semibold text-[var(--color-text-secondary)]">
+                    {modalidad === 'alquiler' ? `Alquiler/${periodoLabels[periodo]}` : 'Compra'}
+                  </p>
                 </div>
                 <div>
                   <p className="text-[10px] text-[var(--color-text-muted)] uppercase">Accesorios</p>
@@ -187,10 +266,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-[10px] text-[var(--color-text-muted)] uppercase">Total estimado</p>
+                <p className="text-[10px] text-[var(--color-text-muted)] uppercase">
+                  {modalidad === 'alquiler' ? `Total/${periodoLabels[periodo]}` : 'Total estimado'}
+                </p>
                 <p className="font-num text-xl font-bold text-[var(--color-text-primary)]">{formatCurrency(precioTotal)}</p>
               </div>
-              <Link href={`/cotizar?producto=${product.slug}&accesorios=${selectedAccesorios.join(',')}&cantidad=${cantidad}`}
+              <Link href={cotizarUrl}
                 className="flex items-center gap-2 h-10 px-6 bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold rounded-full hover:shadow-[0_0_25px_#E8821C40] transition-all active:scale-[0.97] group whitespace-nowrap">
                 Solicitar Cotización
                 <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />

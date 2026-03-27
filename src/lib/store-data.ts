@@ -1,3 +1,13 @@
+export type Modalidad = 'venta' | 'alquiler';
+export type PeriodoAlquiler = 'diario' | 'semanal' | 'mensual' | 'anual';
+
+export interface PreciosAlquiler {
+  diario: number;
+  semanal: number;
+  mensual: number;
+  anual: number;
+}
+
 export interface StoreProduct {
   id: string;
   slug: string;
@@ -10,6 +20,7 @@ export interface StoreProduct {
   imagen: string;
   imagenNoBg: string;
   precioDesde: number;
+  preciosAlquiler: PreciosAlquiler;
   badge?: string;
   specs: {
     capacidadCarga: string;
@@ -23,6 +34,15 @@ export interface StoreProduct {
   };
   descripcion: string;
   caracteristicas: string[];
+  costoOperativo: {
+    combustibleMes: number;
+    mantenimientoMes: number;
+  };
+  usoRecomendado: {
+    ambiente: ('interior' | 'exterior' | 'mixto')[];
+    industrias: string[];
+    frecuencia: ('ocasional' | 'turno-completo' | '24-7')[];
+  };
 }
 
 export interface Accesorio {
@@ -33,6 +53,13 @@ export interface Accesorio {
   categoria: 'seguridad' | 'productividad' | 'proteccion' | 'tecnologia';
   imagen?: string;
 }
+
+export const periodoLabels: Record<PeriodoAlquiler, string> = {
+  diario: 'Día',
+  semanal: 'Semana',
+  mensual: 'Mes',
+  anual: 'Año',
+};
 
 export const storeProducts: StoreProduct[] = [
   {
@@ -47,6 +74,7 @@ export const storeProducts: StoreProduct[] = [
     imagen: '/images/products/u20w3li-nobg.png',
     imagenNoBg: '/images/products/u20w3li-nobg.png',
     precioDesde: 19800,
+    preciosAlquiler: { diario: 250, semanal: 850, mensual: 2200, anual: 9500 },
     badge: 'Eléctrico',
     specs: {
       capacidadCarga: '2,000 kg',
@@ -67,6 +95,12 @@ export const storeProducts: StoreProduct[] = [
       'Cabina ergonómica con suspensión',
       'Pasillo estrecho - operación compacta',
     ],
+    costoOperativo: { combustibleMes: 180, mantenimientoMes: 120 },
+    usoRecomendado: {
+      ambiente: ['interior', 'mixto'],
+      industrias: ['almacen', 'manufactura', 'retail', 'farmaceutica'],
+      frecuencia: ['turno-completo', '24-7'],
+    },
   },
   {
     id: '2',
@@ -80,6 +114,7 @@ export const storeProducts: StoreProduct[] = [
     imagen: '/images/products/tan35d-nobg.png',
     imagenNoBg: '/images/products/tan35d-nobg.png',
     precioDesde: 22000,
+    preciosAlquiler: { diario: 280, semanal: 950, mensual: 2500, anual: 10800 },
     badge: 'Mas Vendido',
     specs: {
       capacidadCarga: '3,500 kg',
@@ -99,6 +134,12 @@ export const storeProducts: StoreProduct[] = [
       'Protección superior del operador',
       'Bajo consumo de combustible',
     ],
+    costoOperativo: { combustibleMes: 850, mantenimientoMes: 350 },
+    usoRecomendado: {
+      ambiente: ['exterior', 'mixto'],
+      industrias: ['construccion', 'logistica', 'agricola', 'manufactura'],
+      frecuencia: ['turno-completo', '24-7'],
+    },
   },
   {
     id: '3',
@@ -112,6 +153,7 @@ export const storeProducts: StoreProduct[] = [
     imagen: '/images/products/uprr15li-nobg.png',
     imagenNoBg: '/images/products/uprr15li-nobg.png',
     precioDesde: 8500,
+    preciosAlquiler: { diario: 120, semanal: 420, mensual: 1100, anual: 4800 },
     badge: 'Compacto',
     specs: {
       capacidadCarga: '1,500 kg',
@@ -132,6 +174,12 @@ export const storeProducts: StoreProduct[] = [
       'Display digital multifunción',
       'Mantenimiento mínimo',
     ],
+    costoOperativo: { combustibleMes: 80, mantenimientoMes: 60 },
+    usoRecomendado: {
+      ambiente: ['interior'],
+      industrias: ['almacen', 'retail', 'farmaceutica'],
+      frecuencia: ['ocasional', 'turno-completo'],
+    },
   },
 ];
 
@@ -158,3 +206,90 @@ export const categoriasAccesorios = [
   { id: 'proteccion', label: 'Protección', icon: 'hard-hat' },
   { id: 'tecnologia', label: 'Tecnologia', icon: 'cpu' },
 ];
+
+// Context options for smart form
+export const industriaOptions = [
+  { value: 'almacen', label: 'Almacén / Distribución' },
+  { value: 'manufactura', label: 'Manufactura' },
+  { value: 'construccion', label: 'Construcción' },
+  { value: 'logistica', label: 'Logística / Transporte' },
+  { value: 'retail', label: 'Retail / Comercio' },
+  { value: 'agricola', label: 'Agrícola' },
+  { value: 'farmaceutica', label: 'Farmacéutica' },
+  { value: 'otro', label: 'Otro' },
+];
+
+export const ambienteOptions = [
+  { value: 'interior', label: 'Interior (almacén, nave)' },
+  { value: 'exterior', label: 'Exterior (patio, obra)' },
+  { value: 'mixto', label: 'Mixto (ambos)' },
+];
+
+export const frecuenciaOptions = [
+  { value: 'ocasional', label: 'Ocasional (pocas horas/semana)' },
+  { value: 'turno-completo', label: 'Turno completo (8h/día)' },
+  { value: '24-7', label: 'Operación continua (24/7)' },
+];
+
+export const plazoOptions = [
+  { value: 'inmediato', label: 'Lo necesito ya' },
+  { value: '1-2-semanas', label: 'En 1-2 semanas' },
+  { value: 'planificando', label: 'Estoy planificando' },
+];
+
+export function getRecommendation(
+  industria: string,
+  ambiente: string,
+  frecuencia: string,
+): { product: StoreProduct; modalidad: Modalidad; periodo?: PeriodoAlquiler; reason: string } | null {
+  if (!industria && !ambiente && !frecuencia) return null;
+
+  let bestProduct = storeProducts[0];
+  let bestModalidad: Modalidad = 'venta';
+  let bestPeriodo: PeriodoAlquiler | undefined;
+  let reason = '';
+
+  // Determine best product based on environment
+  if (ambiente === 'exterior') {
+    bestProduct = storeProducts.find(p => p.categoria === 'montacarga-combustion') || storeProducts[1];
+    reason = 'Para operaciones en exterior, el motor diesel ofrece la potencia y resistencia necesaria.';
+  } else if (ambiente === 'interior') {
+    if (frecuencia === 'ocasional') {
+      bestProduct = storeProducts.find(p => p.categoria === 'apilador-electrico') || storeProducts[2];
+      reason = 'Para uso interior ocasional, el apilador eléctrico es compacto y eficiente.';
+    } else {
+      bestProduct = storeProducts.find(p => p.categoria === 'montacarga-electrico') || storeProducts[0];
+      reason = 'Para operaciones intensivas en interior, el montacarga eléctrico ofrece cero emisiones y máxima eficiencia.';
+    }
+  } else {
+    // Mixed
+    if (frecuencia === '24-7') {
+      bestProduct = storeProducts[1]; // Diesel for heavy use
+      reason = 'Para operación continua mixta, el diesel ofrece autonomía y potencia sin pausa.';
+    } else {
+      bestProduct = storeProducts[0]; // Electric for mixed moderate
+      reason = 'Para uso mixto moderado, el eléctrico Li-Ion es versátil y de bajo costo operativo.';
+    }
+  }
+
+  // Determine modality
+  if (frecuencia === 'ocasional') {
+    bestModalidad = 'alquiler';
+    bestPeriodo = 'mensual';
+    reason += ' Con uso ocasional, el alquiler optimiza tu inversión.';
+  } else if (frecuencia === '24-7') {
+    bestModalidad = 'venta';
+    reason += ' Con operación 24/7, la compra es más rentable a largo plazo.';
+  }
+
+  // Industry-specific tweaks
+  if (industria === 'construccion') {
+    bestProduct = storeProducts[1];
+    reason = 'Para construcción, el TAN35D diesel es el más resistente para terrenos irregulares y cargas pesadas.';
+  } else if (industria === 'farmaceutica') {
+    bestProduct = storeProducts[0];
+    reason = 'Para farmacéutica, el eléctrico es ideal: cero emisiones, operación silenciosa y limpia.';
+  }
+
+  return { product: bestProduct, modalidad: bestModalidad, periodo: bestPeriodo, reason };
+}

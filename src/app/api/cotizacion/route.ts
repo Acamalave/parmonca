@@ -9,7 +9,17 @@ interface CotizacionRequest {
   email: string;
   telefono: string;
   pais: string;
+  ciudad: string;
   mensaje: string;
+  // New context fields
+  industria: string;
+  tamanoFlota: string;
+  presupuesto: string;
+  financiamiento: string;
+  ruc: string;
+  // Modality
+  modalidad: 'venta' | 'alquiler';
+  periodo: string | null;
   producto: {
     modelo: string;
     marca: string;
@@ -31,6 +41,10 @@ export async function POST(request: NextRequest) {
   try {
     const body: CotizacionRequest = await request.json();
 
+    const modalidadLabel = body.modalidad === 'alquiler'
+      ? `Alquiler${body.periodo ? ` (${body.periodo})` : ''}`
+      : 'Compra';
+
     const accesoriosHTML = body.accesorios.length > 0
       ? body.accesorios.map(a => `
         <tr>
@@ -39,6 +53,31 @@ export async function POST(request: NextRequest) {
         </tr>
       `).join('')
       : '';
+
+    const contextRows = [
+      body.industria && { label: 'Industria', value: body.industria },
+      body.tamanoFlota && { label: 'Flota Actual', value: body.tamanoFlota },
+      body.presupuesto && { label: 'Presupuesto', value: body.presupuesto },
+      body.financiamiento && { label: 'Financiamiento', value: body.financiamiento === 'si' ? 'Sí, necesita' : 'No necesita' },
+      body.ruc && { label: 'RUC/NIT', value: body.ruc },
+      body.ciudad && { label: 'Ciudad', value: body.ciudad },
+    ].filter(Boolean) as { label: string; value: string }[];
+
+    const contextHTML = contextRows.length > 0 ? `
+      <tr>
+        <td style="padding:0 32px 24px;background:#0e0e11;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06);">
+          <p style="margin:0 0 12px;font-size:11px;color:#71717a;text-transform:uppercase;letter-spacing:0.1em;font-weight:600;">Contexto de la Operación</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#16161a;border:1px solid rgba(255,255,255,0.06);border-radius:12px;">
+            ${contextRows.map(r => `
+              <tr>
+                <td style="padding:10px 16px;border-bottom:1px solid #1a1a1d;color:#71717a;font-size:12px;width:120px;">${r.label}</td>
+                <td style="padding:10px 16px;border-bottom:1px solid #1a1a1d;color:#e4e4e7;font-size:13px;">${r.value}</td>
+              </tr>
+            `).join('')}
+          </table>
+        </td>
+      </tr>
+    ` : '';
 
     const emailHTML = `
 <!DOCTYPE html>
@@ -64,7 +103,7 @@ export async function POST(request: NextRequest) {
                     <span style="font-size:11px;color:#71717a;letter-spacing:0.1em;text-transform:uppercase;">Cotizacion de Maquinaria Industrial</span>
                   </td>
                   <td align="right">
-                    <span style="display:inline-block;padding:6px 16px;background:linear-gradient(135deg,#E8821C,#C96A10);color:#fff;font-size:12px;font-weight:600;border-radius:8px;">Nueva Solicitud</span>
+                    <span style="display:inline-block;padding:6px 16px;background:${body.modalidad === 'alquiler' ? '#3B82F6' : 'linear-gradient(135deg,#E8821C,#C96A10)'};color:#fff;font-size:12px;font-weight:600;border-radius:8px;">${modalidadLabel}</span>
                   </td>
                 </tr>
               </table>
@@ -76,7 +115,7 @@ export async function POST(request: NextRequest) {
             <td style="padding:32px;background:#0e0e11;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06);">
               <p style="margin:0;font-size:20px;font-weight:700;color:#fff;font-family:'Syne',system-ui;">Hola ${body.nombre},</p>
               <p style="margin:8px 0 0;font-size:14px;color:#71717a;line-height:1.6;">
-                Gracias por tu interes en PARMONCA. Hemos recibido tu solicitud de cotizacion y nuestro equipo la esta revisando. A continuacion el detalle:
+                Gracias por tu interes en PARMONCA. Hemos recibido tu solicitud de ${body.modalidad === 'alquiler' ? 'alquiler' : 'cotizacion'} y nuestro equipo la esta revisando. A continuacion el detalle:
               </p>
             </td>
           </tr>
@@ -95,7 +134,7 @@ export async function POST(request: NextRequest) {
                           <br>
                           <span style="font-family:'Syne',system-ui;font-size:24px;font-weight:700;color:#fff;">${body.producto.modelo}</span>
                           <br>
-                          <span style="font-size:12px;color:#71717a;">${body.producto.categoria}</span>
+                          <span style="font-size:12px;color:#71717a;">${body.producto.categoria} · ${modalidadLabel}</span>
                         </td>
                         <td align="right" valign="top">
                           <span style="font-size:10px;color:#52525b;">Cantidad</span>
@@ -128,20 +167,24 @@ export async function POST(request: NextRequest) {
             <td style="padding:0 32px 24px;background:#0e0e11;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06);">
               <table width="100%" cellpadding="0" cellspacing="0" style="background:#16161a;border:1px solid rgba(255,255,255,0.06);border-radius:12px;">
                 <tr>
-                  <td style="padding:12px 16px;border-bottom:1px solid #1a1a1d;color:#71717a;font-size:13px;">Subtotal</td>
+                  <td style="padding:12px 16px;border-bottom:1px solid #1a1a1d;color:#71717a;font-size:13px;">Subtotal${body.modalidad === 'alquiler' && body.periodo ? ` (${body.periodo})` : ''}</td>
                   <td style="padding:12px 16px;border-bottom:1px solid #1a1a1d;color:#e4e4e7;font-size:13px;text-align:right;font-family:'JetBrains Mono',monospace;">$${body.subtotal.toLocaleString()}</td>
                 </tr>
+                ${body.modalidad === 'venta' ? `
                 <tr>
                   <td style="padding:12px 16px;border-bottom:1px solid #1a1a1d;color:#71717a;font-size:13px;">Impuesto (7%)</td>
                   <td style="padding:12px 16px;border-bottom:1px solid #1a1a1d;color:#e4e4e7;font-size:13px;text-align:right;font-family:'JetBrains Mono',monospace;">$${body.impuesto.toLocaleString()}</td>
                 </tr>
+                ` : ''}
                 <tr>
-                  <td style="padding:16px;color:#fff;font-size:16px;font-weight:700;">Total Estimado</td>
+                  <td style="padding:16px;color:#fff;font-size:16px;font-weight:700;">Total ${body.modalidad === 'alquiler' ? `por ${body.periodo}` : 'Estimado'}</td>
                   <td style="padding:16px;color:#E8821C;font-size:22px;font-weight:700;text-align:right;font-family:'JetBrains Mono',monospace;">$${body.total.toLocaleString()}</td>
                 </tr>
               </table>
             </td>
           </tr>
+
+          ${contextHTML}
 
           <!-- Contact Info -->
           <tr>
@@ -161,7 +204,7 @@ export async function POST(request: NextRequest) {
                   <td style="padding:12px 16px;border-bottom:1px solid #1a1a1d;color:#71717a;font-size:12px;">Telefono</td>
                   <td style="padding:12px 16px;border-bottom:1px solid #1a1a1d;color:#e4e4e7;font-size:13px;">${body.telefono}</td>
                 </tr>
-                ${body.pais ? `<tr><td style="padding:12px 16px;color:#71717a;font-size:12px;">Pais</td><td style="padding:12px 16px;color:#e4e4e7;font-size:13px;">${body.pais}</td></tr>` : ''}
+                ${body.pais ? `<tr><td style="padding:12px 16px;color:#71717a;font-size:12px;">Pais</td><td style="padding:12px 16px;color:#e4e4e7;font-size:13px;">${body.pais}${body.ciudad ? ` - ${body.ciudad}` : ''}</td></tr>` : ''}
               </table>
               ${body.mensaje ? `<p style="margin:12px 0 0;padding:12px 16px;background:#16161a;border:1px solid rgba(255,255,255,0.06);border-radius:12px;color:#a1a1aa;font-size:13px;line-height:1.5;"><span style="color:#71717a;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;display:block;margin-bottom:4px;">Mensaje</span>${body.mensaje}</p>` : ''}
             </td>
@@ -206,7 +249,7 @@ export async function POST(request: NextRequest) {
     const customerEmail = await resend.emails.send({
       from: 'PARMONCA <onboarding@resend.dev>',
       to: ['malave.acacio@gmail.com'], // TODO: change to [body.email] after adding custom domain in Resend
-      subject: `Tu cotizacion PARMONCA${body.producto ? ` - ${body.producto.marca} ${body.producto.modelo}` : ''} esta lista`,
+      subject: `Tu ${body.modalidad === 'alquiler' ? 'cotizacion de alquiler' : 'cotizacion'} PARMONCA${body.producto ? ` - ${body.producto.marca} ${body.producto.modelo}` : ''} esta lista`,
       html: emailHTML,
     });
 
@@ -214,7 +257,7 @@ export async function POST(request: NextRequest) {
     await resend.emails.send({
       from: 'PARMONCA CRM <onboarding@resend.dev>',
       to: ['malave.acacio@gmail.com'],
-      subject: `Nueva cotizacion: ${body.nombre}${body.producto ? ` - ${body.producto.marca} ${body.producto.modelo}` : ''} ($${body.total.toLocaleString()})`,
+      subject: `[${modalidadLabel}] Nueva cotizacion: ${body.nombre}${body.producto ? ` - ${body.producto.marca} ${body.producto.modelo}` : ''} ($${body.total.toLocaleString()})`,
       html: emailHTML,
     });
 

@@ -4,8 +4,8 @@ import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Check, Send, User, Building2, MapPin, Phone, Mail, Zap, Package, Shield } from 'lucide-react';
-import { storeProducts, accesorios } from '@/lib/store-data';
+import { ArrowLeft, Check, Send, User, Building2, MapPin, Phone, Mail, Zap, Package, Shield, Factory, Hash, DollarSign, CreditCard, FileText } from 'lucide-react';
+import { storeProducts, accesorios, periodoLabels, industriaOptions, type Modalidad, type PeriodoAlquiler } from '@/lib/store-data';
 import { formatCurrency, cn } from '@/lib/utils';
 
 function CotizarContent() {
@@ -13,23 +13,38 @@ function CotizarContent() {
   const productoSlug = searchParams.get('producto');
   const accIds = searchParams.get('accesorios')?.split(',').filter(Boolean) || [];
   const cantidadParam = parseInt(searchParams.get('cantidad') || '1');
+  const modalidadParam = (searchParams.get('modalidad') as Modalidad) || 'venta';
+  const periodoParam = (searchParams.get('periodo') as PeriodoAlquiler) || 'mensual';
 
   const product = productoSlug ? storeProducts.find(p => p.slug === productoSlug) : null;
   const selectedAccesorios = accesorios.filter(a => accIds.includes(a.id));
   const cantidad = cantidadParam || 1;
 
   const precioAccesorios = selectedAccesorios.reduce((s, a) => s + a.precio, 0);
-  const precioUnitario = (product?.precioDesde || 0) + precioAccesorios;
+  const precioBase = modalidadParam === 'alquiler' && product
+    ? product.preciosAlquiler[periodoParam]
+    : (product?.precioDesde || 0);
+  const precioUnitario = precioBase + (modalidadParam === 'venta' ? precioAccesorios : 0);
   const subtotal = precioUnitario * cantidad;
-  const impuesto = subtotal * 0.07;
+  const impuesto = modalidadParam === 'venta' ? subtotal * 0.07 : 0;
   const total = subtotal + impuesto;
 
+  // Contact fields
   const [nombre, setNombre] = useState('');
   const [empresa, setEmpresa] = useState('');
   const [email, setEmail] = useState('');
   const [telefono, setTelefono] = useState('');
   const [pais, setPais] = useState('');
+  const [ciudad, setCiudad] = useState('');
   const [mensaje, setMensaje] = useState('');
+
+  // New context fields
+  const [industria, setIndustria] = useState('');
+  const [tamanoFlota, setTamanoFlota] = useState('');
+  const [presupuesto, setPresupuesto] = useState('');
+  const [financiamiento, setFinanciamiento] = useState<'si' | 'no' | ''>('');
+  const [ruc, setRuc] = useState('');
+
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
@@ -42,12 +57,15 @@ function CotizarContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nombre, empresa, email, telefono, pais, mensaje,
+          nombre, empresa, email, telefono, pais, ciudad, mensaje,
+          industria, tamanoFlota, presupuesto, financiamiento, ruc,
+          modalidad: modalidadParam,
+          periodo: modalidadParam === 'alquiler' ? periodoParam : null,
           producto: product ? {
             modelo: product.modelo,
             marca: product.marca,
             categoria: product.categoriaLabel,
-            precio: product.precioDesde,
+            precio: precioBase,
             imagen: product.imagen,
           } : null,
           accesorios: selectedAccesorios.map(a => ({ nombre: a.nombre, precio: a.precio })),
@@ -78,6 +96,11 @@ function CotizarContent() {
   const [showContactModal, setShowContactModal] = useState(false);
   const [scheduledSlot, setScheduledSlot] = useState('');
 
+  // WhatsApp message
+  const whatsappMsg = encodeURIComponent(
+    `Hola PARMONCA, acabo de enviar una cotización por el ${product ? `${product.marca} ${product.modelo}` : 'equipo'} (${modalidadParam === 'alquiler' ? 'alquiler' : 'compra'}). Me gustaría más información.`
+  );
+
   if (sent) {
     return (
       <div className="max-w-2xl mx-auto py-12 px-4">
@@ -97,7 +120,9 @@ function CotizarContent() {
             <div className="flex-1">
               <p className="text-[10px] text-[#E8821C] font-bold uppercase tracking-wider">{product.marca}</p>
               <p className="text-[14px] font-semibold text-[var(--color-text-primary)]">{product.modelo}</p>
-              <p className="text-[11px] text-[var(--color-text-secondary)]">{cantidad} und. · {selectedAccesorios.length} accesorios</p>
+              <p className="text-[11px] text-[var(--color-text-secondary)]">
+                {modalidadParam === 'alquiler' ? `Alquiler/${periodoLabels[periodoParam]}` : 'Compra'} · {cantidad} und. · {selectedAccesorios.length} accesorios
+              </p>
             </div>
             <p className="font-num text-xl font-bold text-[#E8821C]">{formatCurrency(total)}</p>
           </div>
@@ -170,10 +195,15 @@ function CotizarContent() {
 
         {/* CTA */}
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+          <a href={`https://wa.me/50760000000?text=${whatsappMsg}`} target="_blank" rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 h-11 px-6 bg-[#25D366] text-white font-semibold rounded-full hover:bg-[#20BD5C] transition-all active:scale-[0.97]">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            Escribir por WhatsApp
+          </a>
           <button onClick={() => setShowContactModal(true)}
             className="flex items-center justify-center gap-2 h-11 px-6 bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white font-semibold rounded-full hover:shadow-[0_0_25px_#E8821C40] transition-all active:scale-[0.97]">
             <Phone size={15} />
-            Contactar ahora
+            Agendar llamada
           </button>
           <Link href="/productos"
             className="flex items-center justify-center gap-2 h-11 px-6 border border-[var(--color-border)] text-[var(--color-text-secondary)] font-medium rounded-full hover:bg-[var(--color-surface-hover)] transition-all">
@@ -195,55 +225,33 @@ function CotizarContent() {
                       </div>
                       <h3 className="text-[17px] font-semibold text-[var(--color-text-primary)] tracking-tight">Agenda tu llamada</h3>
                       <p className="text-[13px] text-[var(--color-text-secondary)] mt-1.5 leading-relaxed">
-                        Nuestros asesores no están disponibles en este momento
+                        Elige un horario conveniente para ti
                       </p>
                     </div>
-
                     <div className="h-px bg-[var(--color-border)] mx-5" />
-
                     <div className="px-5 py-3">
                       <p className="text-[11px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-2 px-1">Elige un horario</p>
-
-                      <button onClick={() => setScheduledSlot(`${callDay} ${callDate} a las 10:00 AM`)}
-                        className="w-full flex items-center gap-3 px-4 py-3 rounded-[12px] hover:bg-[var(--color-surface-hover)] active:bg-[var(--color-surface-glass)] transition-all text-left group">
-                        <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center flex-shrink-0">
-                          <span className="text-[14px]">🌅</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[14px] font-medium text-[var(--color-text-primary)]">{callDay}</p>
-                          <p className="text-[12px] text-[var(--color-text-secondary)]">{callDate}</p>
-                        </div>
-                        <span className="font-num text-[15px] font-semibold text-[#E8821C]">10 AM</span>
-                      </button>
-
-                      <button onClick={() => setScheduledSlot(`${callDay} ${callDate} a las 3:00 PM`)}
-                        className="w-full flex items-center gap-3 px-4 py-3 rounded-[12px] hover:bg-[var(--color-surface-hover)] active:bg-[var(--color-surface-glass)] transition-all text-left group">
-                        <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-                          <span className="text-[14px]">☀️</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[14px] font-medium text-[var(--color-text-primary)]">{callDay}</p>
-                          <p className="text-[12px] text-[var(--color-text-secondary)]">{callDate}</p>
-                        </div>
-                        <span className="font-num text-[15px] font-semibold text-[#E8821C]">3 PM</span>
-                      </button>
-
-                      <button onClick={() => setScheduledSlot(`${opt2Day} ${opt2Date} a las 10:00 AM`)}
-                        className="w-full flex items-center gap-3 px-4 py-3 rounded-[12px] hover:bg-[var(--color-surface-hover)] active:bg-[var(--color-surface-glass)] transition-all text-left group">
-                        <div className="w-10 h-10 rounded-full bg-violet-500/10 flex items-center justify-center flex-shrink-0">
-                          <span className="text-[14px]">📅</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[14px] font-medium text-[var(--color-text-primary)]">{opt2Day}</p>
-                          <p className="text-[12px] text-[var(--color-text-secondary)]">{opt2Date}</p>
-                        </div>
-                        <span className="font-num text-[15px] font-semibold text-[#E8821C]">10 AM</span>
-                      </button>
+                      {[
+                        { slot: `${callDay} ${callDate} a las 10:00 AM`, label: callDay, sub: callDate, time: '10 AM', color: 'blue' },
+                        { slot: `${callDay} ${callDate} a las 3:00 PM`, label: callDay, sub: callDate, time: '3 PM', color: 'amber' },
+                        { slot: `${opt2Day} ${opt2Date} a las 10:00 AM`, label: opt2Day, sub: opt2Date, time: '10 AM', color: 'violet' },
+                      ].map((o, i) => (
+                        <button key={i} onClick={() => setScheduledSlot(o.slot)}
+                          className="w-full flex items-center gap-3 px-4 py-3 rounded-[12px] hover:bg-[var(--color-surface-hover)] active:bg-[var(--color-surface-glass)] transition-all text-left">
+                          <div className={`w-10 h-10 rounded-full bg-${o.color}-500/10 flex items-center justify-center flex-shrink-0`}>
+                            <span className="text-[14px]">{i === 0 ? '🌅' : i === 1 ? '☀️' : '📅'}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[14px] font-medium text-[var(--color-text-primary)]">{o.label}</p>
+                            <p className="text-[12px] text-[var(--color-text-secondary)]">{o.sub}</p>
+                          </div>
+                          <span className="font-num text-[15px] font-semibold text-[#E8821C]">{o.time}</span>
+                        </button>
+                      ))}
                     </div>
-
                     <div className="h-px bg-[var(--color-border)]" />
                     <button onClick={() => setShowContactModal(false)}
-                      className="w-full py-4 text-[15px] font-medium text-[#E8821C] hover:bg-[var(--color-surface-hover)] active:bg-[var(--color-surface-glass)] transition-colors">
+                      className="w-full py-4 text-[15px] font-medium text-[#E8821C] hover:bg-[var(--color-surface-hover)] transition-colors">
                       Cancelar
                     </button>
                   </>
@@ -253,11 +261,8 @@ function CotizarContent() {
                       <Check size={30} className="text-emerald-400" />
                     </div>
                     <h3 className="text-[17px] font-semibold text-[var(--color-text-primary)]">Llamada agendada</h3>
-                    <p className="text-[14px] text-[var(--color-text-secondary)] mt-2">
-                      {scheduledSlot}
-                    </p>
+                    <p className="text-[14px] text-[var(--color-text-secondary)] mt-2">{scheduledSlot}</p>
                     <p className="text-[12px] text-[var(--color-text-muted)] mt-1">Recibirás un recordatorio</p>
-
                     <div className="h-px bg-[var(--color-border)] mt-6" />
                     <button onClick={() => setShowContactModal(false)}
                       className="w-full pt-4 text-[15px] font-medium text-[#E8821C] hover:opacity-80 transition-opacity">
@@ -290,56 +295,144 @@ function CotizarContent() {
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Form */}
-        <div className="lg:col-span-3 glass rounded-2xl p-6">
-          <h2 className="text-[13px] font-semibold text-[var(--color-text-secondary)] mb-5 flex items-center gap-2">
-            <User size={14} className="text-[#E8821C]" /> Tus Datos
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {[
-              { label: 'Nombre completo', value: nombre, set: setNombre, icon: User, placeholder: 'Tu nombre', full: false },
-              { label: 'Empresa', value: empresa, set: setEmpresa, icon: Building2, placeholder: 'Nombre de tu empresa', full: false },
-              { label: 'Email', value: email, set: setEmail, icon: Mail, placeholder: 'tu@empresa.com', full: false },
-              { label: 'Teléfono', value: telefono, set: setTelefono, icon: Phone, placeholder: '+507 6000-0000', full: false },
-            ].map((f) => {
-              const Icon = f.icon;
-              return (
-                <div key={f.label} className={f.full ? 'sm:col-span-2' : ''}>
-                  <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">{f.label}</label>
-                  <div className="relative">
-                    <Icon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-                    <input type="text" value={f.value} onChange={(e) => f.set(e.target.value)} placeholder={f.placeholder}
-                      className="w-full h-10 pl-9 pr-3 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/30 transition-all" />
+        <div className="lg:col-span-3 space-y-6">
+          {/* Contact info */}
+          <div className="glass rounded-2xl p-6">
+            <h2 className="text-[13px] font-semibold text-[var(--color-text-secondary)] mb-5 flex items-center gap-2">
+              <User size={14} className="text-[#E8821C]" /> Datos de Contacto
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[
+                { label: 'Nombre completo *', value: nombre, set: setNombre, icon: User, placeholder: 'Tu nombre' },
+                { label: 'Empresa', value: empresa, set: setEmpresa, icon: Building2, placeholder: 'Nombre de tu empresa' },
+                { label: 'Email *', value: email, set: setEmail, icon: Mail, placeholder: 'tu@empresa.com' },
+                { label: 'Teléfono *', value: telefono, set: setTelefono, icon: Phone, placeholder: '+507 6000-0000' },
+              ].map((f) => {
+                const Icon = f.icon;
+                return (
+                  <div key={f.label}>
+                    <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">{f.label}</label>
+                    <div className="relative">
+                      <Icon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+                      <input type="text" value={f.value} onChange={(e) => f.set(e.target.value)} placeholder={f.placeholder}
+                        className="w-full h-10 pl-9 pr-3 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/30 transition-all" />
+                    </div>
                   </div>
+                );
+              })}
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">País</label>
+                <div className="relative">
+                  <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+                  <select value={pais} onChange={(e) => setPais(e.target.value)}
+                    className="w-full h-10 pl-9 pr-3 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] focus:outline-none focus:border-[#E8821C]/30 appearance-none">
+                    <option value="">Seleccionar</option>
+                    {['Panama', 'Costa Rica', 'Venezuela', 'Guatemala', 'Honduras', 'Nicaragua', 'Haiti', 'Otro'].map(p => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
                 </div>
-              );
-            })}
-            <div>
-              <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">Pais</label>
-              <div className="relative">
-                <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-                <select value={pais} onChange={(e) => setPais(e.target.value)}
-                  className="w-full h-10 pl-9 pr-3 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] focus:outline-none focus:border-[#E8821C]/30 appearance-none">
-                  <option value="">Seleccionar</option>
-                  {['Panama', 'Costa Rica', 'Venezuela', 'Guatemala', 'Honduras', 'Nicaragua', 'Haiti', 'Otro'].map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">Ciudad / Zona</label>
+                <div className="relative">
+                  <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+                  <input type="text" value={ciudad} onChange={(e) => setCiudad(e.target.value)} placeholder="Ciudad de operación"
+                    className="w-full h-10 pl-9 pr-3 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/30 transition-all" />
+                </div>
               </div>
             </div>
-            <div className="sm:col-span-2">
-              <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">Mensaje (opcional)</label>
-              <textarea value={mensaje} onChange={(e) => setMensaje(e.target.value)} rows={3}
-                placeholder="Necesidades especiales, preguntas, requerimientos..."
-                className="w-full px-3 py-2 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/30 resize-none" />
+          </div>
+
+          {/* Business context */}
+          <div className="glass rounded-2xl p-6">
+            <h2 className="text-[13px] font-semibold text-[var(--color-text-secondary)] mb-5 flex items-center gap-2">
+              <Factory size={14} className="text-[#E8821C]" /> Sobre tu Operación
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">Industria / Sector</label>
+                <div className="relative">
+                  <Factory size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+                  <select value={industria} onChange={(e) => setIndustria(e.target.value)}
+                    className="w-full h-10 pl-9 pr-3 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] focus:outline-none focus:border-[#E8821C]/30 appearance-none">
+                    <option value="">Seleccionar</option>
+                    {industriaOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">Flota actual (equipos)</label>
+                <div className="relative">
+                  <Hash size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+                  <select value={tamanoFlota} onChange={(e) => setTamanoFlota(e.target.value)}
+                    className="w-full h-10 pl-9 pr-3 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] focus:outline-none focus:border-[#E8821C]/30 appearance-none">
+                    <option value="">Seleccionar</option>
+                    <option value="0">Sin equipos (primera compra)</option>
+                    <option value="1-3">1 - 3 equipos</option>
+                    <option value="4-10">4 - 10 equipos</option>
+                    <option value="10+">Más de 10 equipos</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">Presupuesto aproximado</label>
+                <div className="relative">
+                  <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+                  <select value={presupuesto} onChange={(e) => setPresupuesto(e.target.value)}
+                    className="w-full h-10 pl-9 pr-3 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] focus:outline-none focus:border-[#E8821C]/30 appearance-none">
+                    <option value="">Seleccionar</option>
+                    <option value="<10k">Menos de $10,000</option>
+                    <option value="10k-25k">$10,000 - $25,000</option>
+                    <option value="25k-50k">$25,000 - $50,000</option>
+                    <option value="50k+">Más de $50,000</option>
+                    <option value="flexible">Flexible / Por definir</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">¿Necesita financiamiento?</label>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'si' as const, label: 'Sí' },
+                    { value: 'no' as const, label: 'No' },
+                  ].map(opt => (
+                    <button key={opt.value} onClick={() => setFinanciamiento(opt.value)}
+                      className={cn(
+                        'flex-1 h-10 rounded-lg text-[13px] font-medium border transition-all flex items-center justify-center gap-1.5',
+                        financiamiento === opt.value
+                          ? 'bg-[#E8821C]/15 text-[#E8821C] border-[#E8821C]/30'
+                          : 'bg-[var(--color-surface-glass)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-[var(--color-surface-hover)]'
+                      )}>
+                      <CreditCard size={13} />
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">RUC / NIT (opcional, acelera el proceso)</label>
+                <div className="relative">
+                  <FileText size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+                  <input type="text" value={ruc} onChange={(e) => setRuc(e.target.value)} placeholder="Número de identificación fiscal"
+                    className="w-full h-10 pl-9 pr-3 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/30 transition-all" />
+                </div>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">Mensaje (opcional)</label>
+                <textarea value={mensaje} onChange={(e) => setMensaje(e.target.value)} rows={3}
+                  placeholder="Necesidades especiales, preguntas, requerimientos..."
+                  className="w-full px-3 py-2 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/30 resize-none" />
+              </div>
             </div>
           </div>
 
           {error && (
-            <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-[13px] text-red-400">{error}</div>
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-[13px] text-red-400">{error}</div>
           )}
           <button onClick={handleSubmit}
             disabled={!nombre || !email || !telefono || sending}
-            className="w-full mt-6 h-12 bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white font-semibold rounded-xl hover:shadow-[0_0_30px_#E8821C40] transition-all active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 group">
+            className="w-full h-12 bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white font-semibold rounded-xl hover:shadow-[0_0_30px_#E8821C40] transition-all active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 group">
             {sending ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
@@ -359,6 +452,20 @@ function CotizarContent() {
               <Package size={14} className="text-[#E8821C]" /> Tu Configuración
             </h2>
 
+            {/* Modalidad badge */}
+            {product && (
+              <div className="mb-3">
+                <span className={cn(
+                  'px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider',
+                  modalidadParam === 'alquiler'
+                    ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                    : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                )}>
+                  {modalidadParam === 'alquiler' ? `Alquiler / ${periodoLabels[periodoParam]}` : 'Compra'}
+                </span>
+              </div>
+            )}
+
             {product ? (
               <>
                 <div className="flex items-center gap-3 pb-4 border-b border-[var(--color-border)]">
@@ -372,7 +479,7 @@ function CotizarContent() {
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] text-[var(--color-text-muted)]">x{cantidad}</p>
-                    <p className="font-num text-[14px] font-bold text-[var(--color-text-primary)]">{formatCurrency(product.precioDesde * cantidad)}</p>
+                    <p className="font-num text-[14px] font-bold text-[var(--color-text-primary)]">{formatCurrency(precioBase * cantidad)}</p>
                   </div>
                 </div>
 
@@ -397,12 +504,16 @@ function CotizarContent() {
                     <span className="text-[var(--color-text-secondary)]">Subtotal</span>
                     <span className="font-num text-[var(--color-text-secondary)]">{formatCurrency(subtotal)}</span>
                   </div>
-                  <div className="flex justify-between text-[13px]">
-                    <span className="text-[var(--color-text-secondary)]">Impuesto (7%)</span>
-                    <span className="font-num text-[var(--color-text-secondary)]">{formatCurrency(impuesto)}</span>
-                  </div>
+                  {modalidadParam === 'venta' && (
+                    <div className="flex justify-between text-[13px]">
+                      <span className="text-[var(--color-text-secondary)]">Impuesto (7%)</span>
+                      <span className="font-num text-[var(--color-text-secondary)]">{formatCurrency(impuesto)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between pt-2 border-t border-[var(--color-border)]">
-                    <span className="text-[var(--color-text-primary)] font-semibold">Total Estimado</span>
+                    <span className="text-[var(--color-text-primary)] font-semibold">
+                      {modalidadParam === 'alquiler' ? `Total/${periodoLabels[periodoParam]}` : 'Total Estimado'}
+                    </span>
                     <span className="font-num text-xl font-bold text-[#E8821C] text-glow">{formatCurrency(total)}</span>
                   </div>
                 </div>
