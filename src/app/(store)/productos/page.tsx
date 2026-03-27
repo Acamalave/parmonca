@@ -336,12 +336,12 @@ export default function ProductosPage() {
               )}
 
               {/* Image */}
-              <div className="relative aspect-square bg-[var(--color-surface-elevated)] flex items-center justify-center overflow-hidden rounded-t-2xl p-8">
+              <div className="relative aspect-[3/4] bg-[var(--color-surface-elevated)] flex items-center justify-center rounded-t-2xl p-4">
                 <Image
                   src={product.imagen}
                   alt={`${product.marca} ${product.modelo}`}
                   width={400}
-                  height={400}
+                  height={500}
                   className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-700"
                 />
               </div>
