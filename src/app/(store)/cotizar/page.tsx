@@ -1,25 +1,267 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Check, Send, User, Building2, MapPin, Phone, Mail, Zap, Package, Shield, Factory, Hash, DollarSign, CreditCard, FileText } from 'lucide-react';
-import { storeProducts, accesorios, periodoLabels, industriaOptions, type Modalidad, type PeriodoAlquiler } from '@/lib/store-data';
+import {
+  ArrowLeft, Check, Send, Zap, Package,
+  Factory, Warehouse, Truck, Wheat, Stethoscope, Store, HardHat, Box,
+  Sun, Trees, Shuffle,
+  Clock, CalendarDays, Infinity as InfinityIcon,
+  Calendar, Search,
+  UserPlus, Users, Building2, Briefcase,
+  DollarSign, Banknote, Wallet, Coins,
+  CreditCard, Handshake,
+  Sparkles, ShieldCheck, Wrench, Cpu, Hash, MapPin, Phone, Mail, User, FileText, MessageSquare,
+} from 'lucide-react';
+import {
+  storeProducts, accesorios as allAccesorios, periodoLabels,
+  type Modalidad, type PeriodoAlquiler,
+} from '@/lib/store-data';
 import { formatCurrency, cn } from '@/lib/utils';
+
+// ────────────────────────────────────────────────────────────────────────────
+// Wizard configuration
+// ────────────────────────────────────────────────────────────────────────────
+
+type StepId =
+  | 'industria'
+  | 'operacion'
+  | 'frecuencia'
+  | 'plazo'
+  | 'flota'
+  | 'presupuesto'
+  | 'financiamiento'
+  | 'accesorios'
+  | 'contacto'
+  | 'confirmar';
+
+const STEP_ORDER: StepId[] = [
+  'industria', 'operacion', 'frecuencia', 'plazo',
+  'flota', 'presupuesto', 'financiamiento',
+  'accesorios', 'contacto', 'confirmar',
+];
+
+type OptionCard = {
+  value: string;
+  title: string;
+  subtitle?: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+};
+
+const INDUSTRIAS: OptionCard[] = [
+  { value: 'almacen', title: 'Almacén / Distribución', subtitle: 'Pallets, racks, carga y descarga', icon: Warehouse },
+  { value: 'manufactura', title: 'Manufactura', subtitle: 'Producción, línea de ensamble', icon: Factory },
+  { value: 'construccion', title: 'Construcción', subtitle: 'Obras, materiales pesados', icon: HardHat },
+  { value: 'logistica', title: 'Logística / Transporte', subtitle: 'Puertos, cross-docking', icon: Truck },
+  { value: 'retail', title: 'Retail / Comercio', subtitle: 'Supermercado, tienda', icon: Store },
+  { value: 'agricola', title: 'Agrícola', subtitle: 'Silos, cosecha, almacenamiento', icon: Wheat },
+  { value: 'farmaceutica', title: 'Farmacéutica', subtitle: 'Cold-chain, sala limpia', icon: Stethoscope },
+  { value: 'otro', title: 'Otro', subtitle: 'Cuéntanos en el resumen', icon: Box },
+];
+
+const OPERACIONES: OptionCard[] = [
+  { value: 'interior', title: 'Interior', subtitle: 'Almacén techado, nave cerrada', icon: Warehouse },
+  { value: 'exterior', title: 'Exterior', subtitle: 'Patio, obra, intemperie', icon: Trees },
+  { value: 'mixto', title: 'Mixto', subtitle: 'Entra y sale todo el día', icon: Shuffle },
+];
+
+const FRECUENCIAS: OptionCard[] = [
+  { value: 'ocasional', title: 'Ocasional', subtitle: 'Pocas horas por semana', icon: Clock },
+  { value: 'turno-completo', title: 'Turno completo', subtitle: '8 horas al día', icon: Sun },
+  { value: '24-7', title: 'Continuo', subtitle: 'Multiturno 24/7', icon: InfinityIcon },
+];
+
+const PLAZOS: OptionCard[] = [
+  { value: 'inmediato', title: 'Lo necesito ya', subtitle: 'Esta semana', icon: Zap },
+  { value: '1-2-semanas', title: 'Próximas 2 semanas', subtitle: 'Coordinando compra', icon: CalendarDays },
+  { value: 'planificando', title: 'Estoy planificando', subtitle: 'Próximo mes o más', icon: Calendar },
+  { value: 'explorando', title: 'Solo investigando', subtitle: 'Comparando opciones', icon: Search },
+];
+
+const FLOTAS: OptionCard[] = [
+  { value: '0', title: 'Ninguno todavía', subtitle: 'Primera adquisición', icon: UserPlus },
+  { value: '1-3', title: '1 a 3 equipos', subtitle: 'Flota pequeña', icon: Users },
+  { value: '4-10', title: '4 a 10 equipos', subtitle: 'Flota mediana', icon: Briefcase },
+  { value: '10+', title: 'Más de 10', subtitle: 'Flota corporativa', icon: Building2 },
+];
+
+const PRESUPUESTOS: OptionCard[] = [
+  { value: '<10k', title: 'Menos de $10K', subtitle: 'Equipo compacto', icon: Coins },
+  { value: '10k-25k', title: '$10K – $25K', subtitle: 'Rango estándar', icon: DollarSign },
+  { value: '25k-50k', title: '$25K – $50K', subtitle: 'Capacidad industrial', icon: Banknote },
+  { value: '50k+', title: 'Más de $50K', subtitle: 'Flota completa', icon: Wallet },
+  { value: 'flexible', title: 'Flexible', subtitle: 'Muéstrame opciones', icon: Sparkles },
+];
+
+const FINANCIAMIENTOS: OptionCard[] = [
+  { value: 'no', title: 'Pago contado', subtitle: 'Compra directa', icon: CreditCard },
+  { value: 'si', title: 'Necesito financiamiento', subtitle: 'Plazos, leasing', icon: Handshake },
+];
+
+const CATEGORIA_ACC_ICON: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+  seguridad: ShieldCheck,
+  productividad: Wrench,
+  proteccion: HardHat,
+  tecnologia: Cpu,
+};
+
+// ────────────────────────────────────────────────────────────────────────────
+// UI primitives
+// ────────────────────────────────────────────────────────────────────────────
+
+function ProgressBar({ current, total }: { current: number; total: number }) {
+  const pct = Math.round(((current + 1) / total) * 100);
+  return (
+    <div className="w-full">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-muted)]">
+          Paso {current + 1} de {total}
+        </p>
+        <p className="text-[10px] font-semibold text-[#E8821C]">{pct}%</p>
+      </div>
+      <div className="h-1 bg-[var(--color-surface-glass)] rounded-full overflow-hidden">
+        <div
+          className="h-full bg-gradient-to-r from-[#E8821C] to-[#C96A10] transition-all duration-500 ease-out"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function OptionGrid({
+  options,
+  value,
+  onSelect,
+  columns = 2,
+}: {
+  options: OptionCard[];
+  value: string | null;
+  onSelect: (v: string) => void;
+  columns?: 2 | 3 | 4;
+}) {
+  const colsClass = columns === 4 ? 'sm:grid-cols-4' : columns === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2';
+  return (
+    <div className={cn('grid grid-cols-1 gap-3', colsClass)}>
+      {options.map((opt) => {
+        const Icon = opt.icon;
+        const selected = value === opt.value;
+        return (
+          <button
+            key={opt.value}
+            onClick={() => onSelect(opt.value)}
+            className={cn(
+              'group relative flex items-start gap-3 p-4 rounded-2xl border text-left transition-all duration-200 active:scale-[0.98]',
+              selected
+                ? 'border-[#E8821C] bg-[#E8821C]/[0.08] shadow-[0_0_20px_rgba(232,130,28,0.15)]'
+                : 'border-[var(--color-border)] bg-[var(--color-surface-glass)] hover:border-[#E8821C]/40 hover:bg-[var(--color-surface-hover)]'
+            )}
+          >
+            <div
+              className={cn(
+                'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors',
+                selected
+                  ? 'bg-gradient-to-br from-[#E8821C] to-[#C96A10] text-white'
+                  : 'bg-[var(--color-surface-elevated)] text-[#E8821C] group-hover:bg-[#E8821C]/10'
+              )}
+            >
+              <Icon size={18} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[14px] font-semibold text-[var(--color-text-primary)] leading-tight">
+                {opt.title}
+              </p>
+              {opt.subtitle && (
+                <p className="text-[11px] text-[var(--color-text-muted)] mt-1 leading-relaxed">
+                  {opt.subtitle}
+                </p>
+              )}
+            </div>
+            {selected && (
+              <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#E8821C] flex items-center justify-center">
+                <Check size={12} className="text-white" />
+              </div>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function StepHeader({
+  eyebrow,
+  title,
+  subtitle,
+}: {
+  eyebrow: string;
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <div className="mb-6">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#E8821C] mb-2">
+        {eyebrow}
+      </p>
+      <h2 className="font-display text-2xl sm:text-3xl font-bold text-[var(--color-text-primary)] tracking-tight leading-tight">
+        {title}
+      </h2>
+      {subtitle && (
+        <p className="text-[14px] text-[var(--color-text-secondary)] mt-2 max-w-lg">
+          {subtitle}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Main wizard
+// ────────────────────────────────────────────────────────────────────────────
 
 function CotizarContent() {
   const searchParams = useSearchParams();
   const productoSlug = searchParams.get('producto');
-  const accIds = searchParams.get('accesorios')?.split(',').filter(Boolean) || [];
+  const accIdsFromUrl = searchParams.get('accesorios')?.split(',').filter(Boolean) || [];
   const cantidadParam = parseInt(searchParams.get('cantidad') || '1');
   const modalidadParam = (searchParams.get('modalidad') as Modalidad) || 'venta';
   const periodoParam = (searchParams.get('periodo') as PeriodoAlquiler) || 'mensual';
 
   const product = productoSlug ? storeProducts.find(p => p.slug === productoSlug) : null;
-  const selectedAccesorios = accesorios.filter(a => accIds.includes(a.id));
   const cantidad = cantidadParam || 1;
 
+  // ── Wizard state ──
+  const [stepIndex, setStepIndex] = useState(0);
+  const [industria, setIndustria] = useState<string | null>(null);
+  const [operacion, setOperacion] = useState<string | null>(null);
+  const [frecuencia, setFrecuencia] = useState<string | null>(null);
+  const [plazo, setPlazo] = useState<string | null>(null);
+  const [tamanoFlota, setTamanoFlota] = useState<string | null>(null);
+  const [presupuesto, setPresupuesto] = useState<string | null>(null);
+  const [financiamiento, setFinanciamiento] = useState<string | null>(null);
+  const [accesoriosIds, setAccesoriosIds] = useState<string[]>(accIdsFromUrl);
+  const [accCategoria, setAccCategoria] = useState<string>('todas');
+
+  // Contact
+  const [nombre, setNombre] = useState('');
+  const [empresa, setEmpresa] = useState('');
+  const [email, setEmail] = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [pais, setPais] = useState('Panamá');
+  const [ciudad, setCiudad] = useState('');
+  const [ruc, setRuc] = useState('');
+  const [mensaje, setMensaje] = useState('');
+
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState('');
+
+  const currentStep = STEP_ORDER[stepIndex];
+
+  // ── Precios calculados ──
+  const selectedAccesorios = allAccesorios.filter(a => accesoriosIds.includes(a.id));
   const precioAccesorios = selectedAccesorios.reduce((s, a) => s + a.precio, 0);
   const precioBase = modalidadParam === 'alquiler' && product
     ? product.preciosAlquiler[periodoParam]
@@ -29,26 +271,37 @@ function CotizarContent() {
   const impuesto = modalidadParam === 'venta' ? subtotal * 0.07 : 0;
   const total = subtotal + impuesto;
 
-  // Contact fields
-  const [nombre, setNombre] = useState('');
-  const [empresa, setEmpresa] = useState('');
-  const [email, setEmail] = useState('');
-  const [telefono, setTelefono] = useState('');
-  const [pais, setPais] = useState('');
-  const [ciudad, setCiudad] = useState('');
-  const [mensaje, setMensaje] = useState('');
+  // ── Step navigation ──
+  const goNext = () => setStepIndex(i => Math.min(i + 1, STEP_ORDER.length - 1));
+  const goBack = () => setStepIndex(i => Math.max(i - 1, 0));
+  const jumpTo = (id: StepId) => {
+    const idx = STEP_ORDER.indexOf(id);
+    if (idx >= 0) setStepIndex(idx);
+  };
 
-  // New context fields
-  const [industria, setIndustria] = useState('');
-  const [tamanoFlota, setTamanoFlota] = useState('');
-  const [presupuesto, setPresupuesto] = useState('');
-  const [financiamiento, setFinanciamiento] = useState<'si' | 'no' | ''>('');
-  const [ruc, setRuc] = useState('');
+  // Auto-advance helper: selecting a single-choice option advances after a brief delay
+  const autoAdvance = (setter: (v: string) => void) => (v: string) => {
+    setter(v);
+    setTimeout(() => goNext(), 250);
+  };
 
-  const [sent, setSent] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState('');
+  // Can advance check for required steps
+  const canAdvance = useMemo(() => {
+    switch (currentStep) {
+      case 'industria': return !!industria;
+      case 'operacion': return !!operacion;
+      case 'frecuencia': return !!frecuencia;
+      case 'plazo': return !!plazo;
+      case 'flota': return !!tamanoFlota;
+      case 'presupuesto': return !!presupuesto;
+      case 'financiamiento': return !!financiamiento;
+      case 'accesorios': return true; // optional
+      case 'contacto': return !!nombre && !!email && !!telefono && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      default: return true;
+    }
+  }, [currentStep, industria, operacion, frecuencia, plazo, tamanoFlota, presupuesto, financiamiento, nombre, email, telefono]);
 
+  // ── Submit ──
   const handleSubmit = async () => {
     setSending(true);
     setError('');
@@ -81,39 +334,25 @@ function CotizarContent() {
     }
   };
 
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-  const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-  const callDay = dayNames[tomorrow.getDay()];
-  const callDate = `${tomorrow.getDate()} de ${monthNames[tomorrow.getMonth()]}`;
-
-  const opt2 = new Date(tomorrow);
-  opt2.setDate(opt2.getDate() + 1);
-  const opt2Day = dayNames[opt2.getDay()];
-  const opt2Date = `${opt2.getDate()} de ${monthNames[opt2.getMonth()]}`;
-
-  const [showContactModal, setShowContactModal] = useState(false);
-  const [scheduledSlot, setScheduledSlot] = useState('');
-
-  // WhatsApp message
+  const whatsappNum = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '50760000000').replace(/\D/g, '');
   const whatsappMsg = encodeURIComponent(
-    `Hola PARMONCA, acabo de enviar una cotización por el ${product ? `${product.marca} ${product.modelo}` : 'equipo'} (${modalidadParam === 'alquiler' ? 'alquiler' : 'compra'}). Me gustaría más información.`
+    `Hola PARMONCA, acabo de enviar una cotización por ${product ? `${product.marca} ${product.modelo}` : 'un equipo'} (${modalidadParam === 'alquiler' ? 'alquiler' : 'compra'}). Me gustaría más información.`
   );
 
+  // ────────── Success screen ──────────
   if (sent) {
     return (
       <div className="max-w-2xl mx-auto py-12 px-4">
-        {/* Success header */}
         <div className="text-center mb-10">
           <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-5">
             <Check size={32} className="text-emerald-400" />
           </div>
           <h1 className="font-display text-2xl font-bold text-[var(--color-text-primary)]">¡Cotización enviada!</h1>
-          <p className="text-[var(--color-text-secondary)] text-[14px] mt-2">Tu solicitud fue recibida. Esto es lo que sigue:</p>
+          <p className="text-[var(--color-text-secondary)] text-[14px] mt-2">
+            Recibimos tu solicitud. Un asesor te contactará en las próximas horas.
+          </p>
         </div>
 
-        {/* Order summary card */}
         {product && (
           <div className="glass rounded-xl p-4 mb-8 flex items-center gap-4">
             <Image src={product.imagenNoBg} alt={product.modelo} width={60} height={60} className="object-contain" />
@@ -121,428 +360,539 @@ function CotizarContent() {
               <p className="text-[10px] text-[#E8821C] font-bold uppercase tracking-wider">{product.marca}</p>
               <p className="text-[14px] font-semibold text-[var(--color-text-primary)]">{product.modelo}</p>
               <p className="text-[11px] text-[var(--color-text-secondary)]">
-                {modalidadParam === 'alquiler' ? `Alquiler/${periodoLabels[periodoParam]}` : 'Compra'} · {cantidad} und. · {selectedAccesorios.length} accesorios
+                {modalidadParam === 'alquiler' ? `Alquiler / ${periodoLabels[periodoParam]}` : 'Compra'} · {cantidad} und. · {selectedAccesorios.length} accesorios
               </p>
             </div>
             <p className="font-num text-xl font-bold text-[#E8821C]">{formatCurrency(total)}</p>
           </div>
         )}
 
-        {/* Timeline */}
-        <div className="space-y-0">
-          <div className="flex gap-4">
-            <div className="flex flex-col items-center">
-              <div className="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
-                <Check size={16} className="text-white" />
-              </div>
-              <div className="w-0.5 h-full bg-emerald-500/30 my-1" />
-            </div>
-            <div className="pb-6">
-              <p className="text-[13px] font-semibold text-[var(--color-text-primary)]">Cotización recibida</p>
-              <p className="text-[12px] text-[var(--color-text-secondary)] mt-0.5">Tu configuración fue registrada en nuestro sistema</p>
-              <p className="text-[11px] text-emerald-400 mt-1 font-medium">Completado — Ahora</p>
-            </div>
-          </div>
-
-          <div className="flex gap-4">
-            <div className="flex flex-col items-center">
-              <div className="w-9 h-9 rounded-full bg-[#E8821C]/20 border border-[#E8821C]/30 flex items-center justify-center flex-shrink-0">
-                <Mail size={15} className="text-[#E8821C]" />
-              </div>
-              <div className="w-0.5 h-full bg-[var(--color-border)] my-1" />
-            </div>
-            <div className="pb-6">
-              <p className="text-[13px] font-semibold text-[var(--color-text-primary)]">Propuesta en tu correo</p>
-              <p className="text-[12px] text-[var(--color-text-secondary)] mt-0.5">Recibirás un email con el detalle completo de tu cotización y condiciones comerciales</p>
-              <p className="text-[11px] text-[#E8821C] mt-1 font-medium">En camino — Próximos minutos</p>
-            </div>
-          </div>
-
-          <div className="flex gap-4">
-            <div className="flex flex-col items-center">
-              <div className="w-9 h-9 rounded-full bg-[var(--color-surface-hover)] border border-[var(--color-border)] flex items-center justify-center flex-shrink-0">
-                <Phone size={15} className="text-[var(--color-text-secondary)]" />
-              </div>
-              <div className="w-0.5 h-full bg-[var(--color-border)] my-1" />
-            </div>
-            <div className="pb-6">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[13px] font-semibold text-[var(--color-text-primary)]">Llamada con tu asesor</p>
-                  <p className="text-[12px] text-[var(--color-text-secondary)] mt-0.5">
-                    Un especialista te contactará para verificar que el equipo seleccionado se adapta a tu operación y guiarte con el siguiente paso.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--color-surface-hover)] border border-[var(--color-border)]">
-                <span className="text-[12px] font-num font-medium text-[var(--color-text-primary)]">{callDay} {callDate} · 2:00 PM</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex gap-4">
-            <div className="flex flex-col items-center">
-              <div className="w-9 h-9 rounded-full bg-[var(--color-surface-hover)] border border-[var(--color-border)] flex items-center justify-center flex-shrink-0">
-                <Package size={15} className="text-[var(--color-text-muted)]" />
-              </div>
-            </div>
-            <div>
-              <p className="text-[13px] font-semibold text-[var(--color-text-secondary)]">Confirmación y entrega</p>
-              <p className="text-[12px] text-[var(--color-text-muted)] mt-0.5">Cierre de condiciones, financiamiento y coordinación de entrega</p>
-            </div>
-          </div>
-        </div>
-
-        {/* CTA */}
-        <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-          <a href={`https://wa.me/50760000000?text=${whatsappMsg}`} target="_blank" rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 h-11 px-6 bg-[#25D366] text-white font-semibold rounded-full hover:bg-[#20BD5C] transition-all active:scale-[0.97]">
-            <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-            Escribir por WhatsApp
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <a
+            href={`https://wa.me/${whatsappNum}?text=${whatsappMsg}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 h-11 px-6 bg-[#25D366] text-white font-semibold rounded-full hover:bg-[#20BD5C] transition-all active:scale-[0.97]"
+          >
+            <MessageSquare size={15} />
+            Seguir por WhatsApp
           </a>
-          <button onClick={() => setShowContactModal(true)}
-            className="flex items-center justify-center gap-2 h-11 px-6 bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white font-semibold rounded-full hover:shadow-[0_0_25px_#E8821C40] transition-all active:scale-[0.97]">
-            <Phone size={15} />
-            Agendar llamada
-          </button>
-          <Link href="/productos"
-            className="flex items-center justify-center gap-2 h-11 px-6 border border-[var(--color-border)] text-[var(--color-text-secondary)] font-medium rounded-full hover:bg-[var(--color-surface-hover)] transition-all">
+          <Link
+            href="/productos"
+            className="flex items-center justify-center gap-2 h-11 px-6 border border-[var(--color-border)] text-[var(--color-text-secondary)] font-semibold rounded-full hover:bg-[var(--color-surface-hover)] transition-all"
+          >
             Ver más equipos
           </Link>
         </div>
-
-        {/* Contact Modal */}
-        {showContactModal && (
-          <>
-            <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-50" onClick={() => setShowContactModal(false)} />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="w-full max-w-[360px] rounded-[20px] overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.3)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.6)] bg-[var(--color-surface)] border border-[var(--color-border)]">
-                {!scheduledSlot ? (
-                  <>
-                    <div className="px-6 pt-7 pb-5 text-center">
-                      <div className="w-[52px] h-[52px] rounded-full bg-gradient-to-b from-[#E8821C] to-[#C96A10] flex items-center justify-center mx-auto mb-4 shadow-[0_4px_20px_rgba(232,130,28,0.3)]">
-                        <Phone size={22} className="text-white" />
-                      </div>
-                      <h3 className="text-[17px] font-semibold text-[var(--color-text-primary)] tracking-tight">Agenda tu llamada</h3>
-                      <p className="text-[13px] text-[var(--color-text-secondary)] mt-1.5 leading-relaxed">
-                        Elige un horario conveniente para ti
-                      </p>
-                    </div>
-                    <div className="h-px bg-[var(--color-border)] mx-5" />
-                    <div className="px-5 py-3">
-                      <p className="text-[11px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-2 px-1">Elige un horario</p>
-                      {[
-                        { slot: `${callDay} ${callDate} a las 10:00 AM`, label: callDay, sub: callDate, time: '10 AM', color: 'blue' },
-                        { slot: `${callDay} ${callDate} a las 3:00 PM`, label: callDay, sub: callDate, time: '3 PM', color: 'amber' },
-                        { slot: `${opt2Day} ${opt2Date} a las 10:00 AM`, label: opt2Day, sub: opt2Date, time: '10 AM', color: 'violet' },
-                      ].map((o, i) => (
-                        <button key={i} onClick={() => setScheduledSlot(o.slot)}
-                          className="w-full flex items-center gap-3 px-4 py-3 rounded-[12px] hover:bg-[var(--color-surface-hover)] active:bg-[var(--color-surface-glass)] transition-all text-left">
-                          <div className={`w-10 h-10 rounded-full bg-${o.color}-500/10 flex items-center justify-center flex-shrink-0`}>
-                            <span className="text-[14px]">{i === 0 ? '🌅' : i === 1 ? '☀️' : '📅'}</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[14px] font-medium text-[var(--color-text-primary)]">{o.label}</p>
-                            <p className="text-[12px] text-[var(--color-text-secondary)]">{o.sub}</p>
-                          </div>
-                          <span className="font-num text-[15px] font-semibold text-[#E8821C]">{o.time}</span>
-                        </button>
-                      ))}
-                    </div>
-                    <div className="h-px bg-[var(--color-border)]" />
-                    <button onClick={() => setShowContactModal(false)}
-                      className="w-full py-4 text-[15px] font-medium text-[#E8821C] hover:bg-[var(--color-surface-hover)] transition-colors">
-                      Cancelar
-                    </button>
-                  </>
-                ) : (
-                  <div className="text-center px-6 py-8">
-                    <div className="w-16 h-16 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto mb-4">
-                      <Check size={30} className="text-emerald-400" />
-                    </div>
-                    <h3 className="text-[17px] font-semibold text-[var(--color-text-primary)]">Llamada agendada</h3>
-                    <p className="text-[14px] text-[var(--color-text-secondary)] mt-2">{scheduledSlot}</p>
-                    <p className="text-[12px] text-[var(--color-text-muted)] mt-1">Recibirás un recordatorio</p>
-                    <div className="h-px bg-[var(--color-border)] mt-6" />
-                    <button onClick={() => setShowContactModal(false)}
-                      className="w-full pt-4 text-[15px] font-medium text-[#E8821C] hover:opacity-80 transition-opacity">
-                      Listo
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </>
-        )}
       </div>
     );
   }
 
-  return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-      <Link href={product ? `/productos/${product.slug}` : '/productos'} className="inline-flex items-center gap-1.5 text-[13px] text-[var(--color-text-secondary)] hover:text-[#E8821C] transition-colors mb-6">
-        <ArrowLeft size={14} />Volver
-      </Link>
+  // ────────── Accesorios filtering ──────────
+  const accFiltered = accCategoria === 'todas'
+    ? allAccesorios
+    : allAccesorios.filter(a => a.categoria === accCategoria);
 
-      <div className="text-center mb-10">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20 mb-4">
-          <Zap size={12} className="text-[#E8821C]" />
-          <span className="text-[11px] font-semibold text-[#E8821C] uppercase tracking-wider">Último paso</span>
-        </div>
-        <h1 className="font-display text-3xl font-bold text-[var(--color-text-primary)] tracking-tight">Solicitar Cotización</h1>
-        <p className="text-[var(--color-text-secondary)] text-[14px] mt-2">Completa tus datos y recibiras una propuesta formal en tu correo</p>
+  const toggleAccesorio = (id: string) => {
+    setAccesoriosIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  // ────────── Confirmation summary rows ──────────
+  const labelOf = (list: OptionCard[], val: string | null) => list.find(o => o.value === val)?.title || '—';
+
+  const summaryRows: { label: string; value: string }[] = [
+    { label: 'Modalidad', value: modalidadParam === 'alquiler' ? `Alquiler / ${periodoLabels[periodoParam]}` : 'Compra directa' },
+    { label: 'Industria', value: labelOf(INDUSTRIAS, industria) },
+    { label: 'Operación', value: labelOf(OPERACIONES, operacion) },
+    { label: 'Frecuencia', value: labelOf(FRECUENCIAS, frecuencia) },
+    { label: 'Plazo', value: labelOf(PLAZOS, plazo) },
+    { label: 'Flota actual', value: labelOf(FLOTAS, tamanoFlota) },
+    { label: 'Presupuesto', value: labelOf(PRESUPUESTOS, presupuesto) },
+    { label: 'Financiamiento', value: labelOf(FINANCIAMIENTOS, financiamiento) },
+  ];
+
+  // ────────── Wizard UI ──────────
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-6">
+      {/* Top bar */}
+      <div className="flex items-center justify-between mb-6">
+        <Link
+          href={product ? `/productos/${product.slug}` : '/productos'}
+          className="inline-flex items-center gap-1.5 text-[13px] text-[var(--color-text-secondary)] hover:text-[#E8821C] transition-colors"
+        >
+          <ArrowLeft size={14} />
+          {product ? 'Volver al producto' : 'Volver al catálogo'}
+        </Link>
+        {product && (
+          <div className="flex items-center gap-2">
+            <Image src={product.imagenNoBg} alt={product.modelo} width={32} height={32} className="object-contain" />
+            <div className="text-right">
+              <p className="text-[9px] text-[#E8821C] font-bold uppercase tracking-wider leading-none">{product.marca}</p>
+              <p className="text-[12px] font-semibold text-[var(--color-text-primary)] leading-tight">{product.modelo}</p>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Form */}
-        <div className="lg:col-span-3 space-y-6">
-          {/* Contact info */}
-          <div className="glass rounded-2xl p-6">
-            <h2 className="text-[13px] font-semibold text-[var(--color-text-secondary)] mb-5 flex items-center gap-2">
-              <User size={14} className="text-[#E8821C]" /> Datos de Contacto
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {[
-                { label: 'Nombre completo *', value: nombre, set: setNombre, icon: User, placeholder: 'Tu nombre' },
-                { label: 'Empresa', value: empresa, set: setEmpresa, icon: Building2, placeholder: 'Nombre de tu empresa' },
-                { label: 'Email *', value: email, set: setEmail, icon: Mail, placeholder: 'tu@empresa.com' },
-                { label: 'Teléfono *', value: telefono, set: setTelefono, icon: Phone, placeholder: '+507 6000-0000' },
-              ].map((f) => {
-                const Icon = f.icon;
+      <div className="mb-8">
+        <ProgressBar current={stepIndex} total={STEP_ORDER.length} />
+      </div>
+
+      {/* Step content */}
+      <div key={currentStep} className="animate-in fade-in duration-300">
+        {currentStep === 'industria' && (
+          <>
+            <StepHeader
+              eyebrow="01. Tu operación"
+              title="¿En qué industria vas a usar el equipo?"
+              subtitle="Esto nos ayuda a recomendarte accesorios y configuraciones adecuadas."
+            />
+            <OptionGrid options={INDUSTRIAS} value={industria} onSelect={autoAdvance(setIndustria)} columns={2} />
+          </>
+        )}
+
+        {currentStep === 'operacion' && (
+          <>
+            <StepHeader
+              eyebrow="02. Ambiente"
+              title="¿Dónde operará el equipo principalmente?"
+              subtitle="Los equipos eléctricos son ideales para interior; los diésel rinden mejor en exterior."
+            />
+            <OptionGrid options={OPERACIONES} value={operacion} onSelect={autoAdvance(setOperacion)} columns={3} />
+          </>
+        )}
+
+        {currentStep === 'frecuencia' && (
+          <>
+            <StepHeader
+              eyebrow="03. Intensidad de uso"
+              title="¿Con qué frecuencia lo usarás?"
+              subtitle="Define la potencia, autonomía de batería y plan de mantenimiento."
+            />
+            <OptionGrid options={FRECUENCIAS} value={frecuencia} onSelect={autoAdvance(setFrecuencia)} columns={3} />
+          </>
+        )}
+
+        {currentStep === 'plazo' && (
+          <>
+            <StepHeader
+              eyebrow="04. Urgencia"
+              title="¿Cuándo lo necesitas?"
+              subtitle="Priorizamos tu cotización según el plazo."
+            />
+            <OptionGrid options={PLAZOS} value={plazo} onSelect={autoAdvance(setPlazo)} columns={2} />
+          </>
+        )}
+
+        {currentStep === 'flota' && (
+          <>
+            <StepHeader
+              eyebrow="05. Tu empresa"
+              title="¿Cuántos equipos operas actualmente?"
+              subtitle="Nos permite ofrecerte descuentos por volumen o flotilla."
+            />
+            <OptionGrid options={FLOTAS} value={tamanoFlota} onSelect={autoAdvance(setTamanoFlota)} columns={2} />
+          </>
+        )}
+
+        {currentStep === 'presupuesto' && (
+          <>
+            <StepHeader
+              eyebrow="06. Inversión"
+              title="¿Cuál es tu presupuesto estimado?"
+              subtitle="Si no estás seguro, elige “Flexible” y te mostramos opciones en distintos rangos."
+            />
+            <OptionGrid options={PRESUPUESTOS} value={presupuesto} onSelect={autoAdvance(setPresupuesto)} columns={2} />
+          </>
+        )}
+
+        {currentStep === 'financiamiento' && (
+          <>
+            <StepHeader
+              eyebrow="07. Forma de pago"
+              title="¿Cómo te gustaría pagar?"
+              subtitle="Trabajamos con bancos aliados y planes de leasing."
+            />
+            <OptionGrid options={FINANCIAMIENTOS} value={financiamiento} onSelect={autoAdvance(setFinanciamiento)} columns={2} />
+          </>
+        )}
+
+        {currentStep === 'accesorios' && (
+          <>
+            <StepHeader
+              eyebrow="08. Accesorios (opcional)"
+              title={product ? `Personaliza tu ${product.modelo}` : 'Agrega accesorios'}
+              subtitle="Selecciona los que necesites. Puedes omitir este paso."
+            />
+
+            {/* Category filter chips */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              <button
+                onClick={() => setAccCategoria('todas')}
+                className={cn(
+                  'px-3 h-8 rounded-full text-[12px] font-semibold transition-all',
+                  accCategoria === 'todas'
+                    ? 'bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white'
+                    : 'bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[#E8821C]/30'
+                )}
+              >
+                Todas
+              </button>
+              {(['seguridad', 'productividad', 'proteccion', 'tecnologia'] as const).map(cat => {
+                const Icon = CATEGORIA_ACC_ICON[cat];
                 return (
-                  <div key={f.label}>
-                    <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">{f.label}</label>
-                    <div className="relative">
-                      <Icon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-                      <input type="text" value={f.value} onChange={(e) => f.set(e.target.value)} placeholder={f.placeholder}
-                        className="w-full h-10 pl-9 pr-3 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/30 transition-all" />
-                    </div>
-                  </div>
+                  <button
+                    key={cat}
+                    onClick={() => setAccCategoria(cat)}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 h-8 rounded-full text-[12px] font-semibold capitalize transition-all',
+                      accCategoria === cat
+                        ? 'bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white'
+                        : 'bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[#E8821C]/30'
+                    )}
+                  >
+                    <Icon size={12} />
+                    {cat}
+                  </button>
                 );
               })}
-              <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">País</label>
-                <div className="relative">
-                  <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-                  <select value={pais} onChange={(e) => setPais(e.target.value)}
-                    className="w-full h-10 pl-9 pr-3 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] focus:outline-none focus:border-[#E8821C]/30 appearance-none">
-                    <option value="">Seleccionar</option>
-                    {['Panama', 'Costa Rica', 'Venezuela', 'Guatemala', 'Honduras', 'Nicaragua', 'Haiti', 'Otro'].map(p => (
-                      <option key={p} value={p}>{p}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">Ciudad / Zona</label>
-                <div className="relative">
-                  <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-                  <input type="text" value={ciudad} onChange={(e) => setCiudad(e.target.value)} placeholder="Ciudad de operación"
-                    className="w-full h-10 pl-9 pr-3 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/30 transition-all" />
-                </div>
-              </div>
             </div>
-          </div>
 
-          {/* Business context */}
-          <div className="glass rounded-2xl p-6">
-            <h2 className="text-[13px] font-semibold text-[var(--color-text-secondary)] mb-5 flex items-center gap-2">
-              <Factory size={14} className="text-[#E8821C]" /> Sobre tu Operación
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">Industria / Sector</label>
-                <div className="relative">
-                  <Factory size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-                  <select value={industria} onChange={(e) => setIndustria(e.target.value)}
-                    className="w-full h-10 pl-9 pr-3 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] focus:outline-none focus:border-[#E8821C]/30 appearance-none">
-                    <option value="">Seleccionar</option>
-                    {industriaOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">Flota actual (equipos)</label>
-                <div className="relative">
-                  <Hash size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-                  <select value={tamanoFlota} onChange={(e) => setTamanoFlota(e.target.value)}
-                    className="w-full h-10 pl-9 pr-3 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] focus:outline-none focus:border-[#E8821C]/30 appearance-none">
-                    <option value="">Seleccionar</option>
-                    <option value="0">Sin equipos (primera compra)</option>
-                    <option value="1-3">1 - 3 equipos</option>
-                    <option value="4-10">4 - 10 equipos</option>
-                    <option value="10+">Más de 10 equipos</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">Presupuesto aproximado</label>
-                <div className="relative">
-                  <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-                  <select value={presupuesto} onChange={(e) => setPresupuesto(e.target.value)}
-                    className="w-full h-10 pl-9 pr-3 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] focus:outline-none focus:border-[#E8821C]/30 appearance-none">
-                    <option value="">Seleccionar</option>
-                    <option value="<10k">Menos de $10,000</option>
-                    <option value="10k-25k">$10,000 - $25,000</option>
-                    <option value="25k-50k">$25,000 - $50,000</option>
-                    <option value="50k+">Más de $50,000</option>
-                    <option value="flexible">Flexible / Por definir</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">¿Necesita financiamiento?</label>
-                <div className="flex gap-2">
-                  {[
-                    { value: 'si' as const, label: 'Sí' },
-                    { value: 'no' as const, label: 'No' },
-                  ].map(opt => (
-                    <button key={opt.value} onClick={() => setFinanciamiento(opt.value)}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+              {accFiltered.map(acc => {
+                const selected = accesoriosIds.includes(acc.id);
+                const Icon = CATEGORIA_ACC_ICON[acc.categoria] || Package;
+                return (
+                  <button
+                    key={acc.id}
+                    onClick={() => toggleAccesorio(acc.id)}
+                    className={cn(
+                      'relative flex items-start gap-3 p-4 rounded-2xl border text-left transition-all active:scale-[0.98]',
+                      selected
+                        ? 'border-[#E8821C] bg-[#E8821C]/[0.08] shadow-[0_0_16px_rgba(232,130,28,0.12)]'
+                        : 'border-[var(--color-border)] bg-[var(--color-surface-glass)] hover:border-[#E8821C]/40'
+                    )}
+                  >
+                    <div
                       className={cn(
-                        'flex-1 h-10 rounded-lg text-[13px] font-medium border transition-all flex items-center justify-center gap-1.5',
-                        financiamiento === opt.value
-                          ? 'bg-[#E8821C]/15 text-[#E8821C] border-[#E8821C]/30'
-                          : 'bg-[var(--color-surface-glass)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-[var(--color-surface-hover)]'
-                      )}>
-                      <CreditCard size={13} />
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
+                        'w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0',
+                        selected
+                          ? 'bg-gradient-to-br from-[#E8821C] to-[#C96A10] text-white'
+                          : 'bg-[var(--color-surface-elevated)] text-[#E8821C]'
+                      )}
+                    >
+                      <Icon size={16} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-[13px] font-semibold text-[var(--color-text-primary)] leading-tight">
+                          {acc.nombre}
+                        </p>
+                        <p className="text-[12px] font-num font-bold text-[#E8821C] whitespace-nowrap">
+                          +{formatCurrency(acc.precio)}
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-[var(--color-text-muted)] mt-1 leading-relaxed">
+                        {acc.descripcion}
+                      </p>
+                    </div>
+                    {selected && (
+                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#E8821C] flex items-center justify-center">
+                        <Check size={12} className="text-white" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {accesoriosIds.length > 0 && (
+              <p className="text-[12px] text-[var(--color-text-secondary)] mb-4">
+                {accesoriosIds.length} {accesoriosIds.length === 1 ? 'accesorio' : 'accesorios'} · +{formatCurrency(precioAccesorios)}
+              </p>
+            )}
+          </>
+        )}
+
+        {currentStep === 'contacto' && (
+          <>
+            <StepHeader
+              eyebrow="09. Tus datos"
+              title="¿Cómo te contactamos?"
+              subtitle="Solo pedimos lo necesario para enviarte la cotización."
+            />
+
+            <div className="space-y-4">
+              {/* Nombre + Empresa */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <FieldInput icon={User} label="Nombre completo*" value={nombre} onChange={setNombre} placeholder="Tu nombre" autoFocus />
+                <FieldInput icon={Building2} label="Empresa" value={empresa} onChange={setEmpresa} placeholder="Nombre de la empresa" />
               </div>
-              <div className="sm:col-span-2">
-                <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">RUC / NIT (opcional, acelera el proceso)</label>
-                <div className="relative">
-                  <FileText size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-                  <input type="text" value={ruc} onChange={(e) => setRuc(e.target.value)} placeholder="Número de identificación fiscal"
-                    className="w-full h-10 pl-9 pr-3 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/30 transition-all" />
-                </div>
+
+              {/* Email + Teléfono */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <FieldInput icon={Mail} type="email" label="Email*" value={email} onChange={setEmail} placeholder="tu@empresa.com" />
+                <FieldInput icon={Phone} label="Teléfono*" value={telefono} onChange={setTelefono} placeholder="+507 6000 0000" />
               </div>
-              <div className="sm:col-span-2">
-                <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">Mensaje (opcional)</label>
-                <textarea value={mensaje} onChange={(e) => setMensaje(e.target.value)} rows={3}
-                  placeholder="Necesidades especiales, preguntas, requerimientos..."
-                  className="w-full px-3 py-2 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/30 resize-none" />
+
+              {/* País + Ciudad */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <FieldSelect
+                  icon={MapPin}
+                  label="País*"
+                  value={pais}
+                  onChange={setPais}
+                  options={['Panamá', 'Costa Rica', 'Venezuela', 'Guatemala', 'Honduras', 'Nicaragua', 'Haití']}
+                />
+                <FieldInput icon={MapPin} label="Ciudad" value={ciudad} onChange={setCiudad} placeholder="Ciudad o zona" />
+              </div>
+
+              {/* RUC opcional */}
+              <FieldInput icon={Hash} label="RUC / NIT (opcional)" value={ruc} onChange={setRuc} placeholder="Para factura fiscal" />
+
+              {/* Mensaje */}
+              <div>
+                <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">
+                  <FileText size={11} className="text-[#E8821C]" />
+                  Notas adicionales
+                </label>
+                <textarea
+                  value={mensaje}
+                  onChange={(e) => setMensaje(e.target.value)}
+                  rows={3}
+                  placeholder="Algo específico que quieras comentarnos..."
+                  className="w-full px-4 py-3 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/40 transition-all resize-none"
+                />
               </div>
             </div>
-          </div>
+          </>
+        )}
 
-          {error && (
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-[13px] text-red-400">{error}</div>
-          )}
-          <button onClick={handleSubmit}
-            disabled={!nombre || !email || !telefono || sending}
-            className="w-full h-12 bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white font-semibold rounded-xl hover:shadow-[0_0_30px_#E8821C40] transition-all active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 group">
-            {sending ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <>
-                <Send size={16} />
-                Enviar Solicitud de Cotización
-                <ArrowLeft size={14} className="rotate-180 group-hover:translate-x-0.5 transition-transform" />
-              </>
-            )}
-          </button>
-        </div>
+        {currentStep === 'confirmar' && (
+          <>
+            <StepHeader
+              eyebrow="10. Último paso"
+              title="Revisa y confirma"
+              subtitle="Así es como llegará tu solicitud a nuestro equipo."
+            />
 
-        {/* Order Summary */}
-        <div className="lg:col-span-2">
-          <div className="glass rounded-2xl p-5 sticky top-20">
-            <h2 className="text-[13px] font-semibold text-[var(--color-text-secondary)] mb-4 flex items-center gap-2">
-              <Package size={14} className="text-[#E8821C]" /> Tu Configuración
-            </h2>
-
-            {/* Modalidad badge */}
+            {/* Producto */}
             {product && (
-              <div className="mb-3">
-                <span className={cn(
-                  'px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider',
-                  modalidadParam === 'alquiler'
-                    ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                    : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                )}>
-                  {modalidadParam === 'alquiler' ? `Alquiler / ${periodoLabels[periodoParam]}` : 'Compra'}
-                </span>
+              <div className="glass rounded-2xl p-4 mb-4 flex items-center gap-4">
+                <Image src={product.imagenNoBg} alt={product.modelo} width={64} height={64} className="object-contain" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-[#E8821C] font-bold uppercase tracking-wider">{product.marca}</p>
+                  <p className="text-[14px] font-semibold text-[var(--color-text-primary)]">{product.modelo}</p>
+                  <p className="text-[11px] text-[var(--color-text-muted)]">{product.categoriaLabel} · Cantidad: {cantidad}</p>
+                </div>
+                <p className="font-num text-lg font-bold text-[#E8821C] whitespace-nowrap">
+                  {formatCurrency(total)}
+                </p>
               </div>
             )}
 
-            {product ? (
-              <>
-                <div className="flex items-center gap-3 pb-4 border-b border-[var(--color-border)]">
-                  <div className="w-16 h-16 rounded-lg bg-[var(--color-surface-glass)] flex items-center justify-center">
-                    <Image src={product.imagen} alt={product.modelo} width={56} height={56} className="object-contain" />
+            {/* Resumen de respuestas */}
+            <div className="glass rounded-2xl p-4 mb-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-3">
+                Tu operación
+              </p>
+              <div className="space-y-2">
+                {summaryRows.map(row => (
+                  <div key={row.label} className="flex items-center justify-between text-[13px]">
+                    <span className="text-[var(--color-text-secondary)]">{row.label}</span>
+                    <span className="font-medium text-[var(--color-text-primary)]">{row.value}</span>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-[10px] text-[#E8821C] font-bold uppercase tracking-wider">{product.marca}</p>
-                    <p className="text-[14px] font-semibold text-[var(--color-text-primary)]">{product.modelo}</p>
-                    <p className="text-[11px] text-[var(--color-text-secondary)]">{product.categoriaLabel}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] text-[var(--color-text-muted)]">x{cantidad}</p>
-                    <p className="font-num text-[14px] font-bold text-[var(--color-text-primary)]">{formatCurrency(precioBase * cantidad)}</p>
-                  </div>
-                </div>
-
+                ))}
                 {selectedAccesorios.length > 0 && (
-                  <div className="py-3 border-b border-[var(--color-border)]">
-                    <p className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                      <Shield size={10} /> Accesorios ({selectedAccesorios.length})
-                    </p>
-                    <div className="space-y-1.5">
-                      {selectedAccesorios.map(acc => (
-                        <div key={acc.id} className="flex items-center justify-between">
-                          <span className="text-[12px] text-[var(--color-text-secondary)]">{acc.nombre}</span>
-                          <span className="font-num text-[12px] text-[var(--color-text-secondary)]">{formatCurrency(acc.precio)}</span>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="flex items-start justify-between text-[13px] pt-2 border-t border-[var(--color-border)]">
+                    <span className="text-[var(--color-text-secondary)]">Accesorios</span>
+                    <span className="font-medium text-[var(--color-text-primary)] text-right max-w-[60%]">
+                      {selectedAccesorios.map(a => a.nombre).join(', ')}
+                    </span>
                   </div>
                 )}
+              </div>
+            </div>
 
-                <div className="pt-3 space-y-2">
-                  <div className="flex justify-between text-[13px]">
-                    <span className="text-[var(--color-text-secondary)]">Subtotal</span>
-                    <span className="font-num text-[var(--color-text-secondary)]">{formatCurrency(subtotal)}</span>
-                  </div>
-                  {modalidadParam === 'venta' && (
-                    <div className="flex justify-between text-[13px]">
-                      <span className="text-[var(--color-text-secondary)]">Impuesto (7%)</span>
-                      <span className="font-num text-[var(--color-text-secondary)]">{formatCurrency(impuesto)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between pt-2 border-t border-[var(--color-border)]">
-                    <span className="text-[var(--color-text-primary)] font-semibold">
-                      {modalidadParam === 'alquiler' ? `Total/${periodoLabels[periodoParam]}` : 'Total Estimado'}
-                    </span>
-                    <span className="font-num text-xl font-bold text-[#E8821C] text-glow">{formatCurrency(total)}</span>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="text-center py-8">
-                <Package size={32} className="text-[var(--color-text-muted)] mx-auto mb-3" />
-                <p className="text-[13px] text-[var(--color-text-secondary)]">Selecciona un equipo del catálogo para comenzar</p>
-                <Link href="/productos" className="inline-flex items-center gap-1.5 mt-3 text-[12px] text-[#E8821C] hover:underline">
-                  Ver catálogo <ArrowLeft size={12} className="rotate-180" />
-                </Link>
+            {/* Contacto */}
+            <div className="glass rounded-2xl p-4 mb-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-3">
+                Contacto
+              </p>
+              <div className="space-y-1.5 text-[13px]">
+                <p className="font-semibold text-[var(--color-text-primary)]">{nombre}{empresa ? ` · ${empresa}` : ''}</p>
+                <p className="text-[var(--color-text-secondary)]">{email}</p>
+                <p className="text-[var(--color-text-secondary)]">{telefono}</p>
+                <p className="text-[var(--color-text-muted)] text-[12px]">{[ciudad, pais].filter(Boolean).join(', ')}</p>
+              </div>
+            </div>
+
+            {error && (
+              <div className="rounded-xl p-3 mb-4 bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[13px]">
+                {error}
               </div>
             )}
 
-            <div className="mt-4 p-3 bg-[var(--color-surface-glass)] rounded-lg border border-[var(--color-border)]">
-              <p className="text-[10px] text-[var(--color-text-muted)] leading-relaxed">
-                * Los precios son referenciales en USD. La cotización formal incluirá condiciones de pago, tiempos de entrega y garantía.
-              </p>
+            <button
+              onClick={handleSubmit}
+              disabled={sending}
+              className="w-full h-12 flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#E8821C] to-[#C96A10] hover:from-[#FF9F43] hover:to-[#E8821C] text-white font-semibold transition-all active:scale-[0.98] disabled:opacity-60 glow-brand-sm"
+            >
+              {sending ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Send size={15} />
+                  Enviar cotización
+                </>
+              )}
+            </button>
+            <p className="text-center text-[11px] text-[var(--color-text-muted)] mt-3">
+              Al enviar aceptas ser contactado por un asesor de PARMONCA.
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* Footer nav */}
+      {currentStep !== 'confirmar' && (
+        <div className="mt-8 flex items-center justify-between gap-3">
+          <button
+            onClick={goBack}
+            disabled={stepIndex === 0}
+            className="flex items-center gap-1.5 h-10 px-4 rounded-full border border-[var(--color-border)] text-[13px] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <ArrowLeft size={14} />
+            Atrás
+          </button>
+
+          {currentStep === 'accesorios' ? (
+            <div className="flex gap-2">
+              <button
+                onClick={goNext}
+                className="h-10 px-4 rounded-full text-[13px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
+              >
+                Omitir
+              </button>
+              <button
+                onClick={goNext}
+                className="h-10 px-6 rounded-full bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold transition-all active:scale-[0.98]"
+              >
+                Siguiente
+              </button>
             </div>
-          </div>
+          ) : (
+            <button
+              onClick={goNext}
+              disabled={!canAdvance}
+              className={cn(
+                'h-10 px-6 rounded-full text-[13px] font-semibold transition-all active:scale-[0.98]',
+                canAdvance
+                  ? 'bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white'
+                  : 'bg-[var(--color-surface-glass)] text-[var(--color-text-muted)] cursor-not-allowed'
+              )}
+            >
+              Siguiente
+            </button>
+          )}
         </div>
+      )}
+
+      {/* Quick nav dots (desktop) */}
+      <div className="hidden md:flex items-center justify-center gap-1.5 mt-8">
+        {STEP_ORDER.map((id, i) => (
+          <button
+            key={id}
+            onClick={() => i <= stepIndex && jumpTo(id)}
+            disabled={i > stepIndex}
+            className={cn(
+              'h-1.5 rounded-full transition-all',
+              i === stepIndex ? 'w-6 bg-[#E8821C]' : i < stepIndex ? 'w-1.5 bg-[#E8821C]/40 cursor-pointer hover:bg-[#E8821C]/70' : 'w-1.5 bg-[var(--color-border)] cursor-not-allowed'
+            )}
+            aria-label={`Paso ${i + 1}`}
+          />
+        ))}
       </div>
     </div>
   );
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Small form field primitives
+// ────────────────────────────────────────────────────────────────────────────
+
+function FieldInput({
+  icon: Icon,
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = 'text',
+  autoFocus,
+}: {
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+  autoFocus?: boolean;
+}) {
+  return (
+    <div>
+      <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">
+        <Icon size={11} className="text-[#E8821C]" />
+        {label}
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        className="w-full h-11 px-4 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/40 transition-all"
+      />
+    </div>
+  );
+}
+
+function FieldSelect({
+  icon: Icon,
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+}) {
+  return (
+    <div>
+      <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">
+        <Icon size={11} className="text-[#E8821C]" />
+        {label}
+      </label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full h-11 px-4 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] focus:outline-none focus:border-[#E8821C]/40 transition-all appearance-none"
+      >
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Exported page (with Suspense for useSearchParams)
+// ────────────────────────────────────────────────────────────────────────────
+
 export default function CotizarPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-[60vh]"><div className="w-6 h-6 border-2 border-[#E8821C]/30 border-t-[#E8821C] rounded-full animate-spin" /></div>}>
+    <Suspense fallback={<div className="flex items-center justify-center h-64 text-[var(--color-text-muted)] text-sm">Cargando…</div>}>
       <CotizarContent />
     </Suspense>
   );
