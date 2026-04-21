@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
-import { createClient } from '@/lib/supabase/server';
+import { createAnonClient } from '@/lib/supabase/server';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -287,7 +287,7 @@ export async function POST(request: NextRequest) {
     let cotizacionId: string | null = null;
     let cotizacionNumero: string | null = null;
     try {
-      const supabase = await createClient();
+      const supabase = createAnonClient();
       const { data: inserted, error: dbError } = await supabase
         .from('parmonca_cotizaciones')
         .insert({
@@ -317,7 +317,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (dbError) {
-        console.error('DB insert error:', dbError);
+        console.error('DB insert error', JSON.stringify({ code: dbError.code, message: dbError.message, details: dbError.details, hint: dbError.hint }));
       } else if (inserted) {
         cotizacionId = inserted.id;
         cotizacionNumero = inserted.numero;
