@@ -283,44 +283,41 @@ export async function POST(request: NextRequest) {
 </body>
 </html>`;
 
-    // 1) Persist the quote in Supabase — single source of truth for the admin panel
+    // 1) Persist the quote in Supabase via RPC (SECURITY DEFINER bypasses the
+    //    SELECT RLS block that affects return=representation on anon inserts).
     let cotizacionId: string | null = null;
     let cotizacionNumero: string | null = null;
     try {
       const supabase = createAnonClient();
-      const { data: inserted, error: dbError } = await supabase
-        .from('parmonca_cotizaciones')
-        .insert({
-          nombre: body.nombre,
-          empresa: body.empresa || null,
-          email: body.email,
-          telefono: body.telefono,
-          pais: body.pais || null,
-          ciudad: body.ciudad || null,
-          mensaje: body.mensaje || null,
-          industria: body.industria || null,
-          tamano_flota: body.tamanoFlota || null,
-          presupuesto: body.presupuesto || null,
-          financiamiento: body.financiamiento || null,
-          ruc: body.ruc || null,
-          modalidad: body.modalidad,
-          periodo: body.periodo,
-          producto: body.producto,
-          accesorios: body.accesorios,
-          cantidad: body.cantidad,
-          subtotal: body.subtotal,
-          impuesto: body.impuesto,
-          total: body.total,
-          origen: 'landing',
-        })
-        .select('id, numero')
-        .single();
+      const { data: inserted, error: dbError } = await supabase.rpc('parmonca_insert_cotizacion', {
+        p_nombre: body.nombre,
+        p_empresa: body.empresa || null,
+        p_email: body.email,
+        p_telefono: body.telefono,
+        p_pais: body.pais || null,
+        p_ciudad: body.ciudad || null,
+        p_mensaje: body.mensaje || null,
+        p_industria: body.industria || null,
+        p_tamano_flota: body.tamanoFlota || null,
+        p_presupuesto: body.presupuesto || null,
+        p_financiamiento: body.financiamiento || null,
+        p_ruc: body.ruc || null,
+        p_modalidad: body.modalidad,
+        p_periodo: body.periodo,
+        p_producto: body.producto,
+        p_accesorios: body.accesorios,
+        p_cantidad: body.cantidad,
+        p_subtotal: body.subtotal,
+        p_impuesto: body.impuesto,
+        p_total: body.total,
+        p_origen: 'landing',
+      });
 
       if (dbError) {
         console.error('DB insert error', JSON.stringify({ code: dbError.code, message: dbError.message, details: dbError.details, hint: dbError.hint }));
-      } else if (inserted) {
-        cotizacionId = inserted.id;
-        cotizacionNumero = inserted.numero;
+      } else if (inserted && inserted.length > 0) {
+        cotizacionId = inserted[0].id;
+        cotizacionNumero = inserted[0].numero;
       }
     } catch (err) {
       console.error('Supabase error:', err);
