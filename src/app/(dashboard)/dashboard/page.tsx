@@ -1,8 +1,10 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import { FileText, Users, Receipt, TrendingUp, AlertTriangle, Clock, CheckCircle2, ArrowUpRight, Zap } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { useCRM } from '@/context/CRMContext';
+import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -25,16 +27,48 @@ const conversionData = [
 ];
 
 export default function DashboardPage() {
-  const { cotizaciones, facturas, clientes, pipeline } = useCRM();
+  const { facturas } = useCRM(); // facturas still demo — not yet implemented in Supabase
+  const supabase = useMemo(() => createClient(), []);
 
-  const totalCotizaciones = cotizaciones.length;
-  const cotizacionesAceptadas = cotizaciones.filter(c => c.estado === 'aceptada').length;
-  const tasaConversion = totalCotizaciones > 0 ? ((cotizacionesAceptadas / totalCotizaciones) * 100).toFixed(0) : '0';
+  const [stats, setStats] = useState({
+    totalCotizaciones: 0,
+    ganadas: 0,
+    montoEnPipeline: 0,
+    totalClientes: 0,
+    leads: 0,
+  });
+
+  useEffect(() => {
+    const load = async () => {
+      const [{ data: cots }, { data: cls }] = await Promise.all([
+        supabase.from('parmonca_cotizaciones').select('total, estado, etapa_pipeline'),
+        supabase.from('parmonca_clientes').select('tipo'),
+      ]);
+
+      const totalCotizaciones = cots?.length || 0;
+      const ganadas = cots?.filter(c => c.estado === 'ganada').length || 0;
+      const montoEnPipeline = (cots || [])
+        .filter(c => !['ganada', 'perdida'].includes(c.etapa_pipeline))
+        .reduce((a, c) => a + Number(c.total || 0), 0);
+      const totalClientes = cls?.length || 0;
+      const leads = cls?.filter(c => c.tipo === 'lead').length || 0;
+
+      setStats({ totalCotizaciones, ganadas, montoEnPipeline, totalClientes, leads });
+    };
+    load();
+
+    const channel = supabase
+      .channel('parmonca_dashboard_feed')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parmonca_cotizaciones' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parmonca_clientes' }, load)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [supabase]);
+
+  const { totalCotizaciones, ganadas, montoEnPipeline, totalClientes, leads } = stats;
+  const tasaConversion = totalCotizaciones > 0 ? ((ganadas / totalCotizaciones) * 100).toFixed(0) : '0';
   const totalFacturado = facturas.reduce((acc, f) => acc + f.total, 0);
   const facturasVencidas = facturas.filter(f => f.estado === 'vencida').length;
-  const totalClientes = clientes.length;
-  const leads = clientes.filter(c => c.tipo === 'lead').length;
-  const montoEnPipeline = pipeline.filter(p => !['ganada', 'perdida'].includes(p.etapa)).reduce((acc, p) => acc + p.monto, 0);
 
   const asesores = [
     { nombre: 'Carlos Mendez', monto: 175444 },

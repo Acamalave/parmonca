@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Bell, Search, Menu, Plus, Sparkles } from 'lucide-react';
+import { Bell, Search, Menu, Plus, Sparkles, LogOut, User } from 'lucide-react';
 import { notificaciones } from '@/lib/demo-data';
+import { createClient } from '@/lib/supabase/client';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -11,8 +12,17 @@ interface HeaderProps {
 
 export default function Header({ onMenuClick }: HeaderProps) {
   const [showNotif, setShowNotif] = useState(false);
+  const [showUser, setShowUser] = useState(false);
   const [search, setSearch] = useState('');
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const unread = notificaciones.filter(n => !n.leida).length;
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setUserEmail(data.user.email ?? null);
+    });
+  }, []);
 
   return (
     <header className="h-14 glass-strong flex items-center justify-between px-4 lg:px-5 sticky top-0 z-30">
@@ -88,6 +98,37 @@ export default function Header({ onMenuClick }: HeaderProps) {
                     </Link>
                   ))}
                 </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* User menu */}
+        <div className="relative">
+          <button
+            onClick={() => setShowUser(!showUser)}
+            className="p-1.5 rounded-lg hover:bg-[var(--color-surface-hover)] text-[var(--color-text-secondary)] transition-colors"
+            title={userEmail || 'Usuario'}
+          >
+            <User size={17} />
+          </button>
+          {showUser && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowUser(false)} />
+              <div className="absolute right-0 top-10 w-64 glass-strong rounded-xl overflow-hidden z-50 shadow-2xl">
+                <div className="px-4 py-3 border-b border-[var(--color-border)]">
+                  <p className="text-[11px] text-[var(--color-text-muted)] uppercase tracking-wider">Sesión activa</p>
+                  <p className="text-[13px] font-medium text-[var(--color-text-primary)] truncate">{userEmail || 'Invitado'}</p>
+                </div>
+                <form action="/api/auth/signout" method="post">
+                  <button
+                    type="submit"
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-[13px] text-rose-400 hover:bg-rose-500/10 transition-colors"
+                  >
+                    <LogOut size={14} />
+                    Cerrar sesión
+                  </button>
+                </form>
               </div>
             </>
           )}

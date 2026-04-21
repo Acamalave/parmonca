@@ -1,7 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { createClient } from '@/lib/supabase/server';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+/**
+ * Send Slack notification when SLACK_WEBHOOK_URL is configured.
+ * Silent failure — we never block the user flow on notifications.
+ */
+async function notifySlack(body: CotizacionRequest, numero: string) {
+  const url = process.env.SLACK_WEBHOOK_URL;
+  if (!url) return;
+  try {
+    const modalidad = body.modalidad === 'alquiler' ? 'Alquiler' : 'Compra';
+    const producto = body.producto ? `${body.producto.marca} ${body.producto.modelo}` : 'Sin producto';
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: `*Nueva cotización ${numero}* (${modalidad})\n*Cliente:* ${body.nombre}${body.empresa ? ` — ${body.empresa}` : ''}\n*Email:* ${body.email}\n*Producto:* ${producto}\n*Total:* $${body.total.toLocaleString()}`,
+      }),
+    });
+  } catch (err) {
+    console.error('Slack notify error:', err);
+  }
+}
 
 interface CotizacionRequest {
   nombre: string;
@@ -260,7 +283,53 @@ export async function POST(request: NextRequest) {
 </body>
 </html>`;
 
-    // Send to the customer (using verified email for free tier; switch to body.email with custom domain)
+    // 1) Persist the quote in Supabase — single source of truth for the admin panel
+    let cotizacionId: string | null = null;
+    let cotizacionNumero: string | null = null;
+    try {
+      const supabase = await createClient();
+      const { data: inserted, error: dbError } = await supabase
+        .from('parmonca_cotizaciones')
+        .insert({
+          nombre: body.nombre,
+          empresa: body.empresa || null,
+          email: body.email,
+          telefono: body.telefono,
+          pais: body.pais || null,
+          ciudad: body.ciudad || null,
+          mensaje: body.mensaje || null,
+          industria: body.industria || null,
+          tamano_flota: body.tamanoFlota || null,
+          presupuesto: body.presupuesto || null,
+          financiamiento: body.financiamiento || null,
+          ruc: body.ruc || null,
+          modalidad: body.modalidad,
+          periodo: body.periodo,
+          producto: body.producto,
+          accesorios: body.accesorios,
+          cantidad: body.cantidad,
+          subtotal: body.subtotal,
+          impuesto: body.impuesto,
+          total: body.total,
+          origen: 'landing',
+        })
+        .select('id, numero')
+        .single();
+
+      if (dbError) {
+        console.error('DB insert error:', dbError);
+      } else if (inserted) {
+        cotizacionId = inserted.id;
+        cotizacionNumero = inserted.numero;
+      }
+    } catch (err) {
+      console.error('Supabase error:', err);
+      // Do not block the user — we still send emails
+    }
+
+    const displayNumero = cotizacionNumero || 'pendiente';
+
+    // 2) Send email to the customer (using Resend test sender while custom domain is pending)
     const customerEmail = await resend.emails.send({
       from: 'PARMONCA <onboarding@resend.dev>',
       to: ['malave.acacio@gmail.com'], // TODO: change to [body.email] after adding custom domain in Resend
@@ -268,19 +337,29 @@ export async function POST(request: NextRequest) {
       html: emailHTML,
     });
 
-    // Send notification to admin
+    // 3) Notify admin
     await resend.emails.send({
       from: 'PARMONCA CRM <onboarding@resend.dev>',
       to: ['malave.acacio@gmail.com'],
-      subject: `[${modalidadLabel}] Nueva cotizacion: ${body.nombre}${body.producto ? ` - ${body.producto.marca} ${body.producto.modelo}` : ''} ($${body.total.toLocaleString()})`,
+      subject: `[${modalidadLabel}] ${displayNumero} — ${body.nombre}${body.producto ? ` / ${body.producto.marca} ${body.producto.modelo}` : ''} ($${body.total.toLocaleString()})`,
       html: emailHTML,
     });
 
-    return NextResponse.json({ success: true, id: customerEmail.data?.id });
+    // 4) Notify Slack (if configured) — non-blocking
+    if (cotizacionNumero) {
+      notifySlack(body, cotizacionNumero).catch(() => {});
+    }
+
+    return NextResponse.json({
+      success: true,
+      id: customerEmail.data?.id,
+      cotizacionId,
+      numero: cotizacionNumero,
+    });
   } catch (error) {
-    console.error('Email error:', error);
+    console.error('Cotizacion error:', error);
     return NextResponse.json(
-      { error: 'Error al enviar el correo' },
+      { error: 'Error al procesar la cotización' },
       { status: 500 }
     );
   }
