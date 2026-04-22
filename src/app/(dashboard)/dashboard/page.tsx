@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { FileText, Users, Receipt, TrendingUp, AlertTriangle, Clock, CheckCircle2, ArrowUpRight, Zap } from 'lucide-react';
+import { FileText, Users, Receipt, TrendingUp, AlertTriangle, Clock, CheckCircle2, ArrowUpRight, Zap, Trophy, Flame } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { useCRM } from '@/context/CRMContext';
 import { createClient } from '@/lib/supabase/client';
+import { useProfile } from '@/lib/supabase/use-profile';
+import { isAdmin } from '@/lib/supabase/roles';
 import { formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -26,9 +28,13 @@ const conversionData = [
   { mes: 'Mar', tasa: 32 },
 ];
 
+type RankingRow = { id: string; nombre: string | null; email: string; monto_cerrado_mes: number | string; ganadas_mes: number; pipeline_abiertas: number; };
+
 export default function DashboardPage() {
   const { facturas } = useCRM(); // facturas still demo — not yet implemented in Supabase
   const supabase = useMemo(() => createClient(), []);
+  const { profile } = useProfile();
+  const userIsAdmin = isAdmin(profile?.rol);
 
   const [stats, setStats] = useState({
     totalCotizaciones: 0,
@@ -36,12 +42,14 @@ export default function DashboardPage() {
     montoEnPipeline: 0,
     totalClientes: 0,
     leads: 0,
+    leadsDisponibles: 0,
   });
+  const [ranking, setRanking] = useState<RankingRow[]>([]);
 
   useEffect(() => {
     const load = async () => {
       const [{ data: cots }, { data: cls }] = await Promise.all([
-        supabase.from('parmonca_cotizaciones').select('total, estado, etapa_pipeline'),
+        supabase.from('parmonca_cotizaciones').select('total, estado, etapa_pipeline, asignado_a'),
         supabase.from('parmonca_clientes').select('tipo'),
       ]);
 
@@ -52,8 +60,18 @@ export default function DashboardPage() {
         .reduce((a, c) => a + Number(c.total || 0), 0);
       const totalClientes = cls?.length || 0;
       const leads = cls?.filter(c => c.tipo === 'lead').length || 0;
+      const leadsDisponibles = (cots || []).filter(c => !c.asignado_a).length;
 
-      setStats({ totalCotizaciones, ganadas, montoEnPipeline, totalClientes, leads });
+      setStats({ totalCotizaciones, ganadas, montoEnPipeline, totalClientes, leads, leadsDisponibles });
+
+      if (userIsAdmin) {
+        const { data: rk } = await supabase
+          .from('parmonca_v_ranking_vendedores')
+          .select('id, nombre, email, monto_cerrado_mes, ganadas_mes, pipeline_abiertas')
+          .order('monto_cerrado_mes', { ascending: false })
+          .limit(5);
+        if (rk) setRanking(rk as RankingRow[]);
+      }
     };
     load();
 
@@ -63,18 +81,14 @@ export default function DashboardPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'parmonca_clientes' }, load)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [supabase]);
+  }, [supabase, userIsAdmin]);
 
-  const { totalCotizaciones, ganadas, montoEnPipeline, totalClientes, leads } = stats;
+  const { totalCotizaciones, ganadas, montoEnPipeline, totalClientes, leads, leadsDisponibles } = stats;
   const tasaConversion = totalCotizaciones > 0 ? ((ganadas / totalCotizaciones) * 100).toFixed(0) : '0';
   const totalFacturado = facturas.reduce((acc, f) => acc + f.total, 0);
   const facturasVencidas = facturas.filter(f => f.estado === 'vencida').length;
 
-  const asesores = [
-    { nombre: 'Carlos Mendez', monto: 175444 },
-    { nombre: 'Maria Rodriguez', monto: 132463 },
-    { nombre: 'Jose Herrera', monto: 83850 },
-  ];
+  const maxMonto = Math.max(1, ...ranking.map(r => Number(r.monto_cerrado_mes) || 0));
 
   const kpis = [
     { label: 'Pipeline Activo', value: formatCurrency(montoEnPipeline), change: '+$50K', up: true, icon: TrendingUp, gradient: 'from-[#E8821C]/20 to-[#E8821C]/5', iconColor: 'text-[#E8821C]', glowColor: '#E8821C' },
@@ -85,14 +99,31 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-5 max-w-7xl mx-auto">
-      <div className="flex items-end justify-between">
+      <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-[var(--color-text-primary)] tracking-tight">Command Center</h1>
-          <p className="text-[var(--color-text-muted)] text-sm mt-0.5">Resumen de operaciones en tiempo real</p>
+          <h1 className="font-display text-2xl font-bold text-[var(--color-text-primary)] tracking-tight">
+            {userIsAdmin
+              ? 'Command Center'
+              : `Hola, ${profile?.nombre?.split(' ')[0] || profile?.email?.split('@')[0] || 'vendedor'}`}
+          </h1>
+          <p className="text-[var(--color-text-muted)] text-sm mt-0.5">
+            {userIsAdmin ? 'Resumen de operaciones en tiempo real' : 'Tu panel personal de trabajo'}
+          </p>
         </div>
-        <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot" />
-          En vivo
+        <div className="flex items-center gap-3">
+          {leadsDisponibles > 0 && !userIsAdmin && (
+            <Link
+              href="/cotizaciones?filter=disponibles"
+              className="flex items-center gap-1.5 px-3 h-8 rounded-lg bg-[#E8821C]/10 border border-[#E8821C]/30 text-[#E8821C] text-[12px] font-semibold hover:bg-[#E8821C]/20 transition-all"
+            >
+              <Flame size={14} />
+              {leadsDisponibles} lead{leadsDisponibles === 1 ? '' : 's'} disponible{leadsDisponibles === 1 ? '' : 's'}
+            </Link>
+          )}
+          <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot" />
+            En vivo
+          </div>
         </div>
       </div>
 
@@ -158,26 +189,52 @@ export default function DashboardPage() {
       {/* Bottom */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <div className="glass rounded-xl p-4">
-          <h3 className="text-[13px] font-semibold text-[var(--color-text-secondary)] mb-4">Ranking Asesores</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-[13px] font-semibold text-[var(--color-text-secondary)]">
+              {userIsAdmin ? 'Ranking Vendedores (mes)' : 'Mi Desempeño'}
+            </h3>
+            {userIsAdmin && (
+              <Link href="/equipo" className="text-[11px] text-[#E8821C] hover:underline font-medium">Ver equipo completo →</Link>
+            )}
+          </div>
+          {userIsAdmin && ranking.length === 0 ? (
+            <div className="text-[12px] text-[var(--color-text-muted)] py-6 text-center">
+              Aún no hay vendedores. <Link href="/equipo" className="text-[#E8821C] hover:underline">Agregar el primero</Link>
+            </div>
+          ) : (
           <div className="space-y-3">
-            {asesores.map((a, i) => (
-              <div key={a.nombre} className="flex items-center gap-3">
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold ${
-                  i === 0 ? 'bg-gradient-to-br from-[#E8821C] to-[#C96A10] text-white' :
-                  i === 1 ? 'bg-[var(--color-surface-hover)] text-[var(--color-text-secondary)]' : 'bg-[var(--color-surface-glass)] text-[var(--color-text-secondary)]'
-                }`}>{i === 0 ? <Zap size={13} /> : `#${i + 1}`}</div>
-                <div className="flex-1">
+            {userIsAdmin && ranking.map((a, i) => (
+              <Link key={a.id} href={`/cotizaciones?asignado=${a.id}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                  i === 0 ? 'bg-gradient-to-br from-amber-400 to-amber-500 text-white' :
+                  i === 1 ? 'bg-gradient-to-br from-[#E8821C] to-[#C96A10] text-white' :
+                  'bg-[var(--color-surface-glass)] text-[var(--color-text-secondary)]'
+                }`}>{i === 0 ? <Trophy size={12} /> : `#${i + 1}`}</div>
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[13px] font-medium text-[var(--color-text-secondary)]">{a.nombre}</span>
-                    <span className="text-[13px] font-num font-semibold text-[var(--color-text-primary)]">{formatCurrency(a.monto)}</span>
+                    <span className="text-[13px] font-medium text-[var(--color-text-secondary)] truncate">{a.nombre || a.email.split('@')[0]}</span>
+                    <span className="text-[13px] font-num font-semibold text-[var(--color-text-primary)]">{formatCurrency(Number(a.monto_cerrado_mes))}</span>
                   </div>
                   <div className="h-1 bg-[var(--color-surface-glass)] rounded-full overflow-hidden">
-                    <div className="h-full rounded-full bg-gradient-to-r from-[#E8821C] to-[#FF9F43]" style={{ width: `${(a.monto / 200000) * 100}%` }} />
+                    <div className="h-full rounded-full bg-gradient-to-r from-[#E8821C] to-[#FF9F43]" style={{ width: `${(Number(a.monto_cerrado_mes) / maxMonto) * 100}%` }} />
                   </div>
+                  <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">{a.ganadas_mes} ganadas · {a.pipeline_abiertas} en pipeline</p>
                 </div>
-              </div>
+              </Link>
             ))}
+            {!userIsAdmin && ([
+              { label: 'Mis cotizaciones totales', value: totalCotizaciones },
+              { label: 'Ganadas (histórico)', value: ganadas },
+              { label: 'En pipeline', value: formatCurrency(montoEnPipeline) },
+              { label: 'Tasa de conversión', value: `${tasaConversion}%` },
+            ].map(m => (
+              <div key={m.label} className="flex items-center justify-between py-1.5 border-b border-[var(--color-border)] last:border-0">
+                <span className="text-[12px] text-[var(--color-text-muted)]">{m.label}</span>
+                <span className="text-[14px] font-num font-bold text-[var(--color-text-primary)]">{m.value}</span>
+              </div>
+            )))}
           </div>
+          )}
         </div>
 
         <div className="glass rounded-xl p-4">
