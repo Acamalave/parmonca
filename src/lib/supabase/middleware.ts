@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { isAdmin, isAdminOnlyRoute } from '@/lib/supabase/roles';
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -25,14 +26,13 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // CRITICAL: keep getUser() right after the client creation so tokens refresh
+  // CRITICAL: getUser() must run right after client creation so tokens refresh
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
 
-  // Routes that require authentication (dashboard/admin area)
   const protectedRoutes = [
     '/dashboard',
     '/cotizaciones',
@@ -42,6 +42,7 @@ export async function updateSession(request: NextRequest) {
     '/catalogo',
     '/configuracion',
     '/herramientas',
+    '/equipo',
   ];
 
   const isProtected = protectedRoutes.some((r) => pathname.startsWith(r));
@@ -53,7 +54,23 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // If signed in and visiting /login, send to dashboard
+  // Role-based gate: asesor cannot access admin-only routes
+  if (user && isAdminOnlyRoute(pathname)) {
+    const { data: profile } = await supabase
+      .from('parmonca_profiles')
+      .select('rol')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (!isAdmin(profile?.rol)) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/dashboard';
+      url.searchParams.set('blocked', '1');
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // Signed-in users hitting /login go to their dashboard
   if (pathname === '/login' && user) {
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
