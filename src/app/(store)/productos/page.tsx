@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Zap, Shield, Truck, Battery, ChevronRight, Factory, MapPin, Clock, Users, Lightbulb, TrendingDown, Calculator } from 'lucide-react';
-import { storeProducts, industriaOptions, ambienteOptions, frecuenciaOptions, plazoOptions, getRecommendation, periodoLabels, type Modalidad, type PeriodoAlquiler } from '@/lib/store-data';
+import { ArrowRight, Zap, Shield, Truck, Battery, ChevronRight, Factory, MapPin, Clock, Users, Lightbulb, TrendingDown, Calculator, Search, Package } from 'lucide-react';
+import { storeProducts, industriaOptions, ambienteOptions, frecuenciaOptions, plazoOptions, getRecommendation, periodoLabels, type Modalidad, type PeriodoAlquiler, type StoreProduct } from '@/lib/store-data';
+import { fetchActivos } from '@/lib/productos-live';
 import { formatCurrency, cn } from '@/lib/utils';
 
 export default function ProductosPage() {
@@ -21,7 +22,43 @@ export default function ProductosPage() {
   const recommendation = getRecommendation(industria, ambiente, frecuencia);
   const hasContext = industria || ambiente || frecuencia;
 
-  function getDisplayPrice(product: typeof storeProducts[0]) {
+  // Live catalog (all active products from Supabase)
+  const [liveProducts, setLiveProducts] = useState<StoreProduct[]>([]);
+  const [loadingLive, setLoadingLive] = useState(true);
+  const [filterCategoria, setFilterCategoria] = useState<string>('todas');
+  const [filterMarca, setFilterMarca] = useState<string>('todas');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [visibleCount, setVisibleCount] = useState(12);
+
+  useEffect(() => {
+    fetchActivos(300)
+      .then((p) => setLiveProducts(p))
+      .finally(() => setLoadingLive(false));
+  }, []);
+
+  const categoriasCatalogo = useMemo(() => {
+    const set = new Set(liveProducts.map(p => p.categoriaLabel).filter(Boolean));
+    return Array.from(set).sort();
+  }, [liveProducts]);
+  const marcasCatalogo = useMemo(() => {
+    const set = new Set(liveProducts.map(p => p.marca).filter(Boolean));
+    return Array.from(set).sort();
+  }, [liveProducts]);
+
+  const filteredLive = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return liveProducts.filter(p => {
+      if (filterCategoria !== 'todas' && p.categoriaLabel !== filterCategoria) return false;
+      if (filterMarca !== 'todas' && p.marca !== filterMarca) return false;
+      if (q && !p.modelo.toLowerCase().includes(q) && !p.marca.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [liveProducts, filterCategoria, filterMarca, searchTerm]);
+
+  // Reset visible count when filters change
+  useEffect(() => { setVisibleCount(12); }, [filterCategoria, filterMarca, searchTerm]);
+
+  function getDisplayPrice(product: StoreProduct) {
     if (modalidad === 'alquiler') return product.preciosAlquiler[periodo];
     return product.precioDesde;
   }
@@ -322,68 +359,117 @@ export default function ProductosPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {storeProducts.map((product) => (
-            <Link key={product.id} href={`/productos/${product.slug}?modalidad=${modalidad}${modalidad === 'alquiler' ? `&periodo=${periodo}` : ''}`}
-              className="group relative rounded-2xl overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[#E8821C]/30 transition-all duration-500 shadow-sm">
-              {/* Badge */}
-              {product.badge && (
-                <div className="absolute top-4 left-4 z-10">
-                  <span className="px-2.5 py-1 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20 text-[10px] font-bold text-[#E8821C] uppercase tracking-wider">
-                    {product.badge}
-                  </span>
-                </div>
-              )}
-
-              {/* Image */}
-              <div className="relative aspect-[3/4] bg-[var(--color-surface-elevated)] flex items-center justify-center rounded-t-2xl p-4">
-                <Image
-                  src={product.imagen}
-                  alt={`${product.marca} ${product.modelo}`}
-                  width={400}
-                  height={500}
-                  className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-700"
-                />
-              </div>
-
-              {/* Info */}
-              <div className="p-5 relative">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#E8821C]">{product.marca}</p>
-                    <h3 className="font-display text-xl font-bold text-[var(--color-text-primary)] mt-0.5">{product.modelo}</h3>
-                    <p className="text-[12px] text-[var(--color-text-secondary)] mt-0.5">{product.categoriaLabel}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] text-[var(--color-text-muted)]">
-                      {modalidad === 'alquiler' ? `Desde/${periodoLabels[periodo]}` : 'Desde'}
-                    </p>
-                    <p className="font-num text-xl font-bold text-[var(--color-text-primary)]">{formatCurrency(getDisplayPrice(product))}</p>
-                  </div>
-                </div>
-
-                {/* Quick Specs */}
-                <div className="flex gap-3 mt-4 pt-4 border-t border-[var(--color-border)]">
-                  <div className="flex-1 text-center">
-                    <p className="text-[10px] text-[var(--color-text-muted)]">Capacidad</p>
-                    <p className="text-[13px] font-semibold text-[var(--color-text-secondary)] mt-0.5">{product.capacidad}</p>
-                  </div>
-                  <div className="w-px bg-[var(--color-border)]" />
-                  <div className="flex-1 text-center">
-                    <p className="text-[10px] text-[var(--color-text-muted)]">Motor</p>
-                    <p className="text-[13px] font-semibold text-[var(--color-text-secondary)] mt-0.5">{product.motor}</p>
-                  </div>
-                </div>
-
-                {/* CTA */}
-                <div className="mt-4 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[var(--color-surface-hover)] border border-[var(--color-border)] group-hover:border-[#E8821C]/20 group-hover:bg-[#E8821C]/[0.06] transition-all">
-                  <span className="text-[12px] font-semibold text-[var(--color-text-secondary)] group-hover:text-[#E8821C] transition-colors">Configurar y Cotizar</span>
-                  <ChevronRight size={14} className="text-[var(--color-text-muted)] group-hover:text-[#E8821C] group-hover:translate-x-0.5 transition-all" />
-                </div>
-              </div>
-            </Link>
-          ))}
+        {/* Filters */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar modelo o marca..."
+              className="w-full h-10 pl-9 pr-3 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/40 transition-all"
+            />
+          </div>
+          <select
+            value={filterCategoria}
+            onChange={(e) => setFilterCategoria(e.target.value)}
+            className="h-10 px-3 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] focus:outline-none focus:border-[#E8821C]/40"
+          >
+            <option value="todas">Todas las categorías</option>
+            {categoriasCatalogo.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select
+            value={filterMarca}
+            onChange={(e) => setFilterMarca(e.target.value)}
+            className="h-10 px-3 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] focus:outline-none focus:border-[#E8821C]/40"
+          >
+            <option value="todas">Todas las marcas</option>
+            {marcasCatalogo.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
         </div>
+
+        {/* Results count */}
+        <p className="text-[12px] text-[var(--color-text-muted)] mb-4">
+          {loadingLive ? 'Cargando catálogo…' : `${filteredLive.length} equipo${filteredLive.length === 1 ? '' : 's'} disponible${filteredLive.length === 1 ? '' : 's'}`}
+        </p>
+
+        {loadingLive ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="rounded-2xl bg-[var(--color-surface-glass)] aspect-[3/4] animate-pulse" />
+            ))}
+          </div>
+        ) : filteredLive.length === 0 ? (
+          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-glass)] p-10 text-center text-[var(--color-text-muted)] text-[13px]">
+            No encontramos equipos con esos filtros. Intenta con otra combinación.
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {filteredLive.slice(0, visibleCount).map((product) => {
+                const hasPrice = getDisplayPrice(product) > 0;
+                const hasImage = product.imagen && !product.imagen.includes('placeholder');
+                return (
+                  <Link
+                    key={product.slug}
+                    href={`/productos/${product.slug}?modalidad=${modalidad}${modalidad === 'alquiler' ? `&periodo=${periodo}` : ''}`}
+                    className="group relative rounded-2xl overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[#E8821C]/40 hover:shadow-lg transition-all duration-300"
+                  >
+                    {product.badge && (
+                      <div className="absolute top-2.5 left-2.5 z-10">
+                        <span className="px-2 py-0.5 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20 text-[9px] font-bold text-[#E8821C] uppercase tracking-wider">
+                          {product.badge}
+                        </span>
+                      </div>
+                    )}
+                    <div className="relative aspect-square bg-[var(--color-surface-elevated)] flex items-center justify-center p-3 overflow-hidden">
+                      {hasImage ? (
+                        <Image
+                          src={product.imagen}
+                          alt={`${product.marca} ${product.modelo}`}
+                          width={280}
+                          height={280}
+                          className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-500"
+                          unoptimized
+                        />
+                      ) : (
+                        <Package size={40} className="text-[var(--color-text-muted)]/40" strokeWidth={1.5} />
+                      )}
+                    </div>
+                    <div className="p-3.5">
+                      <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#E8821C]">{product.marca}</p>
+                      <h3 className="font-display text-[15px] font-bold text-[var(--color-text-primary)] mt-0.5 leading-tight truncate">{product.modelo}</h3>
+                      <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5 truncate">{product.categoriaLabel}</p>
+                      <div className="mt-2.5 flex items-baseline justify-between gap-2">
+                        {hasPrice ? (
+                          <span className="font-num text-[14px] font-bold text-[var(--color-text-primary)]">
+                            {formatCurrency(getDisplayPrice(product))}{modalidad === 'alquiler' ? <span className="text-[10px] font-normal text-[var(--color-text-muted)]">{getPriceLabel()}</span> : ''}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-[var(--color-text-muted)] italic">Cotiza precio</span>
+                        )}
+                        <span className="text-[10px] text-[var(--color-text-muted)]">{product.capacidad}</span>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+            {visibleCount < filteredLive.length && (
+              <div className="mt-8 flex justify-center">
+                <button
+                  onClick={() => setVisibleCount(c => c + 12)}
+                  className="flex items-center gap-2 h-11 px-6 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-glass)] text-[13px] font-semibold text-[var(--color-text-primary)] hover:border-[#E8821C]/40 hover:bg-[var(--color-surface-hover)] transition-all"
+                >
+                  Mostrar más equipos ({filteredLive.length - visibleCount} restantes)
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </section>
 
       {/* TCO Calculator */}
