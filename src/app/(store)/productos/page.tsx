@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Zap, Shield, Truck, Battery, ChevronRight, Factory, MapPin, Clock, Users, Lightbulb, TrendingDown, Calculator, Search, Package, Boxes, MoveVertical, Grid3x3 } from 'lucide-react';
+import { ArrowRight, Zap, Shield, Truck, Battery, ChevronRight, Factory, MapPin, Clock, Users, Lightbulb, TrendingDown, Calculator, Search, Package, Boxes, MoveVertical, Grid3x3, Check } from 'lucide-react';
 import { storeProducts, industriaOptions, ambienteOptions, frecuenciaOptions, plazoOptions, getRecommendation, periodoLabels, type Modalidad, type PeriodoAlquiler, type StoreProduct } from '@/lib/store-data';
 import { fetchActivos } from '@/lib/productos-live';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -20,9 +20,11 @@ export default function ProductosPage() {
   const [frecuencia, setFrecuencia] = useState('');
   const [plazo, setPlazo] = useState('');
   const [operadores, setOperadores] = useState<'si' | 'no' | ''>('');
+  // Wizard step (0-3 for the 4 questions, 4 = recommendation done)
+  const [asesorStep, setAsesorStep] = useState(0);
 
   const recommendation = getRecommendation(industria, ambiente, frecuencia);
-  const hasContext = industria || ambiente || frecuencia;
+  const hasContext = ambiente && industria && frecuencia && plazo;
 
   // Live catalog (all active products from Supabase)
   const [liveProducts, setLiveProducts] = useState<StoreProduct[]>([]);
@@ -183,106 +185,162 @@ export default function ProductosPage() {
           </p>
         </div>
 
-        <div className="max-w-4xl mx-auto">
-          {/* 4 preguntas con tarjetas clickeables — auto-avanzan y arman el perfil progresivo */}
-          {([
-            {
-              key: 'ambiente',
-              pregunta: '¿Dónde vas a usar el equipo?',
-              value: ambiente,
-              setValue: setAmbiente,
-              icon: MapPin,
-              options: [
-                { value: 'interior', label: 'Interior', hint: 'Almacén o nave techada', icon: '🏭' },
-                { value: 'exterior', label: 'Exterior', hint: 'Patio, obra o intemperie', icon: '🌳' },
-                { value: 'mixto', label: 'Mixto', hint: 'Entra y sale todo el día', icon: '🔀' },
-              ],
-            },
-            {
-              key: 'industria',
-              pregunta: '¿En qué industria?',
-              value: industria,
-              setValue: setIndustria,
-              icon: Factory,
-              options: [
-                { value: 'almacen', label: 'Almacén', hint: 'Distribución, pallets', icon: '📦' },
-                { value: 'construccion', label: 'Construcción', hint: 'Obras y materiales', icon: '🏗️' },
-                { value: 'manufactura', label: 'Manufactura', hint: 'Producción industrial', icon: '⚙️' },
-                { value: 'logistica', label: 'Logística', hint: 'Puerto, cross-docking', icon: '🚚' },
-              ],
-            },
-            {
-              key: 'frecuencia',
-              pregunta: '¿Con qué frecuencia?',
-              value: frecuencia,
-              setValue: setFrecuencia,
-              icon: Clock,
-              options: [
-                { value: 'ocasional', label: 'Ocasional', hint: 'Pocas horas por semana', icon: '🕐' },
-                { value: 'turno-completo', label: 'Turno completo', hint: '8 horas al día', icon: '☀️' },
-                { value: '24-7', label: 'Continuo 24/7', hint: 'Múltiples turnos', icon: '🔄' },
-              ],
-            },
-            {
-              key: 'plazo',
-              pregunta: '¿Cuándo lo necesitas?',
-              value: plazo,
-              setValue: setPlazo,
-              icon: Zap,
-              options: [
-                { value: 'inmediato', label: 'Inmediato', hint: 'Esta semana', icon: '⚡' },
-                { value: '1-2-semanas', label: '1 – 2 semanas', hint: 'Ya estoy cotizando', icon: '📅' },
-                { value: 'planificando', label: 'Planificando', hint: 'Próximo mes o más', icon: '🗓️' },
-                { value: 'explorando', label: 'Investigando', hint: 'Comparando opciones', icon: '🔍' },
-              ],
-            },
-          ] as const).map((paso, idx) => (
-            <div key={paso.key} className="mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20 flex items-center justify-center text-[10px] font-bold text-[#E8821C]">
-                  {idx + 1}
+        <div className="max-w-2xl mx-auto">
+          {/* Una pregunta a la vez — auto-avanza al click */}
+          {(() => {
+            const PASOS = [
+              {
+                key: 'ambiente',
+                pregunta: '¿Dónde vas a usar el equipo?',
+                value: ambiente,
+                setValue: setAmbiente,
+                options: [
+                  { value: 'interior', label: 'Interior', hint: 'Almacén o nave techada', icon: '🏭' },
+                  { value: 'exterior', label: 'Exterior', hint: 'Patio, obra o intemperie', icon: '🌳' },
+                  { value: 'mixto', label: 'Mixto', hint: 'Entra y sale todo el día', icon: '🔀' },
+                ],
+              },
+              {
+                key: 'industria',
+                pregunta: '¿En qué industria?',
+                value: industria,
+                setValue: setIndustria,
+                options: [
+                  { value: 'almacen', label: 'Almacén', hint: 'Distribución, pallets', icon: '📦' },
+                  { value: 'construccion', label: 'Construcción', hint: 'Obras y materiales', icon: '🏗️' },
+                  { value: 'manufactura', label: 'Manufactura', hint: 'Producción industrial', icon: '⚙️' },
+                  { value: 'logistica', label: 'Logística', hint: 'Puerto, cross-docking', icon: '🚚' },
+                ],
+              },
+              {
+                key: 'frecuencia',
+                pregunta: '¿Con qué frecuencia lo usarás?',
+                value: frecuencia,
+                setValue: setFrecuencia,
+                options: [
+                  { value: 'ocasional', label: 'Ocasional', hint: 'Pocas horas por semana', icon: '🕐' },
+                  { value: 'turno-completo', label: 'Turno completo', hint: '8 horas al día', icon: '☀️' },
+                  { value: '24-7', label: 'Continuo 24/7', hint: 'Múltiples turnos', icon: '🔄' },
+                ],
+              },
+              {
+                key: 'plazo',
+                pregunta: '¿Cuándo lo necesitas?',
+                value: plazo,
+                setValue: setPlazo,
+                options: [
+                  { value: 'inmediato', label: 'Inmediato', hint: 'Esta semana', icon: '⚡' },
+                  { value: '1-2-semanas', label: '1 – 2 semanas', hint: 'Ya estoy cotizando', icon: '📅' },
+                  { value: 'planificando', label: 'Planificando', hint: 'Próximo mes o más', icon: '🗓️' },
+                  { value: 'explorando', label: 'Investigando', hint: 'Comparando opciones', icon: '🔍' },
+                ],
+              },
+            ];
+
+            const totalPasos = PASOS.length;
+            const isDone = asesorStep >= totalPasos;
+            const paso = isDone ? null : PASOS[asesorStep];
+
+            return (
+              <>
+                {/* Progreso */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-muted)]">
+                      {isDone ? '¡Listo!' : `Pregunta ${asesorStep + 1} de ${totalPasos}`}
+                    </p>
+                    <p className="text-[10px] font-semibold text-[#E8821C]">
+                      {Math.round(((isDone ? totalPasos : asesorStep) / totalPasos) * 100)}%
+                    </p>
+                  </div>
+                  <div className="h-1 bg-[var(--color-surface-glass)] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-[#E8821C] to-[#C96A10] transition-all duration-500 ease-out"
+                      style={{ width: `${((isDone ? totalPasos : asesorStep) / totalPasos) * 100}%` }}
+                    />
+                  </div>
                 </div>
-                <h3 className="text-[15px] font-semibold text-[var(--color-text-primary)]">{paso.pregunta}</h3>
-              </div>
-              <div className={cn(
-                'grid gap-2',
-                paso.options.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'
-              )}>
-                {paso.options.map((opt) => {
-                  const selected = paso.value === opt.value;
-                  return (
+
+                {/* Pregunta actual */}
+                {paso && (
+                  <div key={paso.key} className="animate-in fade-in duration-300">
+                    <h3 className="font-display text-2xl sm:text-3xl font-semibold text-[var(--color-text-primary)] tracking-tight text-center mb-6">
+                      {paso.pregunta}
+                    </h3>
+                    <div className={cn(
+                      'grid gap-3',
+                      paso.options.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'
+                    )}>
+                      {paso.options.map((opt) => {
+                        const selected = paso.value === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            onClick={() => {
+                              paso.setValue(opt.value);
+                              track('form_answer', {
+                                campo: paso.key,
+                                valor: opt.value,
+                                label: opt.label,
+                                fuente: 'asesor_virtual',
+                              });
+                              // Auto-advance with a small delay so user sees their selection
+                              setTimeout(() => setAsesorStep(s => s + 1), 250);
+                            }}
+                            className={cn(
+                              'flex flex-col items-start gap-1.5 p-4 rounded-2xl border text-left transition-all duration-150 active:scale-[0.97]',
+                              selected
+                                ? 'border-[#E8821C] bg-[#E8821C]/[0.08] shadow-[0_8px_24px_rgba(232,130,28,0.12)]'
+                                : 'border-[var(--color-border)] bg-[var(--color-surface-glass)] hover:border-[#E8821C]/40 hover:bg-[var(--color-surface-hover)] hover:-translate-y-0.5'
+                            )}
+                          >
+                            <span className="text-2xl">{opt.icon}</span>
+                            <span className="text-[14px] font-semibold text-[var(--color-text-primary)] leading-tight">
+                              {opt.label}
+                            </span>
+                            <span className="text-[11px] text-[var(--color-text-muted)] leading-tight">{opt.hint}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Back button (after first question) */}
+                    {asesorStep > 0 && (
+                      <div className="mt-6 flex justify-center">
+                        <button
+                          onClick={() => setAsesorStep(s => Math.max(0, s - 1))}
+                          className="text-[12px] text-[var(--color-text-muted)] hover:text-[#E8821C] transition-colors"
+                        >
+                          ← Cambiar respuesta anterior
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Resumen breve cuando termina (la recomendación abajo lo amplía) */}
+                {isDone && (
+                  <div className="text-center animate-in fade-in duration-300">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-semibold text-emerald-400">
+                      <Check size={12} /> Encontramos tu equipo ideal
+                    </div>
+                    <p className="text-[12px] text-[var(--color-text-muted)] mt-3">
+                      Mira la recomendación abajo
+                    </p>
                     <button
-                      key={opt.value}
                       onClick={() => {
-                        paso.setValue(opt.value);
-                        track('form_answer', {
-                          campo: paso.key,
-                          valor: opt.value,
-                          label: opt.label,
-                          fuente: 'asesor_virtual',
-                        });
+                        setAsesorStep(0);
+                        setAmbiente(''); setIndustria(''); setFrecuencia(''); setPlazo('');
                       }}
-                      className={cn(
-                        'flex flex-col items-start gap-1 p-3 rounded-xl border text-left transition-all duration-150 active:scale-[0.98]',
-                        selected
-                          ? 'border-[#E8821C] bg-[#E8821C]/[0.08] shadow-[0_0_12px_rgba(232,130,28,0.08)]'
-                          : 'border-[var(--color-border)] bg-[var(--color-surface-glass)] hover:border-[#E8821C]/40 hover:bg-[var(--color-surface-hover)]'
-                      )}
+                      className="text-[12px] text-[#E8821C] hover:underline mt-2 inline-flex"
                     >
-                      <span className="text-lg">{opt.icon}</span>
-                      <span className={cn(
-                        'text-[13px] font-semibold leading-tight',
-                        selected ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-primary)]'
-                      )}>
-                        {opt.label}
-                      </span>
-                      <span className="text-[10px] text-[var(--color-text-muted)] leading-tight">{opt.hint}</span>
+                      Empezar de nuevo
                     </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {/* Recommendation Result */}
           {recommendation && hasContext && (
