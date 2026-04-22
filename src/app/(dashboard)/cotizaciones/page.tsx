@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, Suspense } from 'react';
 import Link from 'next/link';
-import { Search, Download, Sparkles, RefreshCw } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { Search, Download, Sparkles, RefreshCw, Flame, User, Hand, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { useProfile } from '@/lib/supabase/use-profile';
+import { isAdmin } from '@/lib/supabase/roles';
 import { formatCurrency } from '@/lib/utils';
 
 type CotizacionRow = {
@@ -22,8 +25,11 @@ type CotizacionRow = {
   estado: 'nueva' | 'contactado' | 'cotizado' | 'negociacion' | 'ganada' | 'perdida';
   etapa_pipeline: string;
   origen: string;
+  asignado_a: string | null;
   created_at: string;
 };
+
+type ProfileRow = { id: string; nombre: string | null; email: string };
 
 const ESTADO_STYLES: Record<CotizacionRow['estado'], string> = {
   nueva: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
@@ -83,13 +89,30 @@ function exportCSV(rows: CotizacionRow[]) {
 }
 
 export default function CotizacionesPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-40 text-[var(--color-text-muted)] text-sm">Cargando…</div>}>
+      <CotizacionesContent />
+    </Suspense>
+  );
+}
+
+function CotizacionesContent() {
+  const searchParams = useSearchParams();
+  const filterParam = searchParams.get('filter'); // 'disponibles' → unassigned pool
+  const asignadoParam = searchParams.get('asignado'); // admin drill-down to specific vendedor
+  const { profile } = useProfile();
+  const userIsAdmin = isAdmin(profile?.rol);
+
   const [rows, setRows] = useState<CotizacionRow[]>([]);
+  const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
   const [filtroModalidad, setFiltroModalidad] = useState<string>('todas');
+  const [filtroAsignado, setFiltroAsignado] = useState<string>(asignadoParam || 'todos');
+  const [claiming, setClaiming] = useState<string | null>(null);
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -97,7 +120,7 @@ export default function CotizacionesPage() {
     setError(null);
     const { data, error } = await supabase
       .from('parmonca_cotizaciones')
-      .select('id, numero, nombre, empresa, email, telefono, pais, ciudad, modalidad, periodo, producto, total, estado, etapa_pipeline, origen, created_at')
+      .select('id, numero, nombre, empresa, email, telefono, pais, ciudad, modalidad, periodo, producto, total, estado, etapa_pipeline, origen, asignado_a, created_at')
       .order('created_at', { ascending: false });
     if (error) {
       setError(error.message);
@@ -107,8 +130,29 @@ export default function CotizacionesPage() {
     }
   };
 
+  const fetchProfiles = async () => {
+    const { data } = await supabase
+      .from('parmonca_profiles')
+      .select('id, nombre, email')
+      .eq('rol', 'asesor');
+    if (data) setProfiles(data as ProfileRow[]);
+  };
+
+  const handleTomarLead = async (id: string) => {
+    setClaiming(id);
+    const { data, error } = await supabase.rpc('parmonca_tomar_lead', { p_cotizacion_id: id });
+    if (error) {
+      setError(error.message);
+    } else if (data === 0) {
+      setError('Este lead ya fue tomado por otro vendedor.');
+    }
+    await fetchRows();
+    setClaiming(null);
+  };
+
   useEffect(() => {
     fetchRows().finally(() => setLoading(false));
+    fetchProfiles();
 
     // Realtime subscription: cualquier nueva cotizacion aparece sin refrescar
     const channel = supabase
@@ -126,7 +170,14 @@ export default function CotizacionesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (asignadoParam) setFiltroAsignado(asignadoParam);
+  }, [asignadoParam]);
+
   const filtered = rows.filter((r) => {
+    if (filterParam === 'disponibles' && r.asignado_a !== null) return false;
+    if (filtroAsignado === 'sin-asignar' && r.asignado_a !== null) return false;
+    if (filtroAsignado !== 'todos' && filtroAsignado !== 'sin-asignar' && r.asignado_a !== filtroAsignado) return false;
     const q = search.toLowerCase();
     const matchSearch =
       !q ||
@@ -139,6 +190,12 @@ export default function CotizacionesPage() {
     return matchSearch && matchEstado && matchMod;
   });
 
+  const profileName = (id: string | null) => {
+    if (!id) return null;
+    const p = profiles.find(pr => pr.id === id);
+    return p?.nombre || p?.email?.split('@')[0] || id.slice(0, 6);
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchRows();
@@ -149,9 +206,20 @@ export default function CotizacionesPage() {
     <div className="max-w-7xl mx-auto space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-[var(--color-text-primary)] tracking-tight">Cotizaciones</h1>
+          <h1 className="font-display text-2xl font-bold text-[var(--color-text-primary)] tracking-tight">
+            {filterParam === 'disponibles' ? (
+              <span className="flex items-center gap-2">
+                <Flame size={20} className="text-[#E8821C]" />
+                Leads disponibles
+              </span>
+            ) : userIsAdmin ? 'Todas las Cotizaciones' : 'Mis Cotizaciones'}
+          </h1>
           <p className="text-sm text-[var(--color-text-muted)] mt-0.5">
-            {loading ? 'Cargando…' : `${filtered.length} de ${rows.length} cotizaciones`}
+            {loading
+              ? 'Cargando…'
+              : filterParam === 'disponibles'
+                ? `${filtered.length} lead${filtered.length === 1 ? '' : 's'} sin vendedor — toma uno antes de que lo haga otro`
+                : `${filtered.length} de ${rows.length} cotizaciones`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -219,6 +287,19 @@ export default function CotizacionesPage() {
           <option value="venta">Solo Venta</option>
           <option value="alquiler">Solo Alquiler</option>
         </select>
+        {userIsAdmin && profiles.length > 0 && (
+          <select
+            value={filtroAsignado}
+            onChange={(e) => setFiltroAsignado(e.target.value)}
+            className="h-9 px-3 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-secondary)] focus:outline-none focus:border-[#E8821C]/30"
+          >
+            <option value="todos">Todo el equipo</option>
+            <option value="sin-asignar">🔥 Sin asignar</option>
+            {profiles.map(p => (
+              <option key={p.id} value={p.id}>{p.nombre || p.email}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="glass rounded-xl overflow-hidden">
@@ -226,10 +307,12 @@ export default function CotizacionesPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-[var(--color-border)]">
-                {['Número', 'Cliente', 'Producto', 'Modalidad', 'Total', 'Fecha', 'Estado'].map((h, i) => (
+                {(userIsAdmin
+                  ? ['Número', 'Cliente', 'Producto', 'Modalidad', 'Total', 'Asignado', 'Fecha', 'Estado']
+                  : ['Número', 'Cliente', 'Producto', 'Modalidad', 'Total', 'Fecha', 'Estado', 'Acción']).map((h, i, arr) => (
                   <th
                     key={h}
-                    className={`text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] px-4 py-2.5 ${i === 2 ? 'hidden md:table-cell' : ''} ${i === 3 ? 'hidden sm:table-cell' : ''} ${i === 5 ? 'hidden lg:table-cell' : ''} ${i === 4 ? 'text-right' : ''} ${i === 6 ? 'text-center' : ''}`}
+                    className={`text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] px-4 py-2.5 ${i === 2 ? 'hidden md:table-cell' : ''} ${i === 3 ? 'hidden sm:table-cell' : ''} ${arr[i] === 'Fecha' ? 'hidden lg:table-cell' : ''} ${arr[i] === 'Total' ? 'text-right' : ''} ${arr[i] === 'Estado' || arr[i] === 'Acción' ? 'text-center' : ''}`}
                   >
                     {h}
                   </th>
@@ -239,24 +322,32 @@ export default function CotizacionesPage() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-[13px] text-[var(--color-text-muted)]">
+                  <td colSpan={8} className="px-4 py-10 text-center text-[13px] text-[var(--color-text-muted)]">
                     Cargando cotizaciones…
                   </td>
                 </tr>
               )}
               {!loading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-[13px] text-[var(--color-text-muted)]">
+                  <td colSpan={8} className="px-4 py-10 text-center text-[13px] text-[var(--color-text-muted)]">
                     {rows.length === 0 ? 'Aún no hay cotizaciones. Las solicitudes de la tienda aparecerán aquí en tiempo real.' : 'Ninguna cotización coincide con los filtros.'}
                   </td>
                 </tr>
               )}
-              {filtered.map((r) => (
-                <tr key={r.id} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-glass)] transition-colors">
+              {filtered.map((r) => {
+                const assignedName = profileName(r.asignado_a);
+                const isUnassigned = !r.asignado_a;
+                return (
+                <tr key={r.id} className={`border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-glass)] transition-colors ${isUnassigned && !userIsAdmin ? 'bg-[#E8821C]/[0.03]' : ''}`}>
                   <td className="px-4 py-3">
                     <Link href={`/cotizaciones/${r.id}`} className="text-[13px] font-medium text-[#E8821C] hover:underline">
                       {r.numero}
                     </Link>
+                    {isUnassigned && (
+                      <span className="ml-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[#E8821C]/10 border border-[#E8821C]/20 text-[9px] font-semibold text-[#E8821C]">
+                        <Flame size={9} /> Lead
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="text-[13px] text-[var(--color-text-primary)] font-medium">{r.nombre}</div>
@@ -271,14 +362,44 @@ export default function CotizacionesPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-[13px] font-semibold text-[var(--color-text-primary)] text-right">{formatCurrency(r.total)}</td>
+                  {userIsAdmin && (
+                    <td className="px-4 py-3 text-[12px]">
+                      {assignedName ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[var(--color-text-secondary)]">
+                          <User size={10} />{assignedName}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[var(--color-text-muted)] italic">
+                          <Flame size={10} className="text-[#E8821C]" /> sin asignar
+                        </span>
+                      )}
+                    </td>
+                  )}
                   <td className="px-4 py-3 text-[13px] text-[var(--color-text-muted)] hidden lg:table-cell">{formatDate(r.created_at)}</td>
                   <td className="px-4 py-3 text-center">
                     <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${ESTADO_STYLES[r.estado]}`}>
                       {ESTADO_LABEL[r.estado]}
                     </span>
                   </td>
+                  {!userIsAdmin && (
+                    <td className="px-4 py-3 text-center">
+                      {isUnassigned ? (
+                        <button
+                          onClick={(e) => { e.preventDefault(); handleTomarLead(r.id); }}
+                          disabled={claiming === r.id}
+                          className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[11px] font-semibold disabled:opacity-50"
+                        >
+                          {claiming === r.id ? <Check size={10} /> : <Hand size={10} />}
+                          Tomar
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-[var(--color-text-muted)]">—</span>
+                      )}
+                    </td>
+                  )}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
