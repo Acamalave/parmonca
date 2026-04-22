@@ -1,20 +1,28 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeft, Check, Plus, Minus, Zap, ArrowRight, ChevronDown } from 'lucide-react';
-import { storeProducts, accesorios, periodoLabels, type Modalidad, type PeriodoAlquiler } from '@/lib/store-data';
+import { storeProducts, accesorios, periodoLabels, type Modalidad, type PeriodoAlquiler, type StoreProduct } from '@/lib/store-data';
+import { fetchProducto } from '@/lib/productos-live';
 import { formatCurrency, cn } from '@/lib/utils';
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const searchParams = useSearchParams();
-  const product = storeProducts.find(p => p.slug === id);
+  const [product, setProduct] = useState<StoreProduct | null | undefined>(undefined); // undefined = loading
   const [selectedAccesorios, setSelectedAccesorios] = useState<string[]>([]);
   const [specsOpen, setSpecsOpen] = useState(false);
   const [cantidad, setCantidad] = useState(1);
+
+  useEffect(() => {
+    // Try live DB first (covers all 207 products), fall back to hardcoded if not found
+    fetchProducto(id).then((p) => {
+      setProduct(p || storeProducts.find(sp => sp.slug === id) || null);
+    });
+  }, [id]);
 
   // Modalidad from URL or default
   const initialModalidad = (searchParams.get('modalidad') as Modalidad) || 'venta';
@@ -22,7 +30,17 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [modalidad, setModalidad] = useState<Modalidad>(initialModalidad);
   const [periodo, setPeriodo] = useState<PeriodoAlquiler>(initialPeriodo);
 
-  if (!product) return <div className="flex items-center justify-center h-[60vh]"><p className="text-[var(--color-text-secondary)]">Producto no encontrado</p></div>;
+  if (product === undefined) {
+    return <div className="flex items-center justify-center h-[60vh]"><p className="text-[var(--color-text-muted)] text-sm">Cargando producto…</p></div>;
+  }
+  if (!product) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] gap-3">
+        <p className="text-[var(--color-text-secondary)]">Producto no encontrado</p>
+        <Link href="/productos" className="text-[13px] text-[#E8821C] hover:underline">Ver catálogo</Link>
+      </div>
+    );
+  }
 
   const toggleAccesorio = (id: string) => {
     setSelectedAccesorios(prev => prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]);

@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Package, Zap, DollarSign, Image as ImageIcon, RefreshCw } from 'lucide-react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { Search, Package, Zap, DollarSign, Image as ImageIcon, RefreshCw, Pencil } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils';
 
@@ -168,32 +170,36 @@ export default function CatalogoPage() {
         <div className="glass rounded-xl p-10 text-center text-[var(--color-text-muted)] text-sm">Ningún producto coincide con los filtros.</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {filtered.map((p) => (
-            <div key={p.id} className="glass rounded-xl overflow-hidden hover:bg-[var(--color-surface-glass)] transition-all group">
-              <div className="aspect-[4/3] bg-gradient-to-br from-[var(--color-surface-glass)] to-transparent flex items-center justify-center relative">
-                <Package size={48} className="text-[var(--color-text-muted)] group-hover:text-[#E8821C]/30 transition-colors" strokeWidth={1.5} />
+          {filtered.map((p) => {
+            const img = p.imagen_local || p.imagen_url;
+            return (
+            <Link href={`/catalogo/${p.id}`} key={p.id} className="glass rounded-xl overflow-hidden hover:bg-[var(--color-surface-glass)] transition-all group">
+              <div className="aspect-[4/3] bg-gradient-to-br from-[var(--color-surface-glass)] to-transparent flex items-center justify-center relative overflow-hidden">
+                {img ? (
+                  <Image src={img} alt={p.modelo} width={240} height={180} className="object-contain w-full h-full" unoptimized />
+                ) : (
+                  <Package size={48} className="text-[var(--color-text-muted)] group-hover:text-[#E8821C]/30 transition-colors" strokeWidth={1.5} />
+                )}
                 {p.marca && (
-                  <div className="absolute top-2.5 left-2.5 flex items-center gap-1 px-2 py-0.5 rounded bg-[#E8821C]/10 border border-[#E8821C]/20">
+                  <div className="absolute top-2.5 left-2.5 flex items-center gap-1 px-2 py-0.5 rounded bg-[#E8821C]/10 border border-[#E8821C]/20 backdrop-blur-sm">
                     <Zap size={9} className="text-[#E8821C]" />
                     <span className="text-[9px] font-bold text-[#E8821C] uppercase tracking-wider">{p.marca}</span>
                   </div>
                 )}
                 <div className="absolute top-2.5 right-2.5 flex gap-1">
-                  {(p.imagen_url || p.imagen_local) && (
-                    <div className="w-5 h-5 rounded bg-[#E8821C]/10 border border-[#E8821C]/20 flex items-center justify-center" title="Tiene imagen">
-                      <ImageIcon size={10} className="text-[#E8821C]" />
-                    </div>
-                  )}
                   {p.precio_venta && (
                     <div className="w-5 h-5 rounded bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center" title="Tiene precio">
                       <DollarSign size={10} className="text-emerald-400" />
                     </div>
                   )}
+                  <div className="w-5 h-5 rounded bg-[#E8821C]/10 border border-[#E8821C]/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" title="Editar">
+                    <Pencil size={10} className="text-[#E8821C]" />
+                  </div>
                 </div>
                 <span className="absolute bottom-2 right-2 text-[9px] text-[var(--color-text-muted)] font-mono">#{p.id}</span>
               </div>
               <div className="p-3.5">
-                <h3 className="font-bold text-[var(--color-text-primary)] text-[14px] font-display">{p.modelo}</h3>
+                <h3 className="font-bold text-[var(--color-text-primary)] text-[14px] font-display group-hover:text-[#E8821C] transition-colors">{p.modelo}</h3>
                 <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5 uppercase tracking-wider">
                   {p.categoria || 'Sin categoría'}
                 </p>
@@ -218,8 +224,9 @@ export default function CatalogoPage() {
                   <span className="text-[9px] text-[var(--color-text-muted)] uppercase tracking-wider">{p.activo ? 'Activo' : 'Inactivo'}</span>
                 </div>
               </div>
-            </div>
-          ))}
+            </Link>
+            );
+          })}
         </div>
       )}
     </div>
