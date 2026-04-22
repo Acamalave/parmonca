@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowRight, Zap, Shield, Truck, Battery, ChevronRight, Factory, MapPin, Clock, Users, Lightbulb, TrendingDown, Calculator, Search, Package, Boxes, MoveVertical, Grid3x3, Check } from 'lucide-react';
 import { storeProducts, industriaOptions, ambienteOptions, frecuenciaOptions, plazoOptions, getRecommendation, periodoLabels, type Modalidad, type PeriodoAlquiler, type StoreProduct } from '@/lib/store-data';
 import { fetchActivos } from '@/lib/productos-live';
+import { recomendar } from '@/lib/recomendador';
 import { formatCurrency, cn } from '@/lib/utils';
 import { track } from '@/lib/visitor';
 import { PageView } from '@/components/PageView';
@@ -41,6 +42,12 @@ export default function ProductosPage() {
       .then((p) => setLiveProducts(p))
       .finally(() => setLoadingLive(false));
   }, []);
+
+  // Live recomendaciones (top 3) basadas en el catálogo real + respuestas
+  const recomendaciones = useMemo(() => {
+    if (!hasContext || liveProducts.length === 0) return [];
+    return recomendar(liveProducts, { ambiente, industria, frecuencia, plazo }, 3);
+  }, [hasContext, liveProducts, ambiente, industria, frecuencia, plazo]);
 
   const marcasCatalogo = useMemo(() => {
     const set = new Set(liveProducts.map(p => p.marca).filter(Boolean));
@@ -342,55 +349,110 @@ export default function ProductosPage() {
             );
           })()}
 
-          {/* Recommendation Result */}
-          {recommendation && hasContext && (
-            <div className="mt-8 glass rounded-2xl p-6 border border-[#E8821C]/20 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-[#E8821C]/[0.04] rounded-full blur-[100px]" />
-              <div className="relative z-10">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 rounded-lg bg-[#E8821C]/10 flex items-center justify-center">
-                    <Lightbulb size={16} className="text-[#E8821C]" />
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#E8821C]">Nuestra Recomendación</p>
-                  </div>
+          {/* Recomendaciones inteligentes — top 3 con razones */}
+          {hasContext && recomendaciones.length > 0 && (
+            <div className="mt-10">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-[#E8821C]/10 flex items-center justify-center">
+                  <Lightbulb size={16} className="text-[#E8821C]" />
                 </div>
-
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                  <Image
-                    src={recommendation.product.imagenNoBg}
-                    alt={recommendation.product.modelo}
-                    width={120}
-                    height={90}
-                    className="object-contain"
-                  />
-                  <div className="flex-1">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#E8821C]">{recommendation.product.marca}</p>
-                    <p className="font-display text-xl font-bold text-[var(--color-text-primary)]">{recommendation.product.modelo}</p>
-                    <p className="text-[12px] text-[var(--color-text-secondary)] mt-1">{recommendation.product.categoriaLabel}</p>
-                    <p className="text-[13px] text-[var(--color-text-secondary)] mt-2 leading-relaxed">{recommendation.reason}</p>
-                    <div className="flex items-center gap-2 mt-3">
-                      <span className="px-2 py-0.5 rounded-full bg-[#E8821C]/10 text-[10px] font-bold text-[#E8821C] uppercase">
-                        {recommendation.modalidad === 'venta' ? 'Compra' : 'Alquiler'}
-                      </span>
-                      {operadores === 'no' && (
-                        <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-[10px] font-bold text-blue-400 uppercase">
-                          + Capacitación incluida
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <span className="inline-block px-3 py-1 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20 text-[10px] font-semibold text-[#E8821C] uppercase tracking-wider">
-                      Precio personalizado
-                    </span>
-                    <Link href={`/productos/${recommendation.product.slug}`}
-                      className="inline-flex items-center gap-1.5 mt-2 text-[12px] font-semibold text-[#E8821C] hover:underline group">
-                      Ver equipo <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
-                    </Link>
-                  </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#E8821C]">Lo que recomendamos para ti</p>
+                  <p className="text-[12px] text-[var(--color-text-muted)]">{recomendaciones.length} {recomendaciones.length === 1 ? 'opción' : 'opciones'} ajustadas a tu operación</p>
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {recomendaciones.map((rec, idx) => {
+                  const queryParams = new URLSearchParams({
+                    producto: rec.product.slug,
+                    ambiente, industria, frecuencia, plazo,
+                  }).toString();
+                  return (
+                    <div
+                      key={rec.product.slug}
+                      className={cn(
+                        'glass rounded-2xl p-4 relative overflow-hidden flex flex-col transition-all hover:-translate-y-0.5',
+                        idx === 0 && rec.marca_destacada
+                          ? 'border-2 border-[#E8821C]/50 shadow-[0_8px_32px_rgba(232,130,28,0.12)]'
+                          : 'border border-[var(--color-border)]'
+                      )}
+                    >
+                      {/* Badge */}
+                      <div className="absolute top-3 right-3 z-10">
+                        <span className={cn(
+                          'inline-block px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider',
+                          rec.marca_destacada
+                            ? 'bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white shadow-sm'
+                            : 'bg-[#E8821C]/10 border border-[#E8821C]/20 text-[#E8821C]'
+                        )}>
+                          {rec.badge}
+                        </span>
+                      </div>
+
+                      <div className="aspect-square bg-[var(--color-surface-elevated)] rounded-xl flex items-center justify-center mb-3 overflow-hidden">
+                        <Image
+                          src={rec.product.imagen}
+                          alt={rec.product.modelo}
+                          width={200}
+                          height={200}
+                          className="object-contain w-full h-full"
+                          unoptimized
+                        />
+                      </div>
+
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#E8821C]">{rec.product.marca}</p>
+                      <h4 className="font-display text-[16px] font-bold text-[var(--color-text-primary)] leading-tight">{rec.product.modelo}</h4>
+                      <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">{rec.product.categoriaLabel} · {rec.product.capacidad}</p>
+
+                      {/* Razones específicas */}
+                      <ul className="mt-3 space-y-1.5 flex-1">
+                        {rec.reasons.map((r, i) => (
+                          <li key={i} className="flex items-start gap-1.5 text-[11px] text-[var(--color-text-secondary)] leading-snug">
+                            <Check size={11} className="text-emerald-500 flex-shrink-0 mt-0.5" strokeWidth={2.5} />
+                            <span>{r}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      <div className="flex gap-2 mt-4 pt-3 border-t border-[var(--color-border)]">
+                        <Link
+                          href={`/productos/${rec.product.slug}`}
+                          className="flex-1 h-9 flex items-center justify-center text-[12px] font-medium text-[var(--color-text-secondary)] hover:text-[#E8821C] transition-colors"
+                        >
+                          Ver detalles
+                        </Link>
+                        <Link
+                          href={`/cotizar?${queryParams}`}
+                          onClick={() => track('cta_clicked', { from: 'recomendacion', producto: rec.product.slug, posicion: idx })}
+                          className="flex-1 h-9 flex items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[12px] font-semibold transition-all active:scale-[0.97]"
+                        >
+                          Cotizar <ArrowRight size={12} />
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p className="text-center text-[11px] text-[var(--color-text-muted)] mt-4">
+                Estas recomendaciones se basan en tu ambiente, industria y frecuencia de uso. Un asesor puede afinarlas con datos adicionales.
+              </p>
+            </div>
+          )}
+
+          {/* Sin recomendaciones (umbral no alcanzado) */}
+          {hasContext && recomendaciones.length === 0 && liveProducts.length > 0 && (
+            <div className="mt-8 rounded-2xl p-6 border border-[var(--color-border)] bg-[var(--color-surface-glass)] text-center">
+              <p className="text-[14px] text-[var(--color-text-secondary)]">
+                Tu caso requiere análisis personalizado. Habla con un asesor para encontrar el equipo ideal.
+              </p>
+              <Link
+                href="/cotizar"
+                className="inline-flex items-center gap-1.5 mt-3 h-10 px-5 rounded-full bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold"
+              >
+                Hablar con un asesor <ArrowRight size={13} />
+              </Link>
             </div>
           )}
         </div>

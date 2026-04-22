@@ -218,17 +218,36 @@ function CotizarContent() {
   const product = productoSlug ? storeProducts.find(p => p.slug === productoSlug) : null;
   const cantidad = cantidadParam || 1;
 
+  // ── Pre-llenado desde URL (asesor virtual ya capturó respuestas) ──
+  // Mapea valores del asesor (ambiente -> operacion en wizard)
+  const preIndustria = searchParams.get('industria') || null;
+  const preOperacion = searchParams.get('ambiente') || null;       // ambiente del asesor === operacion del wizard
+  const preFrecuencia = searchParams.get('frecuencia') || null;
+  const prePlazo = searchParams.get('plazo') || null;
+
   // ── Wizard state ──
-  const [stepIndex, setStepIndex] = useState(0);
-  const [industria, setIndustria] = useState<string | null>(null);
-  const [operacion, setOperacion] = useState<string | null>(null);
-  const [frecuencia, setFrecuencia] = useState<string | null>(null);
-  const [plazo, setPlazo] = useState<string | null>(null);
+  const [industria, setIndustria] = useState<string | null>(preIndustria);
+  const [operacion, setOperacion] = useState<string | null>(preOperacion);
+  const [frecuencia, setFrecuencia] = useState<string | null>(preFrecuencia);
+  const [plazo, setPlazo] = useState<string | null>(prePlazo);
   const [tamanoFlota, setTamanoFlota] = useState<string | null>(null);
   const [presupuesto, setPresupuesto] = useState<string | null>(null);
   const [financiamiento, setFinanciamiento] = useState<string | null>(null);
   const [accesoriosIds, setAccesoriosIds] = useState<string[]>(accIdsFromUrl);
   const [accCategoria, setAccCategoria] = useState<string>('todas');
+
+  // Construye dinámicamente el orden de pasos saltando los ya respondidos
+  const dynamicSteps = useMemo<StepId[]>(() => {
+    return STEP_ORDER.filter(s => {
+      if (s === 'industria' && preIndustria) return false;
+      if (s === 'operacion' && preOperacion) return false;
+      if (s === 'frecuencia' && preFrecuencia) return false;
+      if (s === 'plazo' && prePlazo) return false;
+      return true;
+    });
+  }, [preIndustria, preOperacion, preFrecuencia, prePlazo]);
+
+  const [stepIndex, setStepIndex] = useState(0);
 
   // Contact
   const [nombre, setNombre] = useState('');
@@ -244,7 +263,7 @@ function CotizarContent() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
 
-  const currentStep = STEP_ORDER[stepIndex];
+  const currentStep = dynamicSteps[stepIndex];
 
   // ── Precios calculados ──
   const selectedAccesorios = allAccesorios.filter(a => accesoriosIds.includes(a.id));
@@ -257,7 +276,7 @@ function CotizarContent() {
   const accesoriosDisponibles = product ? accesoriosParaCategoria(product.categoriaLabel) : allAccesorios;
 
   // ── Step navigation ──
-  const goNext = () => setStepIndex(i => Math.min(i + 1, STEP_ORDER.length - 1));
+  const goNext = () => setStepIndex(i => Math.min(i + 1, dynamicSteps.length - 1));
   const goBack = () => setStepIndex(i => Math.max(i - 1, 0));
   // Auto-advance helper: selecting a single-choice option advances after a brief delay
   const autoAdvance = (setter: (v: string) => void, campo?: string) => (v: string) => {
@@ -431,7 +450,7 @@ function CotizarContent() {
       </div>
 
       <div className="mb-8">
-        <ProgressBar current={stepIndex} total={STEP_ORDER.length} />
+        <ProgressBar current={stepIndex} total={dynamicSteps.length} />
       </div>
 
       {/* Step content */}
