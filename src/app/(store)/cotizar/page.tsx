@@ -15,7 +15,7 @@ import {
   ShieldCheck, Wrench, Cpu, Hash, MapPin, Phone, Mail, User, FileText, MessageSquare, Box,
 } from 'lucide-react';
 import {
-  storeProducts, accesorios as allAccesorios, periodoLabels,
+  storeProducts, accesorios as allAccesorios, accesoriosParaCategoria, periodoLabels,
   type Modalidad, type PeriodoAlquiler,
 } from '@/lib/store-data';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -246,14 +246,13 @@ function CotizarContent() {
 
   // ── Precios calculados ──
   const selectedAccesorios = allAccesorios.filter(a => accesoriosIds.includes(a.id));
-  const precioAccesorios = selectedAccesorios.reduce((s, a) => s + a.precio, 0);
-  const precioBase = modalidadParam === 'alquiler' && product
-    ? product.preciosAlquiler[periodoParam]
-    : (product?.precioDesde || 0);
-  const precioUnitario = precioBase + (modalidadParam === 'venta' ? precioAccesorios : 0);
-  const subtotal = precioUnitario * cantidad;
-  const impuesto = modalidadParam === 'venta' ? subtotal * 0.07 : 0;
-  const total = subtotal + impuesto;
+  // Precios se cotizan con asesor — no se calculan localmente.
+  const precioBase = 0;
+  const subtotal = 0;
+  const impuesto = 0;
+  const total = 0;
+  // Solo los accesorios aplicables a la categoría del producto seleccionado
+  const accesoriosDisponibles = product ? accesoriosParaCategoria(product.categoriaLabel) : allAccesorios;
 
   // ── Step navigation ──
   const goNext = () => setStepIndex(i => Math.min(i + 1, STEP_ORDER.length - 1));
@@ -342,7 +341,9 @@ function CotizarContent() {
                 {modalidadParam === 'alquiler' ? `Alquiler / ${periodoLabels[periodoParam]}` : 'Compra'} · {cantidad} und. · {selectedAccesorios.length} accesorios
               </p>
             </div>
-            <p className="font-num text-xl font-bold text-[#E8821C]">{formatCurrency(total)}</p>
+            <span className="px-3 py-1 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20 text-[10px] font-semibold text-[#E8821C] uppercase tracking-wider whitespace-nowrap">
+              Precio personalizado
+            </span>
           </div>
         )}
 
@@ -369,8 +370,8 @@ function CotizarContent() {
 
   // ────────── Accesorios filtering ──────────
   const accFiltered = accCategoria === 'todas'
-    ? allAccesorios
-    : allAccesorios.filter(a => a.categoria === accCategoria);
+    ? accesoriosDisponibles
+    : accesoriosDisponibles.filter(a => a.categoria === accCategoria);
 
   const toggleAccesorio = (id: string) => {
     setAccesoriosIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -549,8 +550,11 @@ function CotizarContent() {
                         {acc.nombre}
                       </p>
                     </div>
-                    <span className="text-[12px] font-num font-medium text-[var(--color-text-muted)] whitespace-nowrap">
-                      +{formatCurrency(acc.precio)}
+                    <span className={cn(
+                      'text-[10px] uppercase tracking-wider whitespace-nowrap',
+                      selected ? 'text-[#E8821C]' : 'text-[var(--color-text-muted)]'
+                    )}>
+                      {selected ? 'Agregado' : 'Agregar'}
                     </span>
                   </button>
                 );
@@ -559,7 +563,7 @@ function CotizarContent() {
 
             {accesoriosIds.length > 0 && (
               <p className="text-[12px] text-[var(--color-text-secondary)] mb-4">
-                {accesoriosIds.length} {accesoriosIds.length === 1 ? 'accesorio' : 'accesorios'} · +{formatCurrency(precioAccesorios)}
+                {accesoriosIds.length} {accesoriosIds.length === 1 ? 'accesorio seleccionado' : 'accesorios seleccionados'}
               </p>
             )}
           </>
@@ -633,9 +637,9 @@ function CotizarContent() {
                   <p className="text-[14px] font-semibold text-[var(--color-text-primary)]">{product.modelo}</p>
                   <p className="text-[11px] text-[var(--color-text-muted)]">{product.categoriaLabel} · Cantidad: {cantidad}</p>
                 </div>
-                <p className="font-num text-lg font-bold text-[#E8821C] whitespace-nowrap">
-                  {formatCurrency(total)}
-                </p>
+                <span className="px-3 py-1 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20 text-[10px] font-semibold text-[#E8821C] uppercase tracking-wider whitespace-nowrap">
+                  Precio a consultar
+                </span>
               </div>
             )}
 

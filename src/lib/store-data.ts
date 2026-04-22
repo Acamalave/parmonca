@@ -45,12 +45,22 @@ export interface StoreProduct {
   };
 }
 
+/**
+ * Categorías de equipo donde un accesorio es aplicable.
+ * - "montacarga" cubre Montacarga Eléctrico y Montacarga Combustión
+ * - "apilador" cubre Apilador Eléctrico
+ * - "traspaleta" cubre Traspaleta Eléctrica
+ * - "altura" cubre Mástil con Pantógrafo, Mástil Retráctil, Plataforma Elevadora
+ */
+export type CategoriaEquipo = 'montacarga' | 'apilador' | 'traspaleta' | 'altura';
+
 export interface Accesorio {
   id: string;
   nombre: string;
   descripcion: string;
   precio: number;
   categoria: 'seguridad' | 'productividad' | 'proteccion' | 'tecnologia';
+  aplicable: CategoriaEquipo[];
   imagen?: string;
 }
 
@@ -184,21 +194,59 @@ export const storeProducts: StoreProduct[] = [
 ];
 
 export const accesorios: Accesorio[] = [
-  { id: 'a1', nombre: 'Luces LED de Seguridad', descripcion: 'Sistema de luces LED perimetrales (zona azul/roja) para alertar peatones', precio: 450, categoria: 'seguridad' },
-  { id: 'a2', nombre: 'Alarma de Reversa', descripcion: 'Alarma sonora y visual automática al retroceder', precio: 180, categoria: 'seguridad' },
-  { id: 'a3', nombre: 'Espejo Retrovisor Panorámico', descripcion: 'Espejo gran angular con vision de 180 grados', precio: 120, categoria: 'seguridad' },
-  { id: 'a4', nombre: 'Cinturón de Seguridad Retráctil', descripcion: 'Cinturón de 3 puntos con retractor automático', precio: 95, categoria: 'seguridad' },
-  { id: 'a5', nombre: 'Desplazador Lateral (Side Shift)', descripcion: 'Permite mover las horquillas lateralmente sin mover el equipo', precio: 1200, categoria: 'productividad' },
-  { id: 'a6', nombre: 'Horquillas Ajustables', descripcion: 'Horquillas con ajuste hidráulico de ancho para pallets varios', precio: 800, categoria: 'productividad' },
-  { id: 'a7', nombre: 'Pinza para Tambores', descripcion: 'Accesorio para manipulación segura de tambores y barriles', precio: 1500, categoria: 'productividad' },
-  { id: 'a8', nombre: 'Extensión de Horquillas', descripcion: 'Extensión metálica para cargas de mayor longitud', precio: 350, categoria: 'productividad' },
-  { id: 'a9', nombre: 'Cabina Cerrada con A/C', descripcion: 'Cabina cerrada con aire acondicionado y calefacción', precio: 3500, categoria: 'proteccion' },
-  { id: 'a10', nombre: 'Techo Protector de Lluvia', descripcion: 'Techo rigido con cortinas laterales transparentes', precio: 850, categoria: 'proteccion' },
-  { id: 'a11', nombre: 'Protector de Carga', descripcion: 'Rejilla protectora trasera para evitar caida de carga', precio: 280, categoria: 'proteccion' },
-  { id: 'a12', nombre: 'Cámara de Reversa HD', descripcion: 'Cámara trasera HD con monitor a color de 7 pulgadas', precio: 650, categoria: 'tecnologia' },
-  { id: 'a13', nombre: 'Telemetría GPS', descripcion: 'Sistema de rastreo GPS con reportes de uso y mantenimiento', precio: 900, categoria: 'tecnologia' },
-  { id: 'a14', nombre: 'Control de Acceso RFID', descripcion: 'Sistema de arranque por tarjeta RFID para operadores autorizados', precio: 550, categoria: 'tecnologia' },
+  // Seguridad
+  { id: 'a1', nombre: 'Luces LED de Seguridad', descripcion: 'Sistema de luces LED perimetrales (zona azul/roja) para alertar peatones', precio: 450, categoria: 'seguridad',
+    aplicable: ['montacarga', 'apilador', 'traspaleta', 'altura'] },
+  { id: 'a2', nombre: 'Alarma de Reversa', descripcion: 'Alarma sonora y visual automática al retroceder', precio: 180, categoria: 'seguridad',
+    aplicable: ['montacarga', 'apilador', 'traspaleta'] },
+  { id: 'a3', nombre: 'Espejo Retrovisor Panorámico', descripcion: 'Espejo gran angular con visión de 180 grados', precio: 120, categoria: 'seguridad',
+    aplicable: ['montacarga'] },
+  { id: 'a4', nombre: 'Cinturón de Seguridad Retráctil', descripcion: 'Cinturón de 3 puntos con retractor automático', precio: 95, categoria: 'seguridad',
+    aplicable: ['montacarga', 'altura'] },
+
+  // Productividad
+  { id: 'a5', nombre: 'Desplazador Lateral (Side Shift)', descripcion: 'Permite mover las horquillas lateralmente sin mover el equipo', precio: 1200, categoria: 'productividad',
+    aplicable: ['montacarga'] },
+  { id: 'a6', nombre: 'Horquillas Ajustables', descripcion: 'Horquillas con ajuste hidráulico de ancho para pallets varios', precio: 800, categoria: 'productividad',
+    aplicable: ['montacarga'] },
+  { id: 'a7', nombre: 'Pinza para Tambores', descripcion: 'Accesorio para manipulación segura de tambores y barriles', precio: 1500, categoria: 'productividad',
+    aplicable: ['montacarga'] },
+  { id: 'a8', nombre: 'Extensión de Horquillas', descripcion: 'Extensión metálica para cargas de mayor longitud', precio: 350, categoria: 'productividad',
+    aplicable: ['montacarga', 'apilador'] },
+
+  // Protección
+  { id: 'a9', nombre: 'Cabina Cerrada con A/C', descripcion: 'Cabina cerrada con aire acondicionado y calefacción', precio: 3500, categoria: 'proteccion',
+    aplicable: ['montacarga'] },
+  { id: 'a10', nombre: 'Techo Protector de Lluvia', descripcion: 'Techo rígido con cortinas laterales transparentes', precio: 850, categoria: 'proteccion',
+    aplicable: ['montacarga'] },
+  { id: 'a11', nombre: 'Protector de Carga', descripcion: 'Rejilla protectora trasera para evitar caída de carga', precio: 280, categoria: 'proteccion',
+    aplicable: ['montacarga', 'apilador'] },
+
+  // Tecnología
+  { id: 'a12', nombre: 'Cámara de Reversa HD', descripcion: 'Cámara trasera HD con monitor a color de 7 pulgadas', precio: 650, categoria: 'tecnologia',
+    aplicable: ['montacarga'] },
+  { id: 'a13', nombre: 'Telemetría GPS', descripcion: 'Sistema de rastreo GPS con reportes de uso y mantenimiento', precio: 900, categoria: 'tecnologia',
+    aplicable: ['montacarga', 'apilador', 'traspaleta', 'altura'] },
+  { id: 'a14', nombre: 'Control de Acceso RFID', descripcion: 'Sistema de arranque por tarjeta RFID para operadores autorizados', precio: 550, categoria: 'tecnologia',
+    aplicable: ['montacarga', 'apilador', 'traspaleta', 'altura'] },
 ];
+
+/**
+ * Dada la categoría textual del producto, devuelve su bucket para
+ * filtrar accesorios aplicables.
+ */
+export function categoriaBucket(categoriaLabel: string): CategoriaEquipo {
+  const c = (categoriaLabel || '').toLowerCase();
+  if (c.includes('apilador')) return 'apilador';
+  if (c.includes('traspaleta')) return 'traspaleta';
+  if (c.includes('mástil') || c.includes('mastil') || c.includes('plataforma')) return 'altura';
+  return 'montacarga';
+}
+
+export function accesoriosParaCategoria(categoriaLabel: string): Accesorio[] {
+  const bucket = categoriaBucket(categoriaLabel);
+  return accesorios.filter(a => a.aplicable.includes(bucket));
+}
 
 export const categoriasAccesorios = [
   { id: 'seguridad', label: 'Seguridad', icon: 'shield' },

@@ -26,17 +26,11 @@ export default function ProductosPage() {
   const [liveProducts, setLiveProducts] = useState<StoreProduct[]>([]);
   const [loadingLive, setLoadingLive] = useState(true);
   // Grupos estratégicos de categorías
-  type Grupo = 'todos' | 'montacargas' | 'almacen' | 'altura';
+  type Grupo = 'todos' | 'montacargas' | 'apiladores' | 'altura';
   const [filterGrupo, setFilterGrupo] = useState<Grupo>('todos');
   const [filterMarca, setFilterMarca] = useState<string>('todas');
   const [searchTerm, setSearchTerm] = useState('');
   const [visibleCount, setVisibleCount] = useState(12);
-
-  const GRUPO_CATEGORIAS: Record<Exclude<Grupo, 'todos'>, string[]> = {
-    montacargas: ['Montacarga Eléctrico', 'Montacarga Combustión'],
-    almacen: ['Traspaleta Eléctrica', 'Apilador Eléctrico'],
-    altura: ['Mástil Retráctil', 'Equipo industrial'], // Mastil con Pantografo + Plataforma Elevadora caen aquí
-  };
 
   useEffect(() => {
     fetchActivos(300)
@@ -54,7 +48,7 @@ export default function ProductosPage() {
     if (g === 'todos') return true;
     const label = p.categoriaLabel;
     if (g === 'montacargas') return label === 'Montacarga Eléctrico' || label === 'Montacarga Combustión';
-    if (g === 'almacen') return label === 'Traspaleta Eléctrica' || label === 'Apilador Eléctrico';
+    if (g === 'apiladores') return label === 'Traspaleta Eléctrica' || label === 'Apilador Eléctrico';
     if (g === 'altura') return label === 'Mástil Retráctil' || (!['Montacarga Eléctrico','Montacarga Combustión','Traspaleta Eléctrica','Apilador Eléctrico'].includes(label));
     return true;
   };
@@ -85,13 +79,6 @@ export default function ProductosPage() {
     return '';
   }
 
-  // TCO calculation (12 months comparison)
-  const tcoMonths = 12;
-  const tcoElectric = storeProducts[0];
-  const tcoDiesel = storeProducts[1];
-  const tcoElectricTotal = tcoElectric.precioDesde + (tcoElectric.costoOperativo.combustibleMes + tcoElectric.costoOperativo.mantenimientoMes) * tcoMonths;
-  const tcoDieselTotal = tcoDiesel.precioDesde + (tcoDiesel.costoOperativo.combustibleMes + tcoDiesel.costoOperativo.mantenimientoMes) * tcoMonths;
-  const tcoSavings = tcoDieselTotal - tcoElectricTotal;
 
   return (
     <div>
@@ -306,15 +293,9 @@ export default function ProductosPage() {
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-[10px] text-[var(--color-text-muted)]">
-                      {recommendation.modalidad === 'venta' ? 'Desde' : 'Desde/mes'}
-                    </p>
-                    <p className="font-num text-2xl font-bold text-[var(--color-text-primary)]">
-                      {formatCurrency(recommendation.modalidad === 'venta'
-                        ? recommendation.product.precioDesde
-                        : recommendation.product.preciosAlquiler[recommendation.periodo || 'mensual']
-                      )}
-                    </p>
+                    <span className="inline-block px-3 py-1 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20 text-[10px] font-semibold text-[#E8821C] uppercase tracking-wider">
+                      Precio personalizado
+                    </span>
                     <Link href={`/productos/${recommendation.product.slug}`}
                       className="inline-flex items-center gap-1.5 mt-2 text-[12px] font-semibold text-[#E8821C] hover:underline group">
                       Ver equipo <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
@@ -376,29 +357,26 @@ export default function ProductosPage() {
           </div>
         </div>
 
-        {/* 3 Strategic category cards — click to filter immediately */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
+        {/* 3 Compact strategic cards — click to filter immediately */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-5">
           {([
             {
               id: 'montacargas' as Grupo,
               icon: Truck,
               title: 'Montacargas',
-              subtitle: 'Cargas pesadas y pallets',
-              accent: 'Eléctricos y combustión para operaciones industriales',
+              hint: 'Mueve pallets y carga pesada en almacén u obra',
             },
             {
-              id: 'almacen' as Grupo,
+              id: 'apiladores' as Grupo,
               icon: Boxes,
-              title: 'Almacén',
-              subtitle: 'Manejo ágil de inventario',
-              accent: 'Traspaletas y apiladores para pasillos y picking',
+              title: 'Apiladores',
+              hint: 'Estiba y traslada pallets en pasillos estrechos',
             },
             {
               id: 'altura' as Grupo,
               icon: MoveVertical,
               title: 'Altura',
-              subtitle: 'Trabajo en elevación',
-              accent: 'Mástiles con pantógrafo y plataformas elevadoras',
+              hint: 'Trabaja en elevación con mástiles o plataformas',
             },
           ] as const).map(card => {
             const Icon = card.icon;
@@ -409,39 +387,32 @@ export default function ProductosPage() {
                 key={card.id}
                 onClick={() => setFilterGrupo(active ? 'todos' : card.id)}
                 className={cn(
-                  'group relative text-left p-5 rounded-2xl border transition-all duration-200 overflow-hidden',
+                  'group flex items-center gap-3 p-3 rounded-xl border text-left transition-all duration-200',
                   active
-                    ? 'border-[#E8821C] bg-gradient-to-br from-[#E8821C]/[0.08] to-[#E8821C]/[0.02] shadow-[0_8px_32px_rgba(232,130,28,0.12)]'
-                    : 'border-[var(--color-border)] bg-[var(--color-surface-glass)] hover:border-[#E8821C]/40 hover:-translate-y-0.5'
+                    ? 'border-[#E8821C] bg-[#E8821C]/[0.06]'
+                    : 'border-[var(--color-border)] bg-[var(--color-surface-glass)] hover:border-[#E8821C]/40'
                 )}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div className={cn(
-                    'w-10 h-10 rounded-xl flex items-center justify-center transition-colors',
-                    active
-                      ? 'bg-gradient-to-br from-[#E8821C] to-[#C96A10] text-white'
-                      : 'bg-[var(--color-surface-elevated)] text-[#E8821C] group-hover:bg-[#E8821C]/10'
-                  )}>
-                    <Icon size={18} strokeWidth={1.75} />
-                  </div>
-                  <span className={cn(
-                    'text-[11px] font-semibold px-2 py-0.5 rounded-full',
-                    active
-                      ? 'bg-[#E8821C]/15 text-[#E8821C]'
-                      : 'bg-[var(--color-surface-elevated)] text-[var(--color-text-muted)]'
-                  )}>
-                    {count} equipos
-                  </span>
+                <div className={cn(
+                  'w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors',
+                  active
+                    ? 'bg-[#E8821C] text-white'
+                    : 'bg-[var(--color-surface-elevated)] text-[#E8821C]'
+                )}>
+                  <Icon size={16} strokeWidth={1.75} />
                 </div>
-                <h3 className={cn(
-                  'font-display text-lg font-bold tracking-tight',
-                  active ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-primary)]'
-                )}>{card.title}</h3>
-                <p className="text-[12px] text-[var(--color-text-secondary)] mt-0.5 font-medium">{card.subtitle}</p>
-                <p className="text-[11px] text-[var(--color-text-muted)] mt-2 leading-relaxed">{card.accent}</p>
-                {active && (
-                  <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-[#E8821C] animate-pulse" aria-hidden />
-                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-display text-[14px] font-bold text-[var(--color-text-primary)] tracking-tight leading-none">{card.title}</h3>
+                    <span className={cn(
+                      'text-[10px] font-semibold whitespace-nowrap',
+                      active ? 'text-[#E8821C]' : 'text-[var(--color-text-muted)]'
+                    )}>
+                      {count}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[var(--color-text-muted)] mt-1 leading-snug line-clamp-2">{card.hint}</p>
+                </div>
               </button>
             );
           })}
@@ -533,14 +504,10 @@ export default function ProductosPage() {
                       <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#E8821C]">{product.marca}</p>
                       <h3 className="font-display text-[15px] font-bold text-[var(--color-text-primary)] mt-0.5 leading-tight truncate">{product.modelo}</h3>
                       <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5 truncate">{product.categoriaLabel}</p>
-                      <div className="mt-2.5 flex items-baseline justify-between gap-2">
-                        {hasPrice ? (
-                          <span className="font-num text-[14px] font-bold text-[var(--color-text-primary)]">
-                            {formatCurrency(getDisplayPrice(product))}{modalidad === 'alquiler' ? <span className="text-[10px] font-normal text-[var(--color-text-muted)]">{getPriceLabel()}</span> : ''}
-                          </span>
-                        ) : (
-                          <span className="text-[11px] text-[var(--color-text-muted)] italic">Cotiza precio</span>
-                        )}
+                      <div className="mt-2.5 flex items-center justify-between gap-2">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#E8821C]/10 border border-[#E8821C]/20 text-[10px] font-semibold text-[#E8821C]">
+                          Cotiza ahora
+                        </span>
                         <span className="text-[10px] text-[var(--color-text-muted)]">{product.capacidad}</span>
                       </div>
                     </div>
@@ -564,96 +531,6 @@ export default function ProductosPage() {
         )}
       </section>
 
-      {/* TCO Calculator */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
-        <div className="glass rounded-2xl p-8 sm:p-12 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-[#E8821C]/[0.03] rounded-full blur-[120px]" />
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-4">
-              <Calculator size={18} className="text-[#E8821C]" />
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#E8821C]">Calculadora de Costo Total</p>
-            </div>
-            <h2 className="font-display text-2xl sm:text-3xl font-bold text-[var(--color-text-primary)] tracking-tight max-w-lg">
-              Eléctrico vs Combustión: el ahorro real
-            </h2>
-            <p className="text-[var(--color-text-secondary)] text-[14px] mt-2 max-w-lg">
-              Comparación de costo total de propiedad a {tcoMonths} meses incluyendo equipo, combustible/energía y mantenimiento
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-8">
-              {/* Electric */}
-              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <Image src={tcoElectric.imagenNoBg} alt={tcoElectric.modelo} width={50} height={40} className="object-contain" />
-                  <div>
-                    <p className="text-[10px] font-bold text-[#E8821C] uppercase tracking-wider">{tcoElectric.marca}</p>
-                    <p className="font-display font-bold text-[var(--color-text-primary)]">{tcoElectric.modelo}</p>
-                    <p className="text-[11px] text-[var(--color-text-secondary)]">Eléctrico Li-Ion</p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-[12px]">
-                    <span className="text-[var(--color-text-secondary)]">Equipo</span>
-                    <span className="font-num text-[var(--color-text-primary)]">{formatCurrency(tcoElectric.precioDesde)}</span>
-                  </div>
-                  <div className="flex justify-between text-[12px]">
-                    <span className="text-[var(--color-text-secondary)]">Energía ({tcoMonths} meses)</span>
-                    <span className="font-num text-[var(--color-text-primary)]">{formatCurrency(tcoElectric.costoOperativo.combustibleMes * tcoMonths)}</span>
-                  </div>
-                  <div className="flex justify-between text-[12px]">
-                    <span className="text-[var(--color-text-secondary)]">Mantenimiento ({tcoMonths} meses)</span>
-                    <span className="font-num text-[var(--color-text-primary)]">{formatCurrency(tcoElectric.costoOperativo.mantenimientoMes * tcoMonths)}</span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t border-emerald-500/20">
-                    <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">Total</span>
-                    <span className="font-num text-lg font-bold text-emerald-400">{formatCurrency(tcoElectricTotal)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Diesel */}
-              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-glass)] p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <Image src={tcoDiesel.imagenNoBg} alt={tcoDiesel.modelo} width={50} height={40} className="object-contain" />
-                  <div>
-                    <p className="text-[10px] font-bold text-[#E8821C] uppercase tracking-wider">{tcoDiesel.marca}</p>
-                    <p className="font-display font-bold text-[var(--color-text-primary)]">{tcoDiesel.modelo}</p>
-                    <p className="text-[11px] text-[var(--color-text-secondary)]">Diesel Turbo</p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-[12px]">
-                    <span className="text-[var(--color-text-secondary)]">Equipo</span>
-                    <span className="font-num text-[var(--color-text-primary)]">{formatCurrency(tcoDiesel.precioDesde)}</span>
-                  </div>
-                  <div className="flex justify-between text-[12px]">
-                    <span className="text-[var(--color-text-secondary)]">Combustible ({tcoMonths} meses)</span>
-                    <span className="font-num text-[var(--color-text-primary)]">{formatCurrency(tcoDiesel.costoOperativo.combustibleMes * tcoMonths)}</span>
-                  </div>
-                  <div className="flex justify-between text-[12px]">
-                    <span className="text-[var(--color-text-secondary)]">Mantenimiento ({tcoMonths} meses)</span>
-                    <span className="font-num text-[var(--color-text-primary)]">{formatCurrency(tcoDiesel.costoOperativo.mantenimientoMes * tcoMonths)}</span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t border-[var(--color-border)]">
-                    <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">Total</span>
-                    <span className="font-num text-lg font-bold text-[var(--color-text-primary)]">{formatCurrency(tcoDieselTotal)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Savings banner */}
-            <div className="mt-6 flex items-center gap-3 p-4 rounded-xl bg-emerald-500/[0.08] border border-emerald-500/20">
-              <TrendingDown size={20} className="text-emerald-400 flex-shrink-0" />
-              <p className="text-[13px] text-[var(--color-text-primary)]">
-                <span className="font-semibold">Ahorro con eléctrico:</span>{' '}
-                <span className="font-num font-bold text-emerald-400">{formatCurrency(tcoSavings)}</span>{' '}
-                en {tcoMonths} meses de operación
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Why PARMONCA */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16">

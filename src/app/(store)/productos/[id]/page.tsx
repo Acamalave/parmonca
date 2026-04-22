@@ -5,9 +5,9 @@ import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeft, Check, Plus, Minus, Zap, ArrowRight, ChevronDown } from 'lucide-react';
-import { storeProducts, accesorios, periodoLabels, type Modalidad, type PeriodoAlquiler, type StoreProduct } from '@/lib/store-data';
+import { storeProducts, accesoriosParaCategoria, periodoLabels, type Modalidad, type PeriodoAlquiler, type StoreProduct, type Accesorio } from '@/lib/store-data';
 import { fetchProducto } from '@/lib/productos-live';
-import { formatCurrency, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -42,14 +42,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     );
   }
 
+  // Accesorios aplicables a la categoría de este producto
+  const accesoriosAplicables: Accesorio[] = accesoriosParaCategoria(product.categoriaLabel);
+
   const toggleAccesorio = (id: string) => {
     setSelectedAccesorios(prev => prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]);
   };
-
-  const precioAccesorios = accesorios.filter(a => selectedAccesorios.includes(a.id)).reduce((sum, a) => sum + a.precio, 0);
-  const precioBase = modalidad === 'alquiler' ? product.preciosAlquiler[periodo] : product.precioDesde;
-  const precioUnitario = precioBase + (modalidad === 'venta' ? precioAccesorios : 0);
-  const precioTotal = precioUnitario * cantidad;
 
   const cotizarUrl = `/cotizar?producto=${product.slug}&accesorios=${selectedAccesorios.join(',')}&cantidad=${cantidad}&modalidad=${modalidad}${modalidad === 'alquiler' ? `&periodo=${periodo}` : ''}`;
 
@@ -120,22 +118,25 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               </div>
             )}
 
-            <div className="flex items-end justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
                 <p className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider">
-                  {modalidad === 'alquiler' ? `Precio por ${periodoLabels[periodo].toLowerCase()}` : 'Precio base'}
+                  Precio
                 </p>
-                <p className="font-num text-3xl font-bold text-[var(--color-text-primary)] mt-0.5">
-                  {formatCurrency(precioBase)}
-                  {modalidad === 'alquiler' && <span className="text-[14px] font-normal text-[var(--color-text-muted)]">/{periodoLabels[periodo]}</span>}
+                <p className="text-[15px] font-semibold text-[var(--color-text-primary)] mt-0.5">
+                  Cotiza con un asesor
+                </p>
+                <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
+                  {modalidad === 'alquiler' ? `Renta ${periodoLabels[periodo].toLowerCase()} · incluye mantenimiento básico` : 'Precio personalizado según tu operación y volumen'}
                 </p>
               </div>
-              {modalidad === 'venta' && (
-                <p className="text-[11px] text-[var(--color-text-muted)]">USD · Consultar financiamiento</p>
-              )}
-              {modalidad === 'alquiler' && (
-                <p className="text-[11px] text-[var(--color-text-muted)]">Incluye mantenimiento básico</p>
-              )}
+              <Link
+                href={`/cotizar?producto=${product.slug}&modalidad=${modalidad}${modalidad === 'alquiler' ? `&periodo=${periodo}` : ''}`}
+                className="inline-flex items-center gap-1.5 h-10 px-5 rounded-full bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold hover:shadow-[0_0_20px_rgba(232,130,28,0.35)] transition-all"
+              >
+                Solicitar cotización
+                <ArrowRight size={13} />
+              </Link>
             </div>
           </div>
 
@@ -168,15 +169,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             </div>
           )}
 
-          {/* Monthly cost comparison (only for venta) */}
-          {modalidad === 'venta' && (
-            <div className="mt-4 p-3 rounded-lg bg-emerald-500/[0.06] border border-emerald-500/15">
-              <p className="text-[11px] text-emerald-400 font-medium">
-                Costo operativo mensual estimado: {formatCurrency(product.costoOperativo.combustibleMes + product.costoOperativo.mantenimientoMes)}
-                <span className="text-[var(--color-text-muted)]"> (energía + mantenimiento)</span>
-              </p>
-            </div>
-          )}
         </div>
       </div>
 
@@ -196,7 +188,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           { cat: 'proteccion', label: 'Protección' },
           { cat: 'tecnologia', label: 'Tecnología' },
         ].map(({ cat, label }) => {
-          const catAccs = accesorios.filter(a => a.categoria === cat);
+          const catAccs = accesoriosAplicables.filter(a => a.categoria === cat);
+          if (catAccs.length === 0) return null;
           return (
             <div key={cat} className="mb-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-muted)] mb-2">{label}</p>
@@ -215,8 +208,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                           {selected && <Check size={10} className="text-white" />}
                         </div>
                         <span className="font-medium flex-1">{acc.nombre}</span>
-                        <span className={cn('font-num text-[11px]', selected ? 'text-[#E8821C]/70' : 'text-[var(--color-text-muted)]')}>
-                          +{formatCurrency(acc.precio)}
+                        <span className={cn('text-[10px] uppercase tracking-wider', selected ? 'text-[#E8821C]/70' : 'text-[var(--color-text-muted)]')}>
+                          {selected ? 'Incluido' : 'Agregar'}
                         </span>
                         <ChevronDown size={12} className={cn('text-[var(--color-text-muted)] transition-transform', selected && 'rotate-180')} />
                       </button>
@@ -239,12 +232,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             {/* Mobile layout */}
             <div className="flex items-center justify-between gap-3 sm:hidden">
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] text-[var(--color-text-muted)] uppercase">
-                  {modalidad === 'alquiler' ? `Total/${periodoLabels[periodo]}` : 'Total'}
-                </p>
-                <p className="font-num text-xl font-bold text-[var(--color-text-primary)] truncate">{formatCurrency(precioTotal)}</p>
-                <p className="text-[10px] text-[var(--color-text-muted)]">
-                  {modalidad === 'alquiler' ? 'Alquiler' : 'Compra'} · {selectedAccesorios.length > 0 ? `${selectedAccesorios.length} acc.` : product.modelo} · x{cantidad}
+                <p className="text-[12px] font-semibold text-[var(--color-text-primary)] truncate">{product.marca} {product.modelo}</p>
+                <p className="text-[10px] text-[var(--color-text-muted)] truncate">
+                  {modalidad === 'alquiler' ? `Alquiler/${periodoLabels[periodo]}` : 'Compra'}
+                  {selectedAccesorios.length > 0 && ` · ${selectedAccesorios.length} acc.`}
+                  {' · x'}{cantidad}
                 </p>
               </div>
               <Link href={cotizarUrl}
@@ -283,15 +275,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   </button>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-[10px] text-[var(--color-text-muted)] uppercase">
-                  {modalidad === 'alquiler' ? `Total/${periodoLabels[periodo]}` : 'Total estimado'}
-                </p>
-                <p className="font-num text-xl font-bold text-[var(--color-text-primary)]">{formatCurrency(precioTotal)}</p>
-              </div>
               <Link href={cotizarUrl}
                 className="flex items-center gap-2 h-10 px-6 bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold rounded-full hover:shadow-[0_0_25px_#E8821C40] transition-all active:scale-[0.97] group whitespace-nowrap">
-                Solicitar Cotización
+                Solicitar cotización
                 <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </div>
