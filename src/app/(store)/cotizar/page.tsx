@@ -5,15 +5,14 @@ import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
-  ArrowLeft, Check, Send, Zap, Package,
-  Factory, Warehouse, Truck, Wheat, Stethoscope, Store, HardHat, Box,
-  Sun, Trees, Shuffle,
-  Clock, CalendarDays, Infinity as InfinityIcon,
-  Calendar, Search,
-  UserPlus, Users, Building2, Briefcase,
-  DollarSign, Banknote, Wallet, Coins,
-  CreditCard, Handshake,
-  Sparkles, ShieldCheck, Wrench, Cpu, Hash, MapPin, Phone, Mail, User, FileText, MessageSquare,
+  ArrowLeft, Check, Send, Package,
+  Factory, Truck, Leaf, Pill, ShoppingBag, HardHat, MoreHorizontal,
+  Home, CloudSun, ArrowLeftRight,
+  Clock3, Sun, RotateCw,
+  Zap, CalendarDays, CalendarClock, Telescope,
+  Sparkles, Layers3, Building2,
+  DollarSign, Wallet, CreditCard,
+  ShieldCheck, Wrench, Cpu, Hash, MapPin, Phone, Mail, User, FileText, MessageSquare, Box,
 } from 'lucide-react';
 import {
   storeProducts, accesorios as allAccesorios, periodoLabels,
@@ -46,61 +45,60 @@ const STEP_ORDER: StepId[] = [
 type OptionCard = {
   value: string;
   title: string;
-  subtitle?: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
 };
 
 const INDUSTRIAS: OptionCard[] = [
-  { value: 'almacen', title: 'Almacén / Distribución', subtitle: 'Pallets, racks, carga y descarga', icon: Warehouse },
-  { value: 'manufactura', title: 'Manufactura', subtitle: 'Producción, línea de ensamble', icon: Factory },
-  { value: 'construccion', title: 'Construcción', subtitle: 'Obras, materiales pesados', icon: HardHat },
-  { value: 'logistica', title: 'Logística / Transporte', subtitle: 'Puertos, cross-docking', icon: Truck },
-  { value: 'retail', title: 'Retail / Comercio', subtitle: 'Supermercado, tienda', icon: Store },
-  { value: 'agricola', title: 'Agrícola', subtitle: 'Silos, cosecha, almacenamiento', icon: Wheat },
-  { value: 'farmaceutica', title: 'Farmacéutica', subtitle: 'Cold-chain, sala limpia', icon: Stethoscope },
-  { value: 'otro', title: 'Otro', subtitle: 'Cuéntanos en el resumen', icon: Box },
+  { value: 'almacen', title: 'Almacén', icon: Package },
+  { value: 'manufactura', title: 'Manufactura', icon: Factory },
+  { value: 'construccion', title: 'Construcción', icon: HardHat },
+  { value: 'logistica', title: 'Logística', icon: Truck },
+  { value: 'retail', title: 'Retail', icon: ShoppingBag },
+  { value: 'agricola', title: 'Agrícola', icon: Leaf },
+  { value: 'farmaceutica', title: 'Farmacéutica', icon: Pill },
+  { value: 'otro', title: 'Otro', icon: MoreHorizontal },
 ];
 
 const OPERACIONES: OptionCard[] = [
-  { value: 'interior', title: 'Interior', subtitle: 'Almacén techado, nave cerrada', icon: Warehouse },
-  { value: 'exterior', title: 'Exterior', subtitle: 'Patio, obra, intemperie', icon: Trees },
-  { value: 'mixto', title: 'Mixto', subtitle: 'Entra y sale todo el día', icon: Shuffle },
+  { value: 'interior', title: 'Interior', icon: Home },
+  { value: 'exterior', title: 'Exterior', icon: CloudSun },
+  { value: 'mixto', title: 'Mixto', icon: ArrowLeftRight },
 ];
 
 const FRECUENCIAS: OptionCard[] = [
-  { value: 'ocasional', title: 'Ocasional', subtitle: 'Pocas horas por semana', icon: Clock },
-  { value: 'turno-completo', title: 'Turno completo', subtitle: '8 horas al día', icon: Sun },
-  { value: '24-7', title: 'Continuo', subtitle: 'Multiturno 24/7', icon: InfinityIcon },
+  { value: 'ocasional', title: 'Ocasional', icon: Clock3 },
+  { value: 'turno-completo', title: 'Turno completo', icon: Sun },
+  { value: '24-7', title: 'Continuo 24/7', icon: RotateCw },
 ];
 
 const PLAZOS: OptionCard[] = [
-  { value: 'inmediato', title: 'Lo necesito ya', subtitle: 'Esta semana', icon: Zap },
-  { value: '1-2-semanas', title: 'Próximas 2 semanas', subtitle: 'Coordinando compra', icon: CalendarDays },
-  { value: 'planificando', title: 'Estoy planificando', subtitle: 'Próximo mes o más', icon: Calendar },
-  { value: 'explorando', title: 'Solo investigando', subtitle: 'Comparando opciones', icon: Search },
+  { value: 'inmediato', title: 'Inmediato', icon: Zap },
+  { value: '1-2-semanas', title: '1 – 2 semanas', icon: CalendarDays },
+  { value: 'planificando', title: 'Planificando', icon: CalendarClock },
+  { value: 'explorando', title: 'Investigando', icon: Telescope },
 ];
 
 const FLOTAS: OptionCard[] = [
-  { value: '0', title: 'Ninguno todavía', subtitle: 'Primera adquisición', icon: UserPlus },
-  { value: '1-3', title: '1 a 3 equipos', subtitle: 'Flota pequeña', icon: Users },
-  { value: '4-10', title: '4 a 10 equipos', subtitle: 'Flota mediana', icon: Briefcase },
-  { value: '10+', title: 'Más de 10', subtitle: 'Flota corporativa', icon: Building2 },
+  { value: '0', title: 'Ninguno', icon: Sparkles },
+  { value: '1-3', title: '1 – 3 equipos', icon: Package },
+  { value: '4-10', title: '4 – 10 equipos', icon: Layers3 },
+  { value: '10+', title: 'Más de 10', icon: Building2 },
 ];
 
 const PRESUPUESTOS: OptionCard[] = [
-  { value: '<10k', title: 'Menos de $10K', subtitle: 'Equipo compacto', icon: Coins },
-  { value: '10k-25k', title: '$10K – $25K', subtitle: 'Rango estándar', icon: DollarSign },
-  { value: '25k-50k', title: '$25K – $50K', subtitle: 'Capacidad industrial', icon: Banknote },
-  { value: '50k+', title: 'Más de $50K', subtitle: 'Flota completa', icon: Wallet },
-  { value: 'flexible', title: 'Flexible', subtitle: 'Muéstrame opciones', icon: Sparkles },
+  { value: '<10k', title: 'Menos de $10K', icon: DollarSign },
+  { value: '10k-25k', title: '$10K – $25K', icon: DollarSign },
+  { value: '25k-50k', title: '$25K – $50K', icon: DollarSign },
+  { value: '50k+', title: 'Más de $50K', icon: DollarSign },
+  { value: 'flexible', title: 'Flexible', icon: Sparkles },
 ];
 
 const FINANCIAMIENTOS: OptionCard[] = [
-  { value: 'no', title: 'Pago contado', subtitle: 'Compra directa', icon: CreditCard },
-  { value: 'si', title: 'Necesito financiamiento', subtitle: 'Plazos, leasing', icon: Handshake },
+  { value: 'no', title: 'Pago contado', icon: Wallet },
+  { value: 'si', title: 'Financiamiento', icon: CreditCard },
 ];
 
-const CATEGORIA_ACC_ICON: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+const CATEGORIA_ACC_ICON: Record<string, React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>> = {
   seguridad: ShieldCheck,
   productividad: Wrench,
   proteccion: HardHat,
@@ -144,7 +142,7 @@ function OptionGrid({
 }) {
   const colsClass = columns === 4 ? 'sm:grid-cols-4' : columns === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2';
   return (
-    <div className={cn('grid grid-cols-1 gap-3', colsClass)}>
+    <div className={cn('grid grid-cols-2 gap-2.5', colsClass)}>
       {options.map((opt) => {
         const Icon = opt.icon;
         const selected = value === opt.value;
@@ -153,37 +151,28 @@ function OptionGrid({
             key={opt.value}
             onClick={() => onSelect(opt.value)}
             className={cn(
-              'group relative flex items-start gap-3 p-4 rounded-2xl border text-left transition-all duration-200 active:scale-[0.98]',
+              'flex items-center gap-3 px-4 py-3.5 rounded-xl border text-left transition-colors duration-150',
               selected
-                ? 'border-[#E8821C] bg-[#E8821C]/[0.08] shadow-[0_0_20px_rgba(232,130,28,0.15)]'
-                : 'border-[var(--color-border)] bg-[var(--color-surface-glass)] hover:border-[#E8821C]/40 hover:bg-[var(--color-surface-hover)]'
+                ? 'border-[#E8821C] bg-[#E8821C]/[0.06]'
+                : 'border-[var(--color-border)] bg-[var(--color-surface-glass)] hover:border-[var(--color-text-muted)]'
             )}
           >
-            <div
+            <Icon
+              size={18}
+              strokeWidth={1.75}
               className={cn(
-                'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors',
-                selected
-                  ? 'bg-gradient-to-br from-[#E8821C] to-[#C96A10] text-white'
-                  : 'bg-[var(--color-surface-elevated)] text-[#E8821C] group-hover:bg-[#E8821C]/10'
+                'flex-shrink-0 transition-colors',
+                selected ? 'text-[#E8821C]' : 'text-[var(--color-text-secondary)]'
+              )}
+            />
+            <span
+              className={cn(
+                'text-[13.5px] font-medium leading-tight',
+                selected ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'
               )}
             >
-              <Icon size={18} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[14px] font-semibold text-[var(--color-text-primary)] leading-tight">
-                {opt.title}
-              </p>
-              {opt.subtitle && (
-                <p className="text-[11px] text-[var(--color-text-muted)] mt-1 leading-relaxed">
-                  {opt.subtitle}
-                </p>
-              )}
-            </div>
-            {selected && (
-              <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#E8821C] flex items-center justify-center">
-                <Check size={12} className="text-white" />
-              </div>
-            )}
+              {opt.title}
+            </span>
           </button>
         );
       })}
@@ -192,24 +181,19 @@ function OptionGrid({
 }
 
 function StepHeader({
-  eyebrow,
   title,
   subtitle,
 }: {
-  eyebrow: string;
   title: string;
   subtitle?: string;
 }) {
   return (
     <div className="mb-6">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#E8821C] mb-2">
-        {eyebrow}
-      </p>
-      <h2 className="font-display text-2xl sm:text-3xl font-bold text-[var(--color-text-primary)] tracking-tight leading-tight">
+      <h2 className="font-display text-xl sm:text-2xl font-semibold text-[var(--color-text-primary)] tracking-tight leading-snug">
         {title}
       </h2>
       {subtitle && (
-        <p className="text-[14px] text-[var(--color-text-secondary)] mt-2 max-w-lg">
+        <p className="text-[13px] text-[var(--color-text-muted)] mt-1.5 max-w-md">
           {subtitle}
         </p>
       )}
@@ -274,11 +258,6 @@ function CotizarContent() {
   // ── Step navigation ──
   const goNext = () => setStepIndex(i => Math.min(i + 1, STEP_ORDER.length - 1));
   const goBack = () => setStepIndex(i => Math.max(i - 1, 0));
-  const jumpTo = (id: StepId) => {
-    const idx = STEP_ORDER.indexOf(id);
-    if (idx >= 0) setStepIndex(idx);
-  };
-
   // Auto-advance helper: selecting a single-choice option advances after a brief delay
   const autoAdvance = (setter: (v: string) => void) => (v: string) => {
     setter(v);
@@ -443,9 +422,7 @@ function CotizarContent() {
         {currentStep === 'industria' && (
           <>
             <StepHeader
-              eyebrow="01. Tu operación"
-              title="¿En qué industria vas a usar el equipo?"
-              subtitle="Esto nos ayuda a recomendarte accesorios y configuraciones adecuadas."
+              title="¿En qué industria lo usarás?"
             />
             <OptionGrid options={INDUSTRIAS} value={industria} onSelect={autoAdvance(setIndustria)} columns={2} />
           </>
@@ -454,9 +431,7 @@ function CotizarContent() {
         {currentStep === 'operacion' && (
           <>
             <StepHeader
-              eyebrow="02. Ambiente"
-              title="¿Dónde operará el equipo principalmente?"
-              subtitle="Los equipos eléctricos son ideales para interior; los diésel rinden mejor en exterior."
+              title="¿Dónde operará?"
             />
             <OptionGrid options={OPERACIONES} value={operacion} onSelect={autoAdvance(setOperacion)} columns={3} />
           </>
@@ -465,9 +440,7 @@ function CotizarContent() {
         {currentStep === 'frecuencia' && (
           <>
             <StepHeader
-              eyebrow="03. Intensidad de uso"
-              title="¿Con qué frecuencia lo usarás?"
-              subtitle="Define la potencia, autonomía de batería y plan de mantenimiento."
+              title="¿Con qué frecuencia?"
             />
             <OptionGrid options={FRECUENCIAS} value={frecuencia} onSelect={autoAdvance(setFrecuencia)} columns={3} />
           </>
@@ -476,9 +449,7 @@ function CotizarContent() {
         {currentStep === 'plazo' && (
           <>
             <StepHeader
-              eyebrow="04. Urgencia"
               title="¿Cuándo lo necesitas?"
-              subtitle="Priorizamos tu cotización según el plazo."
             />
             <OptionGrid options={PLAZOS} value={plazo} onSelect={autoAdvance(setPlazo)} columns={2} />
           </>
@@ -487,9 +458,7 @@ function CotizarContent() {
         {currentStep === 'flota' && (
           <>
             <StepHeader
-              eyebrow="05. Tu empresa"
-              title="¿Cuántos equipos operas actualmente?"
-              subtitle="Nos permite ofrecerte descuentos por volumen o flotilla."
+              title="¿Cuántos equipos operas hoy?"
             />
             <OptionGrid options={FLOTAS} value={tamanoFlota} onSelect={autoAdvance(setTamanoFlota)} columns={2} />
           </>
@@ -498,9 +467,7 @@ function CotizarContent() {
         {currentStep === 'presupuesto' && (
           <>
             <StepHeader
-              eyebrow="06. Inversión"
-              title="¿Cuál es tu presupuesto estimado?"
-              subtitle="Si no estás seguro, elige “Flexible” y te mostramos opciones en distintos rangos."
+              title="Presupuesto estimado"
             />
             <OptionGrid options={PRESUPUESTOS} value={presupuesto} onSelect={autoAdvance(setPresupuesto)} columns={2} />
           </>
@@ -509,9 +476,7 @@ function CotizarContent() {
         {currentStep === 'financiamiento' && (
           <>
             <StepHeader
-              eyebrow="07. Forma de pago"
-              title="¿Cómo te gustaría pagar?"
-              subtitle="Trabajamos con bancos aliados y planes de leasing."
+              title="¿Cómo prefieres pagar?"
             />
             <OptionGrid options={FINANCIAMIENTOS} value={financiamiento} onSelect={autoAdvance(setFinanciamiento)} columns={2} />
           </>
@@ -520,45 +485,40 @@ function CotizarContent() {
         {currentStep === 'accesorios' && (
           <>
             <StepHeader
-              eyebrow="08. Accesorios (opcional)"
-              title={product ? `Personaliza tu ${product.modelo}` : 'Agrega accesorios'}
-              subtitle="Selecciona los que necesites. Puedes omitir este paso."
+              title={product ? `Accesorios para ${product.modelo}` : 'Accesorios'}
+              subtitle="Opcional. Selecciona los que necesites."
             />
 
             {/* Category filter chips */}
-            <div className="flex flex-wrap gap-2 mb-4">
+            <div className="flex flex-wrap gap-1.5 mb-5">
               <button
                 onClick={() => setAccCategoria('todas')}
                 className={cn(
-                  'px-3 h-8 rounded-full text-[12px] font-semibold transition-all',
+                  'h-7 px-3 rounded-full text-[12px] font-medium transition-colors',
                   accCategoria === 'todas'
-                    ? 'bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white'
-                    : 'bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[#E8821C]/30'
+                    ? 'bg-[#E8821C] text-white'
+                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                 )}
               >
                 Todas
               </button>
-              {(['seguridad', 'productividad', 'proteccion', 'tecnologia'] as const).map(cat => {
-                const Icon = CATEGORIA_ACC_ICON[cat];
-                return (
-                  <button
-                    key={cat}
-                    onClick={() => setAccCategoria(cat)}
-                    className={cn(
-                      'flex items-center gap-1.5 px-3 h-8 rounded-full text-[12px] font-semibold capitalize transition-all',
-                      accCategoria === cat
-                        ? 'bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white'
-                        : 'bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[#E8821C]/30'
-                    )}
-                  >
-                    <Icon size={12} />
-                    {cat}
-                  </button>
-                );
-              })}
+              {(['seguridad', 'productividad', 'proteccion', 'tecnologia'] as const).map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setAccCategoria(cat)}
+                  className={cn(
+                    'h-7 px-3 rounded-full text-[12px] font-medium capitalize transition-colors',
+                    accCategoria === cat
+                      ? 'bg-[#E8821C] text-white'
+                      : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                  )}
+                >
+                  {cat}
+                </button>
+              ))}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-6">
               {accFiltered.map(acc => {
                 const selected = accesoriosIds.includes(acc.id);
                 const Icon = CATEGORIA_ACC_ICON[acc.categoria] || Package;
@@ -567,40 +527,31 @@ function CotizarContent() {
                     key={acc.id}
                     onClick={() => toggleAccesorio(acc.id)}
                     className={cn(
-                      'relative flex items-start gap-3 p-4 rounded-2xl border text-left transition-all active:scale-[0.98]',
+                      'flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-colors',
                       selected
-                        ? 'border-[#E8821C] bg-[#E8821C]/[0.08] shadow-[0_0_16px_rgba(232,130,28,0.12)]'
-                        : 'border-[var(--color-border)] bg-[var(--color-surface-glass)] hover:border-[#E8821C]/40'
+                        ? 'border-[#E8821C] bg-[#E8821C]/[0.06]'
+                        : 'border-[var(--color-border)] bg-[var(--color-surface-glass)] hover:border-[var(--color-text-muted)]'
                     )}
                   >
-                    <div
+                    <Icon
+                      size={17}
+                      strokeWidth={1.75}
                       className={cn(
-                        'w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0',
-                        selected
-                          ? 'bg-gradient-to-br from-[#E8821C] to-[#C96A10] text-white'
-                          : 'bg-[var(--color-surface-elevated)] text-[#E8821C]'
+                        'flex-shrink-0',
+                        selected ? 'text-[#E8821C]' : 'text-[var(--color-text-secondary)]'
                       )}
-                    >
-                      <Icon size={16} />
-                    </div>
+                    />
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-[13px] font-semibold text-[var(--color-text-primary)] leading-tight">
-                          {acc.nombre}
-                        </p>
-                        <p className="text-[12px] font-num font-bold text-[#E8821C] whitespace-nowrap">
-                          +{formatCurrency(acc.precio)}
-                        </p>
-                      </div>
-                      <p className="text-[11px] text-[var(--color-text-muted)] mt-1 leading-relaxed">
-                        {acc.descripcion}
+                      <p className={cn(
+                        'text-[13px] font-medium leading-tight',
+                        selected ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'
+                      )}>
+                        {acc.nombre}
                       </p>
                     </div>
-                    {selected && (
-                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#E8821C] flex items-center justify-center">
-                        <Check size={12} className="text-white" />
-                      </div>
-                    )}
+                    <span className="text-[12px] font-num font-medium text-[var(--color-text-muted)] whitespace-nowrap">
+                      +{formatCurrency(acc.precio)}
+                    </span>
                   </button>
                 );
               })}
@@ -617,9 +568,8 @@ function CotizarContent() {
         {currentStep === 'contacto' && (
           <>
             <StepHeader
-              eyebrow="09. Tus datos"
-              title="¿Cómo te contactamos?"
-              subtitle="Solo pedimos lo necesario para enviarte la cotización."
+              title="Tus datos de contacto"
+              subtitle="Solo lo necesario para enviarte la cotización."
             />
 
             <div className="space-y-4">
@@ -671,9 +621,7 @@ function CotizarContent() {
         {currentStep === 'confirmar' && (
           <>
             <StepHeader
-              eyebrow="10. Último paso"
               title="Revisa y confirma"
-              subtitle="Así es como llegará tu solicitud a nuestro equipo."
             />
 
             {/* Producto */}
@@ -798,21 +746,6 @@ function CotizarContent() {
         </div>
       )}
 
-      {/* Quick nav dots (desktop) */}
-      <div className="hidden md:flex items-center justify-center gap-1.5 mt-8">
-        {STEP_ORDER.map((id, i) => (
-          <button
-            key={id}
-            onClick={() => i <= stepIndex && jumpTo(id)}
-            disabled={i > stepIndex}
-            className={cn(
-              'h-1.5 rounded-full transition-all',
-              i === stepIndex ? 'w-6 bg-[#E8821C]' : i < stepIndex ? 'w-1.5 bg-[#E8821C]/40 cursor-pointer hover:bg-[#E8821C]/70' : 'w-1.5 bg-[var(--color-border)] cursor-not-allowed'
-            )}
-            aria-label={`Paso ${i + 1}`}
-          />
-        ))}
-      </div>
     </div>
   );
 }
@@ -830,7 +763,7 @@ function FieldInput({
   type = 'text',
   autoFocus,
 }: {
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
   label: string;
   value: string;
   onChange: (v: string) => void;
@@ -863,7 +796,7 @@ function FieldSelect({
   onChange,
   options,
 }: {
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
   label: string;
   value: string;
   onChange: (v: string) => void;
