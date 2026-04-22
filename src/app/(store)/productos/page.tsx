@@ -7,6 +7,8 @@ import { ArrowRight, Zap, Shield, Truck, Battery, ChevronRight, Factory, MapPin,
 import { storeProducts, industriaOptions, ambienteOptions, frecuenciaOptions, plazoOptions, getRecommendation, periodoLabels, type Modalidad, type PeriodoAlquiler, type StoreProduct } from '@/lib/store-data';
 import { fetchActivos } from '@/lib/productos-live';
 import { formatCurrency, cn } from '@/lib/utils';
+import { track } from '@/lib/visitor';
+import { PageView } from '@/components/PageView';
 
 export default function ProductosPage() {
   const [modalidad, setModalidad] = useState<Modalidad>('venta');
@@ -82,6 +84,7 @@ export default function ProductosPage() {
 
   return (
     <div>
+      <PageView data={{ page: 'productos_landing' }} />
       {/* Hero */}
       <section className="relative min-h-[90vh] flex items-center overflow-hidden">
         {/* Ambient */}
@@ -180,79 +183,106 @@ export default function ProductosPage() {
           </p>
         </div>
 
-        <div className="max-w-3xl mx-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Industria */}
-            <div>
-              <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-2">
-                <Factory size={12} className="text-[#E8821C]" /> Industria / Sector
-              </label>
-              <select value={industria} onChange={(e) => setIndustria(e.target.value)}
-                className="w-full h-11 px-3 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] focus:outline-none focus:border-[#E8821C]/30 appearance-none transition-all">
-                <option value="">Seleccionar...</option>
-                {industriaOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-
-            {/* Ambiente */}
-            <div>
-              <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-2">
-                <MapPin size={12} className="text-[#E8821C]" /> Tipo de operación
-              </label>
-              <select value={ambiente} onChange={(e) => setAmbiente(e.target.value)}
-                className="w-full h-11 px-3 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] focus:outline-none focus:border-[#E8821C]/30 appearance-none transition-all">
-                <option value="">Seleccionar...</option>
-                {ambienteOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-
-            {/* Frecuencia */}
-            <div>
-              <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-2">
-                <Clock size={12} className="text-[#E8821C]" /> Frecuencia de uso
-              </label>
-              <select value={frecuencia} onChange={(e) => setFrecuencia(e.target.value)}
-                className="w-full h-11 px-3 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] focus:outline-none focus:border-[#E8821C]/30 appearance-none transition-all">
-                <option value="">Seleccionar...</option>
-                {frecuenciaOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-
-            {/* Plazo */}
-            <div>
-              <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-2">
-                <Zap size={12} className="text-[#E8821C]" /> Plazo de necesidad
-              </label>
-              <select value={plazo} onChange={(e) => setPlazo(e.target.value)}
-                className="w-full h-11 px-3 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] focus:outline-none focus:border-[#E8821C]/30 appearance-none transition-all">
-                <option value="">Seleccionar...</option>
-                {plazoOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-
-            {/* Operadores */}
-            <div className="sm:col-span-2">
-              <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-2">
-                <Users size={12} className="text-[#E8821C]" /> ¿Cuenta con operadores certificados?
-              </label>
-              <div className="flex gap-3">
-                {[
-                  { value: 'si' as const, label: 'Sí, tengo operadores' },
-                  { value: 'no' as const, label: 'No, necesito capacitación' },
-                ].map(opt => (
-                  <button key={opt.value} onClick={() => setOperadores(opt.value)}
-                    className={cn(
-                      'flex-1 h-11 px-4 rounded-xl text-[13px] font-medium border transition-all',
-                      operadores === opt.value
-                        ? 'bg-[#E8821C]/15 text-[#E8821C] border-[#E8821C]/30'
-                        : 'bg-[var(--color-surface-glass)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-[var(--color-surface-hover)]'
-                    )}>
-                    {opt.label}
-                  </button>
-                ))}
+        <div className="max-w-4xl mx-auto">
+          {/* 4 preguntas con tarjetas clickeables — auto-avanzan y arman el perfil progresivo */}
+          {([
+            {
+              key: 'ambiente',
+              pregunta: '¿Dónde vas a usar el equipo?',
+              value: ambiente,
+              setValue: setAmbiente,
+              icon: MapPin,
+              options: [
+                { value: 'interior', label: 'Interior', hint: 'Almacén o nave techada', icon: '🏭' },
+                { value: 'exterior', label: 'Exterior', hint: 'Patio, obra o intemperie', icon: '🌳' },
+                { value: 'mixto', label: 'Mixto', hint: 'Entra y sale todo el día', icon: '🔀' },
+              ],
+            },
+            {
+              key: 'industria',
+              pregunta: '¿En qué industria?',
+              value: industria,
+              setValue: setIndustria,
+              icon: Factory,
+              options: [
+                { value: 'almacen', label: 'Almacén', hint: 'Distribución, pallets', icon: '📦' },
+                { value: 'construccion', label: 'Construcción', hint: 'Obras y materiales', icon: '🏗️' },
+                { value: 'manufactura', label: 'Manufactura', hint: 'Producción industrial', icon: '⚙️' },
+                { value: 'logistica', label: 'Logística', hint: 'Puerto, cross-docking', icon: '🚚' },
+              ],
+            },
+            {
+              key: 'frecuencia',
+              pregunta: '¿Con qué frecuencia?',
+              value: frecuencia,
+              setValue: setFrecuencia,
+              icon: Clock,
+              options: [
+                { value: 'ocasional', label: 'Ocasional', hint: 'Pocas horas por semana', icon: '🕐' },
+                { value: 'turno-completo', label: 'Turno completo', hint: '8 horas al día', icon: '☀️' },
+                { value: '24-7', label: 'Continuo 24/7', hint: 'Múltiples turnos', icon: '🔄' },
+              ],
+            },
+            {
+              key: 'plazo',
+              pregunta: '¿Cuándo lo necesitas?',
+              value: plazo,
+              setValue: setPlazo,
+              icon: Zap,
+              options: [
+                { value: 'inmediato', label: 'Inmediato', hint: 'Esta semana', icon: '⚡' },
+                { value: '1-2-semanas', label: '1 – 2 semanas', hint: 'Ya estoy cotizando', icon: '📅' },
+                { value: 'planificando', label: 'Planificando', hint: 'Próximo mes o más', icon: '🗓️' },
+                { value: 'explorando', label: 'Investigando', hint: 'Comparando opciones', icon: '🔍' },
+              ],
+            },
+          ] as const).map((paso, idx) => (
+            <div key={paso.key} className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20 flex items-center justify-center text-[10px] font-bold text-[#E8821C]">
+                  {idx + 1}
+                </div>
+                <h3 className="text-[15px] font-semibold text-[var(--color-text-primary)]">{paso.pregunta}</h3>
+              </div>
+              <div className={cn(
+                'grid gap-2',
+                paso.options.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'
+              )}>
+                {paso.options.map((opt) => {
+                  const selected = paso.value === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => {
+                        paso.setValue(opt.value);
+                        track('form_answer', {
+                          campo: paso.key,
+                          valor: opt.value,
+                          label: opt.label,
+                          fuente: 'asesor_virtual',
+                        });
+                      }}
+                      className={cn(
+                        'flex flex-col items-start gap-1 p-3 rounded-xl border text-left transition-all duration-150 active:scale-[0.98]',
+                        selected
+                          ? 'border-[#E8821C] bg-[#E8821C]/[0.08] shadow-[0_0_12px_rgba(232,130,28,0.08)]'
+                          : 'border-[var(--color-border)] bg-[var(--color-surface-glass)] hover:border-[#E8821C]/40 hover:bg-[var(--color-surface-hover)]'
+                      )}
+                    >
+                      <span className="text-lg">{opt.icon}</span>
+                      <span className={cn(
+                        'text-[13px] font-semibold leading-tight',
+                        selected ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-primary)]'
+                      )}>
+                        {opt.label}
+                      </span>
+                      <span className="text-[10px] text-[var(--color-text-muted)] leading-tight">{opt.hint}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          </div>
+          ))}
 
           {/* Recommendation Result */}
           {recommendation && hasContext && (
@@ -385,7 +415,13 @@ export default function ProductosPage() {
             return (
               <button
                 key={card.id}
-                onClick={() => setFilterGrupo(active ? 'todos' : card.id)}
+                onClick={() => {
+                  const next = active ? 'todos' : card.id;
+                  setFilterGrupo(next);
+                  if (next !== 'todos') {
+                    track('category_selected', { grupo: next, label: card.title });
+                  }
+                }}
                 className={cn(
                   'group flex items-center gap-3 p-3 rounded-xl border text-left transition-all duration-200',
                   active

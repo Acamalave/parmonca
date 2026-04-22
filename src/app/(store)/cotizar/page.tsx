@@ -19,6 +19,8 @@ import {
   type Modalidad, type PeriodoAlquiler,
 } from '@/lib/store-data';
 import { formatCurrency, cn } from '@/lib/utils';
+import { track, getDeviceId } from '@/lib/visitor';
+import { PageView } from '@/components/PageView';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Wizard configuration
@@ -258,8 +260,9 @@ function CotizarContent() {
   const goNext = () => setStepIndex(i => Math.min(i + 1, STEP_ORDER.length - 1));
   const goBack = () => setStepIndex(i => Math.max(i - 1, 0));
   // Auto-advance helper: selecting a single-choice option advances after a brief delay
-  const autoAdvance = (setter: (v: string) => void) => (v: string) => {
+  const autoAdvance = (setter: (v: string) => void, campo?: string) => (v: string) => {
     setter(v);
+    if (campo) track('form_answer', { campo, valor: v, fuente: 'wizard_cotizar' });
     setTimeout(() => goNext(), 250);
   };
 
@@ -284,6 +287,11 @@ function CotizarContent() {
     setSending(true);
     setError('');
     try {
+      const device_id = getDeviceId();
+
+      // Mark visitor as identified before submitting (asynchronously, fire-and-forget)
+      track('identified', { source: 'wizard_cotizar' }, { email, telefono, nombre, empresa });
+
       const res = await fetch('/api/cotizacion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -301,9 +309,17 @@ function CotizarContent() {
           } : null,
           accesorios: selectedAccesorios.map(a => ({ nombre: a.nombre, precio: a.precio })),
           cantidad, subtotal, impuesto, total,
+          device_id,
         }),
       });
       if (!res.ok) throw new Error('Error al enviar');
+
+      track('quote_submitted', {
+        producto_slug: product?.slug,
+        modalidad: modalidadParam,
+        accesorios_count: selectedAccesorios.length,
+      }, { email, telefono, nombre, empresa });
+
       setSent(true);
     } catch {
       setError('Error al enviar. Intenta de nuevo.');
@@ -425,7 +441,7 @@ function CotizarContent() {
             <StepHeader
               title="¿En qué industria lo usarás?"
             />
-            <OptionGrid options={INDUSTRIAS} value={industria} onSelect={autoAdvance(setIndustria)} columns={2} />
+            <OptionGrid options={INDUSTRIAS} value={industria} onSelect={autoAdvance(setIndustria, "industria")} columns={2} />
           </>
         )}
 
@@ -434,7 +450,7 @@ function CotizarContent() {
             <StepHeader
               title="¿Dónde operará?"
             />
-            <OptionGrid options={OPERACIONES} value={operacion} onSelect={autoAdvance(setOperacion)} columns={3} />
+            <OptionGrid options={OPERACIONES} value={operacion} onSelect={autoAdvance(setOperacion, "operacion")} columns={3} />
           </>
         )}
 
@@ -443,7 +459,7 @@ function CotizarContent() {
             <StepHeader
               title="¿Con qué frecuencia?"
             />
-            <OptionGrid options={FRECUENCIAS} value={frecuencia} onSelect={autoAdvance(setFrecuencia)} columns={3} />
+            <OptionGrid options={FRECUENCIAS} value={frecuencia} onSelect={autoAdvance(setFrecuencia, "frecuencia")} columns={3} />
           </>
         )}
 
@@ -452,7 +468,7 @@ function CotizarContent() {
             <StepHeader
               title="¿Cuándo lo necesitas?"
             />
-            <OptionGrid options={PLAZOS} value={plazo} onSelect={autoAdvance(setPlazo)} columns={2} />
+            <OptionGrid options={PLAZOS} value={plazo} onSelect={autoAdvance(setPlazo, "plazo")} columns={2} />
           </>
         )}
 
@@ -461,7 +477,7 @@ function CotizarContent() {
             <StepHeader
               title="¿Cuántos equipos operas hoy?"
             />
-            <OptionGrid options={FLOTAS} value={tamanoFlota} onSelect={autoAdvance(setTamanoFlota)} columns={2} />
+            <OptionGrid options={FLOTAS} value={tamanoFlota} onSelect={autoAdvance(setTamanoFlota, "tamano_flota")} columns={2} />
           </>
         )}
 
@@ -470,7 +486,7 @@ function CotizarContent() {
             <StepHeader
               title="Presupuesto estimado"
             />
-            <OptionGrid options={PRESUPUESTOS} value={presupuesto} onSelect={autoAdvance(setPresupuesto)} columns={2} />
+            <OptionGrid options={PRESUPUESTOS} value={presupuesto} onSelect={autoAdvance(setPresupuesto, "presupuesto")} columns={2} />
           </>
         )}
 
@@ -479,7 +495,7 @@ function CotizarContent() {
             <StepHeader
               title="¿Cómo prefieres pagar?"
             />
-            <OptionGrid options={FINANCIAMIENTOS} value={financiamiento} onSelect={autoAdvance(setFinanciamiento)} columns={2} />
+            <OptionGrid options={FINANCIAMIENTOS} value={financiamiento} onSelect={autoAdvance(setFinanciamiento, "financiamiento")} columns={2} />
           </>
         )}
 

@@ -8,6 +8,7 @@ import { ArrowLeft, Check, Plus, Minus, Zap, ArrowRight, ChevronDown } from 'luc
 import { storeProducts, accesoriosParaCategoria, periodoLabels, type Modalidad, type PeriodoAlquiler, type StoreProduct, type Accesorio } from '@/lib/store-data';
 import { fetchProducto } from '@/lib/productos-live';
 import { cn } from '@/lib/utils';
+import { ProductView } from '@/components/PageView';
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -53,6 +54,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <ProductView slug={product.slug} marca={product.marca} categoria={product.categoriaLabel} />
       <Link href="/productos" className="inline-flex items-center gap-1.5 text-[13px] text-[var(--color-text-secondary)] hover:text-[#E8821C] transition-colors mb-6">
         <ArrowLeft size={14} />Volver al catálogo
       </Link>

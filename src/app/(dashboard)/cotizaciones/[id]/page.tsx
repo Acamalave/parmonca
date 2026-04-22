@@ -2,7 +2,7 @@
 
 import { use, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, User, Building2, Mail, Phone, MapPin, Package, Factory, Wallet, StickyNote, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Calendar, User, Building2, Mail, Phone, MapPin, Package, Factory, Wallet, StickyNote, MessageSquare, Activity, Eye, Filter, HelpCircle, Zap } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils';
 
@@ -33,8 +33,32 @@ type CotizacionDetail = {
   etapa_pipeline: string;
   origen: string;
   notas: string | null;
+  device_id: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type Visitante = {
+  device_id: string;
+  primera_visita: string;
+  ultima_visita: string;
+  visitas_totales: number;
+  productos_vistos: string[] | null;
+  marcas_vistas: string[] | null;
+  categorias_vistas: string[] | null;
+  perfil: Record<string, { valor: unknown; fuente?: string; ts?: string }> | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  referrer: string | null;
+};
+
+type Evento = {
+  id: number;
+  tipo: string;
+  data: Record<string, unknown>;
+  ruta: string | null;
+  created_at: string;
 };
 
 const ESTADO_STYLES: Record<CotizacionDetail['estado'], string> = {
@@ -61,11 +85,24 @@ export default function CotizacionDetailPage({ params }: { params: Promise<{ id:
   const [nota, setNota] = useState('');
   const [notas, setNotas] = useState<{ id: string; contenido: string; tipo: string; created_at: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [visitante, setVisitante] = useState<Visitante | null>(null);
+  const [eventos, setEventos] = useState<Evento[]>([]);
 
   const loadAll = async () => {
     const { data, error } = await supabase.from('parmonca_cotizaciones').select('*').eq('id', id).single();
     if (error) setError(error.message);
-    else setCot(data as CotizacionDetail);
+    else {
+      const c = data as CotizacionDetail;
+      setCot(c);
+      if (c.device_id) {
+        const [{ data: v }, { data: ev }] = await Promise.all([
+          supabase.from('parmonca_visitantes').select('*').eq('device_id', c.device_id).maybeSingle(),
+          supabase.from('parmonca_visitante_eventos').select('*').eq('device_id', c.device_id).order('created_at', { ascending: false }).limit(30),
+        ]);
+        if (v) setVisitante(v as Visitante);
+        if (ev) setEventos(ev as Evento[]);
+      }
+    }
     const { data: nd } = await supabase.from('parmonca_cotizacion_notas').select('*').eq('cotizacion_id', id).order('created_at', { ascending: false });
     if (nd) setNotas(nd);
   };
@@ -201,6 +238,117 @@ export default function CotizacionDetailPage({ params }: { params: Promise<{ id:
               </div>
             )}
           </div>
+
+          {/* Historial de navegación del visitante */}
+          {visitante && (
+            <div className="glass rounded-xl p-5">
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-3 flex items-center gap-1.5">
+                <Activity size={11} className="text-[#E8821C]" />
+                Comportamiento del visitante
+              </h2>
+
+              {/* Resumen stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                <div className="p-2 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)]">
+                  <p className="text-[9px] text-[var(--color-text-muted)] uppercase tracking-wider">Visitas</p>
+                  <p className="text-[14px] font-bold text-[var(--color-text-primary)]">{visitante.visitas_totales}</p>
+                </div>
+                <div className="p-2 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)]">
+                  <p className="text-[9px] text-[var(--color-text-muted)] uppercase tracking-wider">Productos vistos</p>
+                  <p className="text-[14px] font-bold text-[#E8821C]">{visitante.productos_vistos?.length || 0}</p>
+                </div>
+                <div className="p-2 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)]">
+                  <p className="text-[9px] text-[var(--color-text-muted)] uppercase tracking-wider">Primera visita</p>
+                  <p className="text-[12px] font-semibold text-[var(--color-text-secondary)]">
+                    {new Date(visitante.primera_visita).toLocaleDateString('es-PA', { day: '2-digit', month: 'short' })}
+                  </p>
+                </div>
+                <div className="p-2 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)]">
+                  <p className="text-[9px] text-[var(--color-text-muted)] uppercase tracking-wider">Origen</p>
+                  <p className="text-[12px] font-semibold text-[var(--color-text-secondary)] truncate" title={visitante.utm_source || visitante.referrer || 'Directo'}>
+                    {visitante.utm_source || (visitante.referrer ? new URL(visitante.referrer).hostname : 'Directo')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Intereses detectados */}
+              {((visitante.marcas_vistas && visitante.marcas_vistas.length > 0) || (visitante.categorias_vistas && visitante.categorias_vistas.length > 0)) && (
+                <div className="mb-4 space-y-2">
+                  {visitante.marcas_vistas && visitante.marcas_vistas.length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider">Marcas que vio:</span>
+                      {visitante.marcas_vistas.slice(0, 8).map((m) => (
+                        <span key={m} className="px-2 py-0.5 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20 text-[10px] font-semibold text-[#E8821C]">{m}</span>
+                      ))}
+                    </div>
+                  )}
+                  {visitante.categorias_vistas && visitante.categorias_vistas.length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider">Categorías:</span>
+                      {visitante.categorias_vistas.slice(0, 6).map((c) => (
+                        <span key={c} className="px-2 py-0.5 rounded-full bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[10px] text-[var(--color-text-secondary)]">{c}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Perfil progresivo (respuestas de formularios) */}
+              {visitante.perfil && Object.keys(visitante.perfil).length > 0 && (
+                <div className="mb-4">
+                  <p className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider mb-2">Respuestas registradas</p>
+                  <div className="space-y-1">
+                    {Object.entries(visitante.perfil).map(([campo, info]) => (
+                      <div key={campo} className="flex items-center justify-between py-1.5 border-b border-[var(--color-border)] last:border-0 text-[12px]">
+                        <span className="text-[var(--color-text-muted)] capitalize">{campo.replace(/_/g, ' ')}</span>
+                        <span className="text-[var(--color-text-secondary)] font-medium">
+                          {typeof info?.valor === 'string' ? info.valor : JSON.stringify(info?.valor)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Timeline de eventos */}
+              {eventos.length > 0 && (
+                <details className="mt-3">
+                  <summary className="text-[11px] text-[#E8821C] cursor-pointer hover:underline font-medium">
+                    Ver timeline completa ({eventos.length} eventos)
+                  </summary>
+                  <div className="mt-3 space-y-1.5 max-h-80 overflow-y-auto pr-1">
+                    {eventos.map((e) => {
+                      const icon = e.tipo === 'product_view' ? Eye
+                        : e.tipo === 'filter_applied' || e.tipo === 'category_selected' ? Filter
+                        : e.tipo === 'form_answer' ? HelpCircle
+                        : e.tipo === 'quote_submitted' ? Zap
+                        : Activity;
+                      const Icon = icon;
+                      const label = e.tipo.replace(/_/g, ' ');
+                      const summary = (() => {
+                        if (e.tipo === 'product_view') return String(e.data?.slug || '');
+                        if (e.tipo === 'category_selected') return String(e.data?.label || '');
+                        if (e.tipo === 'form_answer') return `${String(e.data?.campo || '')} = ${String(e.data?.valor || '')}`;
+                        return e.ruta || '';
+                      })();
+                      return (
+                        <div key={e.id} className="flex items-start gap-2 text-[11px] py-1">
+                          <Icon size={10} className="text-[var(--color-text-muted)] mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <span className="capitalize text-[var(--color-text-secondary)] font-medium">{label}</span>
+                            {summary && <span className="text-[var(--color-text-muted)]"> · {summary}</span>}
+                          </div>
+                          <span className="text-[10px] text-[var(--color-text-muted)] whitespace-nowrap">
+                            {new Date(e.created_at).toLocaleString('es-PA', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </details>
+              )}
+            </div>
+          )}
 
           {/* Notas / actividad */}
           <div className="glass rounded-xl p-5">

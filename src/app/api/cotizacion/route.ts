@@ -58,6 +58,8 @@ interface CotizacionRequest {
   subtotal: number;
   impuesto: number;
   total: number;
+  // Progressive profiling: link this quote to the anonymous visitor session
+  device_id?: string | null;
 }
 
 export async function POST(request: NextRequest) {
@@ -311,6 +313,7 @@ export async function POST(request: NextRequest) {
         p_impuesto: body.impuesto,
         p_total: body.total,
         p_origen: 'landing',
+        p_device_id: body.device_id || null,
       });
 
       if (dbError) {
