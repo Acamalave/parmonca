@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Zap, Shield, Truck, Battery, ChevronRight, Factory, MapPin, Clock, Users, Lightbulb, TrendingDown, Calculator, Search, Package } from 'lucide-react';
+import { ArrowRight, Zap, Shield, Truck, Battery, ChevronRight, Factory, MapPin, Clock, Users, Lightbulb, TrendingDown, Calculator, Search, Package, Boxes, MoveVertical, Grid3x3 } from 'lucide-react';
 import { storeProducts, industriaOptions, ambienteOptions, frecuenciaOptions, plazoOptions, getRecommendation, periodoLabels, type Modalidad, type PeriodoAlquiler, type StoreProduct } from '@/lib/store-data';
 import { fetchActivos } from '@/lib/productos-live';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -25,10 +25,18 @@ export default function ProductosPage() {
   // Live catalog (all active products from Supabase)
   const [liveProducts, setLiveProducts] = useState<StoreProduct[]>([]);
   const [loadingLive, setLoadingLive] = useState(true);
-  const [filterCategoria, setFilterCategoria] = useState<string>('todas');
+  // Grupos estratégicos de categorías
+  type Grupo = 'todos' | 'montacargas' | 'almacen' | 'altura';
+  const [filterGrupo, setFilterGrupo] = useState<Grupo>('todos');
   const [filterMarca, setFilterMarca] = useState<string>('todas');
   const [searchTerm, setSearchTerm] = useState('');
   const [visibleCount, setVisibleCount] = useState(12);
+
+  const GRUPO_CATEGORIAS: Record<Exclude<Grupo, 'todos'>, string[]> = {
+    montacargas: ['Montacarga Eléctrico', 'Montacarga Combustión'],
+    almacen: ['Traspaleta Eléctrica', 'Apilador Eléctrico'],
+    altura: ['Mástil Retráctil', 'Equipo industrial'], // Mastil con Pantografo + Plataforma Elevadora caen aquí
+  };
 
   useEffect(() => {
     fetchActivos(300)
@@ -36,27 +44,36 @@ export default function ProductosPage() {
       .finally(() => setLoadingLive(false));
   }, []);
 
-  const categoriasCatalogo = useMemo(() => {
-    const set = new Set(liveProducts.map(p => p.categoriaLabel).filter(Boolean));
-    return Array.from(set).sort();
-  }, [liveProducts]);
   const marcasCatalogo = useMemo(() => {
     const set = new Set(liveProducts.map(p => p.marca).filter(Boolean));
     return Array.from(set).sort();
   }, [liveProducts]);
 
+  // Helper to check if a product belongs to a grupo
+  const productoEnGrupo = (p: StoreProduct, g: Grupo): boolean => {
+    if (g === 'todos') return true;
+    const label = p.categoriaLabel;
+    if (g === 'montacargas') return label === 'Montacarga Eléctrico' || label === 'Montacarga Combustión';
+    if (g === 'almacen') return label === 'Traspaleta Eléctrica' || label === 'Apilador Eléctrico';
+    if (g === 'altura') return label === 'Mástil Retráctil' || (!['Montacarga Eléctrico','Montacarga Combustión','Traspaleta Eléctrica','Apilador Eléctrico'].includes(label));
+    return true;
+  };
+
+  const conteoGrupo = (g: Grupo) => liveProducts.filter(p => productoEnGrupo(p, g)).length;
+
   const filteredLive = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     return liveProducts.filter(p => {
-      if (filterCategoria !== 'todas' && p.categoriaLabel !== filterCategoria) return false;
+      if (!productoEnGrupo(p, filterGrupo)) return false;
       if (filterMarca !== 'todas' && p.marca !== filterMarca) return false;
       if (q && !p.modelo.toLowerCase().includes(q) && !p.marca.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [liveProducts, filterCategoria, filterMarca, searchTerm]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveProducts, filterGrupo, filterMarca, searchTerm]);
 
   // Reset visible count when filters change
-  useEffect(() => { setVisibleCount(12); }, [filterCategoria, filterMarca, searchTerm]);
+  useEffect(() => { setVisibleCount(12); }, [filterGrupo, filterMarca, searchTerm]);
 
   function getDisplayPrice(product: StoreProduct) {
     if (modalidad === 'alquiler') return product.preciosAlquiler[periodo];
@@ -359,9 +376,80 @@ export default function ProductosPage() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          <div className="relative flex-1 min-w-[200px]">
+        {/* 3 Strategic category cards — click to filter immediately */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
+          {([
+            {
+              id: 'montacargas' as Grupo,
+              icon: Truck,
+              title: 'Montacargas',
+              subtitle: 'Cargas pesadas y pallets',
+              accent: 'Eléctricos y combustión para operaciones industriales',
+            },
+            {
+              id: 'almacen' as Grupo,
+              icon: Boxes,
+              title: 'Almacén',
+              subtitle: 'Manejo ágil de inventario',
+              accent: 'Traspaletas y apiladores para pasillos y picking',
+            },
+            {
+              id: 'altura' as Grupo,
+              icon: MoveVertical,
+              title: 'Altura',
+              subtitle: 'Trabajo en elevación',
+              accent: 'Mástiles con pantógrafo y plataformas elevadoras',
+            },
+          ] as const).map(card => {
+            const Icon = card.icon;
+            const active = filterGrupo === card.id;
+            const count = conteoGrupo(card.id);
+            return (
+              <button
+                key={card.id}
+                onClick={() => setFilterGrupo(active ? 'todos' : card.id)}
+                className={cn(
+                  'group relative text-left p-5 rounded-2xl border transition-all duration-200 overflow-hidden',
+                  active
+                    ? 'border-[#E8821C] bg-gradient-to-br from-[#E8821C]/[0.08] to-[#E8821C]/[0.02] shadow-[0_8px_32px_rgba(232,130,28,0.12)]'
+                    : 'border-[var(--color-border)] bg-[var(--color-surface-glass)] hover:border-[#E8821C]/40 hover:-translate-y-0.5'
+                )}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className={cn(
+                    'w-10 h-10 rounded-xl flex items-center justify-center transition-colors',
+                    active
+                      ? 'bg-gradient-to-br from-[#E8821C] to-[#C96A10] text-white'
+                      : 'bg-[var(--color-surface-elevated)] text-[#E8821C] group-hover:bg-[#E8821C]/10'
+                  )}>
+                    <Icon size={18} strokeWidth={1.75} />
+                  </div>
+                  <span className={cn(
+                    'text-[11px] font-semibold px-2 py-0.5 rounded-full',
+                    active
+                      ? 'bg-[#E8821C]/15 text-[#E8821C]'
+                      : 'bg-[var(--color-surface-elevated)] text-[var(--color-text-muted)]'
+                  )}>
+                    {count} equipos
+                  </span>
+                </div>
+                <h3 className={cn(
+                  'font-display text-lg font-bold tracking-tight',
+                  active ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-primary)]'
+                )}>{card.title}</h3>
+                <p className="text-[12px] text-[var(--color-text-secondary)] mt-0.5 font-medium">{card.subtitle}</p>
+                <p className="text-[11px] text-[var(--color-text-muted)] mt-2 leading-relaxed">{card.accent}</p>
+                {active && (
+                  <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-[#E8821C] animate-pulse" aria-hidden />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Secondary filters: search + brand + clear */}
+        <div className="flex flex-wrap items-center gap-2 mb-5">
+          <div className="relative flex-1 min-w-[220px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
             <input
               type="text"
@@ -372,14 +460,6 @@ export default function ProductosPage() {
             />
           </div>
           <select
-            value={filterCategoria}
-            onChange={(e) => setFilterCategoria(e.target.value)}
-            className="h-10 px-3 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] focus:outline-none focus:border-[#E8821C]/40"
-          >
-            <option value="todas">Todas las categorías</option>
-            {categoriasCatalogo.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select
             value={filterMarca}
             onChange={(e) => setFilterMarca(e.target.value)}
             className="h-10 px-3 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] focus:outline-none focus:border-[#E8821C]/40"
@@ -387,11 +467,23 @@ export default function ProductosPage() {
             <option value="todas">Todas las marcas</option>
             {marcasCatalogo.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
+          {(filterGrupo !== 'todos' || filterMarca !== 'todas' || searchTerm) && (
+            <button
+              onClick={() => { setFilterGrupo('todos'); setFilterMarca('todas'); setSearchTerm(''); }}
+              className="h-10 px-3 rounded-xl text-[12px] font-medium text-[var(--color-text-muted)] hover:text-[#E8821C] transition-colors"
+            >
+              Limpiar filtros
+            </button>
+          )}
         </div>
 
         {/* Results count */}
         <p className="text-[12px] text-[var(--color-text-muted)] mb-4">
-          {loadingLive ? 'Cargando catálogo…' : `${filteredLive.length} equipo${filteredLive.length === 1 ? '' : 's'} disponible${filteredLive.length === 1 ? '' : 's'}`}
+          {loadingLive
+            ? 'Cargando catálogo…'
+            : filterGrupo !== 'todos' || filterMarca !== 'todas' || searchTerm
+              ? `Mostrando ${filteredLive.length} de ${liveProducts.length} equipos`
+              : `${filteredLive.length} equipos disponibles`}
         </p>
 
         {loadingLive ? (
