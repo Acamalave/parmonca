@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { UserPlus, TrendingUp, Phone, Mail, Target, Award, AlertCircle, Check, Trophy } from 'lucide-react';
+import { UserPlus, Phone, Mail, Target, AlertCircle, Check, Trophy, Eye, EyeOff, Link as LinkIcon, RotateCcw, Copy } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils';
 
@@ -23,6 +23,11 @@ type RankingRow = {
   tasa_conversion_mes: number | string;
   clientes_asignados: number;
 };
+
+const SITE_URL =
+  typeof window !== 'undefined'
+    ? window.location.origin
+    : 'https://parmonca-crm.vercel.app';
 
 function getInitials(nombre: string | null, email: string) {
   const base = (nombre || email.split('@')[0]).trim();
@@ -119,14 +124,12 @@ export default function EquipoPage() {
             const pctMeta = meta > 0 ? Math.min(100, Math.round((monto / meta) * 100)) : null;
             const barPct = Math.round((monto / maxMontoCerrado) * 100);
             return (
-              <Link
-                href={`/cotizaciones?asignado=${r.id}`}
-                key={r.id}
-                className="group block glass rounded-xl p-4 hover:bg-[var(--color-surface-glass)] transition-all"
-              >
+              <div key={r.id} className="group block glass rounded-xl p-4 hover:bg-[var(--color-surface-glass)] transition-all">
                 <div className="flex items-center gap-4 flex-wrap">
-                  {/* Rank badge */}
-                  <div className="flex items-center gap-3 flex-1 min-w-[220px]">
+                  <Link
+                    href={`/cotizaciones?asignado=${r.id}`}
+                    className="flex items-center gap-3 flex-1 min-w-[220px] hover:opacity-90"
+                  >
                     <div className="relative">
                       <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#E8821C] to-[#C96A10] flex items-center justify-center text-white font-bold text-sm">
                         {getInitials(r.nombre, r.email)}
@@ -143,7 +146,7 @@ export default function EquipoPage() {
                       </p>
                       <p className="text-[11px] text-[var(--color-text-muted)] truncate">{r.email}</p>
                     </div>
-                  </div>
+                  </Link>
 
                   {/* Bar + stats */}
                   <div className="flex-1 min-w-[260px]">
@@ -173,10 +176,11 @@ export default function EquipoPage() {
                     <MetricChip label="Ganadas" value={r.ganadas_mes} emerald />
                     <MetricChip label="Pipeline" value={formatCurrency(Number(r.monto_pipeline))} orange />
                     <MetricChip label="Conv." value={`${r.tasa_conversion_mes}%`} />
-                    <MetricChip label="Clientes" value={r.clientes_asignados} />
                   </div>
                 </div>
-              </Link>
+
+                <VendedorAccesoActions vendedor={r} onRefresh={fetchRanking} />
+              </div>
             );
           })}
         </div>
@@ -219,20 +223,19 @@ function NuevoVendedorModal({
   const supabase = useMemo(() => createClient(), []);
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [telefono, setTelefono] = useState('');
   const [meta, setMeta] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [created, setCreated] = useState<{ email: string; token: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSaving(true);
-    const { error } = await supabase.rpc('parmonca_crear_vendedor', {
+    const { data, error } = await supabase.rpc('parmonca_crear_vendedor', {
       p_email: email.trim().toLowerCase(),
-      p_password: password,
       p_nombre: nombre.trim(),
       p_telefono: telefono.trim() || null,
       p_rol: 'asesor',
@@ -243,55 +246,193 @@ function NuevoVendedorModal({
       setSaving(false);
       return;
     }
-    setSuccess(true);
+    const row = Array.isArray(data) ? data[0] : data;
+    setCreated({
+      email: row?.email || email,
+      token: row?.activation_token || '',
+    });
     setSaving(false);
-    setTimeout(onSuccess, 900);
+  };
+
+  const activationUrl = created ? `${SITE_URL}/activar?token=${created.token}` : '';
+  const shareMessage = created
+    ? `Hola ${nombre.split(' ')[0] || ''}, ya tienes acceso al CRM PARMONCA.\n\n` +
+      `Abre este link desde tu celular o computador para crear tu PIN de acceso:\n${activationUrl}\n\n` +
+      `Una vez lo crees, podrás entrar a https://parmonca-crm.vercel.app/login con tu email o teléfono + tu PIN.`
+    : '';
+
+  const handleCopyLink = async () => {
+    if (!activationUrl) return;
+    await navigator.clipboard.writeText(activationUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCopyMessage = async () => {
+    if (!shareMessage) return;
+    await navigator.clipboard.writeText(shareMessage);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-md glass-strong rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
-        <h2 className="font-display text-xl font-bold text-[var(--color-text-primary)] mb-1">Nuevo vendedor</h2>
-        <p className="text-[12px] text-[var(--color-text-muted)] mb-5">
-          Crea una cuenta para que el vendedor pueda entrar con su email y contraseña.
-        </p>
+        {!created ? (
+          <>
+            <h2 className="font-display text-xl font-bold text-[var(--color-text-primary)] mb-1">Nuevo vendedor</h2>
+            <p className="text-[12px] text-[var(--color-text-muted)] mb-5">
+              Al crear la cuenta obtendrás un link único para que el vendedor configure su propio PIN de acceso.
+            </p>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <Field icon={UserPlus} label="Nombre completo*" value={nombre} onChange={setNombre} placeholder="Juan Pérez" />
-          <Field icon={Mail} label="Email*" type="email" value={email} onChange={setEmail} placeholder="juan@parmonca.com" />
-          <Field icon={Check} label="Contraseña temporal*" type="text" value={password} onChange={setPassword} placeholder="Mínimo 6 caracteres" />
-          <Field icon={Phone} label="Teléfono" value={telefono} onChange={setTelefono} placeholder="+507 6000 0000" />
-          <Field icon={Target} label="Meta mensual (USD)" type="number" value={meta} onChange={setMeta} placeholder="Ej: 25000" />
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <Field icon={UserPlus} label="Nombre completo*" value={nombre} onChange={setNombre} placeholder="Juan Pérez" />
+              <Field icon={Mail} label="Email*" type="email" value={email} onChange={setEmail} placeholder="juan@parmonca.com" />
+              <Field icon={Phone} label="Teléfono (sin +)" value={telefono} onChange={setTelefono} placeholder="50760000000" />
+              <Field icon={Target} label="Meta mensual (USD)" type="number" value={meta} onChange={setMeta} placeholder="Ej: 25000" />
 
-          {error && (
-            <div className="flex items-start gap-2 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[12px]">
-              <AlertCircle size={12} className="mt-0.5 shrink-0" /><span>{error}</span>
+              {error && (
+                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[12px]">
+                  <AlertCircle size={12} className="mt-0.5 shrink-0" /><span>{error}</span>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 h-10 rounded-lg border border-[var(--color-border)] text-[13px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving || !nombre || !email}
+                  className="flex-1 h-10 rounded-lg bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold disabled:opacity-60"
+                >
+                  {saving ? 'Creando…' : 'Crear vendedor'}
+                </button>
+              </div>
+            </form>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-9 h-9 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                <Check size={18} className="text-emerald-400" />
+              </div>
+              <h2 className="font-display text-xl font-bold text-[var(--color-text-primary)]">Cuenta creada</h2>
             </div>
-          )}
-          {success && (
-            <div className="flex items-start gap-2 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[12px]">
-              <Check size={12} className="mt-0.5 shrink-0" /><span>Vendedor creado. Comparte las credenciales.</span>
-            </div>
-          )}
+            <p className="text-[12px] text-[var(--color-text-muted)] mb-4">
+              Comparte este link único con {nombre.split(' ')[0] || 'el vendedor'}. Al abrirlo creará su PIN de acceso.
+            </p>
 
-          <div className="flex gap-2 pt-2">
+            <div className="rounded-xl border border-[#E8821C]/30 bg-[#E8821C]/[0.06] p-4 space-y-2 mb-4">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)] flex items-center gap-1">
+                  <LinkIcon size={10} /> Link de activación (válido 30 días)
+                </p>
+                <p className="text-[11px] font-mono text-[var(--color-text-primary)] break-all mt-1">{activationUrl}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <button
+                onClick={handleCopyLink}
+                className="h-10 rounded-lg border border-[var(--color-border)] text-[12px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] flex items-center justify-center gap-1.5"
+              >
+                {copied ? <><Check size={12} className="text-emerald-400" /> Copiado</> : <><Copy size={12} /> Solo link</>}
+              </button>
+              <button
+                onClick={handleCopyMessage}
+                className="h-10 rounded-lg border border-[var(--color-border)] text-[12px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] flex items-center justify-center gap-1.5"
+              >
+                <Copy size={12} /> Mensaje para WhatsApp
+              </button>
+            </div>
             <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 h-10 rounded-lg border border-[var(--color-border)] text-[13px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"
+              onClick={onSuccess}
+              className="w-full h-10 rounded-lg bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold"
             >
-              Cancelar
+              Listo
             </button>
-            <button
-              type="submit"
-              disabled={saving || !nombre || !email || password.length < 6}
-              className="flex-1 h-10 rounded-lg bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold disabled:opacity-60"
-            >
-              {saving ? 'Creando…' : 'Crear vendedor'}
-            </button>
-          </div>
-        </form>
+          </>
+        )}
       </div>
+    </div>
+  );
+}
+
+function VendedorAccesoActions({ vendedor, onRefresh }: { vendedor: RankingRow; onRefresh: () => void }) {
+  const supabase = useMemo(() => createClient(), []);
+  const [pin, setPin] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showPin, setShowPin] = useState(false);
+  const [newLink, setNewLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const fetchPin = async () => {
+    if (pin !== null) { setShowPin(!showPin); return; }
+    setLoading(true);
+    const { data, error } = await supabase.rpc('parmonca_ver_pin', { p_vendedor_id: vendedor.id });
+    setLoading(false);
+    if (error) { alert('Error al obtener PIN: ' + error.message); return; }
+    setPin(data || 'sin configurar aún');
+    setShowPin(true);
+  };
+
+  const regenerar = async () => {
+    if (!confirm(`Esto invalida el PIN actual de ${vendedor.nombre || vendedor.email} y genera un nuevo link. ¿Continuar?`)) return;
+    setLoading(true);
+    const { data, error } = await supabase.rpc('parmonca_regenerar_token', { p_vendedor_id: vendedor.id });
+    setLoading(false);
+    if (error) { alert('Error: ' + error.message); return; }
+    setNewLink(`${SITE_URL}/activar?token=${data}`);
+    setPin(null);
+    onRefresh();
+  };
+
+  const handleCopyLink = async () => {
+    if (!newLink) return;
+    await navigator.clipboard.writeText(newLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex flex-wrap items-center gap-2">
+      <button
+        onClick={fetchPin}
+        disabled={loading}
+        className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-[11px] font-medium text-[var(--color-text-secondary)] hover:text-[#E8821C] hover:bg-[var(--color-surface-hover)] transition-colors disabled:opacity-50"
+      >
+        {showPin ? <EyeOff size={12} /> : <Eye size={12} />}
+        {pin === null ? 'Ver PIN' : showPin ? 'Ocultar PIN' : 'Mostrar PIN'}
+      </button>
+      {showPin && pin !== null && (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#E8821C]/10 border border-[#E8821C]/20 font-mono text-[13px] font-bold tracking-widest text-[#E8821C]">
+          {pin || '—'}
+        </span>
+      )}
+      <button
+        onClick={regenerar}
+        disabled={loading}
+        className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-[11px] font-medium text-[var(--color-text-secondary)] hover:text-rose-400 hover:bg-rose-500/10 transition-colors disabled:opacity-50 ml-auto"
+      >
+        <RotateCcw size={12} /> Regenerar link
+      </button>
+      {newLink && (
+        <div className="w-full flex items-center gap-2 mt-1">
+          <p className="text-[10px] font-mono text-[var(--color-text-muted)] break-all flex-1">{newLink}</p>
+          <button
+            onClick={handleCopyLink}
+            className="flex items-center gap-1 h-7 px-2.5 rounded-md bg-[#E8821C]/10 text-[#E8821C] text-[11px] font-semibold"
+          >
+            {copied ? <Check size={11} /> : <Copy size={11} />}
+            {copied ? 'Copiado' : 'Copiar'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

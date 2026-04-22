@@ -3,13 +3,13 @@
 import { useState, Suspense } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowRight, AlertCircle } from 'lucide-react';
+import { ArrowRight, AlertCircle, AtSign, Lock } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { createClient } from '@/lib/supabase/client';
 
 function LoginForm() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [identificador, setIdentificador] = useState('');
+  const [clave, setClave] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -22,12 +22,37 @@ function LoginForm() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setError(error.message === 'Invalid login credentials' ? 'Credenciales inválidas' : error.message);
+
+    let emailParaLogin = identificador.trim();
+
+    // If it doesn't look like an email, resolve via phone lookup
+    if (!emailParaLogin.includes('@')) {
+      const { data, error: rpcError } = await supabase.rpc('parmonca_email_por_identificador', {
+        p_identificador: emailParaLogin,
+      });
+      if (rpcError || !data) {
+        setError('No encontramos una cuenta con ese teléfono o email.');
+        setLoading(false);
+        return;
+      }
+      emailParaLogin = data as string;
+    }
+
+    const { error: signInErr } = await supabase.auth.signInWithPassword({
+      email: emailParaLogin,
+      password: clave,
+    });
+
+    if (signInErr) {
+      setError(
+        signInErr.message === 'Invalid login credentials'
+          ? 'Credenciales inválidas. Verifica tu PIN o contraseña temporal.'
+          : signInErr.message
+      );
       setLoading(false);
       return;
     }
+
     router.push(redirectTo);
     router.refresh();
   };
@@ -66,30 +91,42 @@ function LoginForm() {
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
               <label className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-secondary)] mb-2">
-                Correo electrónico
+                Email o teléfono
               </label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@parmonca.com"
-                className="w-full h-11 px-4 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/40 focus:bg-[var(--color-surface-hover)] transition-all"
-              />
+              <div className="relative">
+                <AtSign size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+                <input
+                  type="text"
+                  required
+                  autoComplete="username"
+                  value={identificador}
+                  onChange={(e) => setIdentificador(e.target.value)}
+                  placeholder="tu@parmonca.com o 50760000000"
+                  className="w-full h-11 pl-10 pr-4 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/40 focus:bg-[var(--color-surface-hover)] transition-all"
+                />
+              </div>
             </div>
 
             <div>
               <label className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-secondary)] mb-2">
-                Contraseña
+                PIN
               </label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full h-11 px-4 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/40 focus:bg-[var(--color-surface-hover)] transition-all"
-              />
+              <div className="relative">
+                <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+                <input
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  inputMode="numeric"
+                  value={clave}
+                  onChange={(e) => setClave(e.target.value)}
+                  placeholder="••••••"
+                  className="w-full h-11 pl-10 pr-4 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/40 focus:bg-[var(--color-surface-hover)] transition-all tracking-widest"
+                />
+              </div>
+              <p className="text-[10px] text-[var(--color-text-muted)] mt-1.5">
+                ¿Primera vez? El administrador te envió un link para crear tu PIN.
+              </p>
             </div>
 
             {error && (
