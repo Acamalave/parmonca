@@ -98,30 +98,35 @@ export function RepuestosSection() {
             return (
               <div
                 key={r.id}
-                className="group rounded-2xl overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[#E8821C]/40 hover:shadow-lg transition-all"
+                className="group rounded-2xl overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[#E8821C]/40 hover:shadow-lg transition-all flex flex-col"
               >
-                <div className="aspect-square bg-[var(--color-surface-elevated)] flex items-center justify-center p-3 relative overflow-hidden">
-                  {r.imagen_url ? (
-                    <Image src={r.imagen_url} alt={r.nombre} width={240} height={240} className="object-contain w-full h-full" unoptimized />
-                  ) : (
-                    <Package size={40} className="text-[var(--color-text-muted)]/40" strokeWidth={1.5} />
-                  )}
-                  {/* Stock badge */}
-                  <span className={cn(
-                    'absolute top-2 right-2 px-2 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-wider',
-                    BADGE_COLORS[badge.color]
-                  )}>
-                    {badge.label}
-                  </span>
-                  {r.marca && (
-                    <span className="absolute top-2 left-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[#E8821C]/10 border border-[#E8821C]/20">
-                      <Zap size={8} className="text-[#E8821C]" />
-                      <span className="text-[9px] font-bold text-[#E8821C] uppercase tracking-wider">{r.marca}</span>
+                {/* Imagen + título clickeables — navegan al detalle */}
+                <Link href={`/repuestos/${r.id}`} className="block">
+                  <div className="aspect-square bg-[var(--color-surface-elevated)] flex items-center justify-center p-3 relative overflow-hidden">
+                    {r.imagen_url ? (
+                      <Image src={r.imagen_url} alt={r.nombre} width={240} height={240} className="object-contain w-full h-full group-hover:scale-[1.03] transition-transform" unoptimized />
+                    ) : (
+                      <Package size={40} className="text-[var(--color-text-muted)]/40" strokeWidth={1.5} />
+                    )}
+                    <span className={cn(
+                      'absolute top-2 right-2 px-2 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-wider',
+                      BADGE_COLORS[badge.color]
+                    )}>
+                      {badge.label}
                     </span>
-                  )}
-                </div>
-                <div className="p-3.5">
-                  <h3 className="font-display text-[14px] font-bold text-[var(--color-text-primary)] leading-tight truncate">{r.nombre}</h3>
+                    {r.marca && (
+                      <span className="absolute top-2 left-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[#E8821C]/10 border border-[#E8821C]/20">
+                        <Zap size={8} className="text-[#E8821C]" />
+                        <span className="text-[9px] font-bold text-[#E8821C] uppercase tracking-wider">{r.marca}</span>
+                      </span>
+                    )}
+                  </div>
+                </Link>
+
+                <div className="p-3.5 flex flex-col flex-1">
+                  <Link href={`/repuestos/${r.id}`} className="block group-hover:text-[#E8821C] transition-colors">
+                    <h3 className="font-display text-[14px] font-bold text-[var(--color-text-primary)] group-hover:text-[#E8821C] leading-tight truncate transition-colors">{r.nombre}</h3>
+                  </Link>
                   {r.subcategoria && (
                     <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5 uppercase tracking-wider truncate">{r.subcategoria}</p>
                   )}
@@ -155,6 +160,14 @@ export function RepuestosSection() {
                       </Link>
                     </div>
                   )}
+
+                  {/* Enlace secundario al detalle (refuerza CTA) */}
+                  <Link
+                    href={`/repuestos/${r.id}`}
+                    className="mt-2 text-[10px] text-[var(--color-text-muted)] hover:text-[#E8821C] text-center transition-colors"
+                  >
+                    Ver detalles →
+                  </Link>
                 </div>
               </div>
             );

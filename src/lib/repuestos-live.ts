@@ -34,6 +34,20 @@ export async function fetchRepuestos(categoria?: CategoriaRepuesto): Promise<Rep
   return (data || []) as Repuesto[];
 }
 
+/**
+ * Fetch a single repuesto by its UUID. Returns null when not found or inactive.
+ */
+export async function fetchRepuesto(id: string): Promise<Repuesto | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('parmonca_repuestos')
+    .select('id, sku, nombre, categoria, subcategoria, marca, descripcion, imagen_url, precio_venta, stock, stock_minimo, unidad, compatible_con, destacado, ultima_sync_at')
+    .eq('id', id)
+    .single();
+  if (error || !data) return null;
+  return data as Repuesto;
+}
+
 export function stockBadge(r: Repuesto): { label: string; color: 'emerald' | 'amber' | 'rose' | 'slate' } {
   if (r.stock <= r.stock_minimo) return { label: `Últimas ${r.stock}`, color: 'amber' };
   if (r.stock < 10) return { label: `${r.stock} disponibles`, color: 'emerald' };
