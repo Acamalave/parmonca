@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Package, ArrowRight, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { fetchRepuestos, stockBadge, CATEGORIAS_REPUESTOS, type Repuesto, type CategoriaRepuesto } from '@/lib/repuestos-live';
+import { fetchRepuestos, stockBadge, formatPrecio, CATEGORIAS_REPUESTOS, type Repuesto, type CategoriaRepuesto } from '@/lib/repuestos-live';
 
 const BADGE_COLORS: Record<string, string> = {
   emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
@@ -94,14 +94,11 @@ export function RepuestosSection() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {filtered.map((r) => {
             const badge = stockBadge(r);
-            const agotado = r.stock <= 0;
+            const precio = formatPrecio(r);
             return (
               <div
                 key={r.id}
-                className={cn(
-                  'group rounded-2xl overflow-hidden bg-[var(--color-surface)] border transition-all',
-                  agotado ? 'border-[var(--color-border)] opacity-70' : 'border-[var(--color-border)] hover:border-[#E8821C]/40 hover:shadow-lg'
-                )}
+                className="group rounded-2xl overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[#E8821C]/40 hover:shadow-lg transition-all"
               >
                 <div className="aspect-square bg-[var(--color-surface-elevated)] flex items-center justify-center p-3 relative overflow-hidden">
                   {r.imagen_url ? (
@@ -132,19 +129,32 @@ export function RepuestosSection() {
                     <p className="text-[11px] text-[var(--color-text-secondary)] mt-1.5 line-clamp-2 leading-snug">{r.descripcion}</p>
                   )}
 
-                  <div className="mt-3 pt-2.5 border-t border-[var(--color-border)] flex items-center justify-between">
-                    {agotado ? (
-                      <span className="text-[11px] text-rose-400 font-medium">Sin stock</span>
-                    ) : (
+                  {/* Precio o CTA según disponibilidad en Odoo */}
+                  {precio ? (
+                    <div className="mt-3 pt-2.5 border-t border-[var(--color-border)] flex items-end justify-between gap-2">
+                      <div className="leading-tight">
+                        <p className="text-[9px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Precio</p>
+                        <p className="font-mono text-[15px] font-bold text-[var(--color-text-primary)]">{precio}</p>
+                      </div>
                       <Link
                         href={`/cotizar?repuesto=${r.sku || r.id}&nombre=${encodeURIComponent(r.nombre)}`}
-                        className="flex-1 flex items-center justify-center gap-1 h-8 rounded-lg bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[11px] font-semibold"
+                        className="flex items-center justify-center gap-1 h-8 px-3 rounded-lg bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[11px] font-semibold whitespace-nowrap"
                       >
                         Cotizar
                         <ArrowRight size={11} />
                       </Link>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="mt-3 pt-2.5 border-t border-[var(--color-border)]">
+                      <Link
+                        href={`/cotizar?repuesto=${r.sku || r.id}&nombre=${encodeURIComponent(r.nombre)}`}
+                        className="w-full flex items-center justify-center gap-1 h-8 rounded-lg bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[11px] font-semibold"
+                      >
+                        Cotizar precio
+                        <ArrowRight size={11} />
+                      </Link>
+                    </div>
+                  )}
                 </div>
               </div>
             );

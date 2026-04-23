@@ -22,9 +22,11 @@ export type Repuesto = {
 
 export async function fetchRepuestos(categoria?: CategoriaRepuesto): Promise<Repuesto[]> {
   const supabase = createClient();
+  // Sólo productos con stock disponible — agotados no se muestran en el landing.
   let q = supabase
     .from('parmonca_repuestos')
     .select('id, sku, nombre, categoria, subcategoria, marca, descripcion, imagen_url, precio_venta, stock, stock_minimo, unidad, compatible_con, destacado, ultima_sync_at')
+    .gt('stock', 0)
     .order('destacado', { ascending: false })
     .order('stock', { ascending: false });
   if (categoria) q = q.eq('categoria', categoria);
@@ -33,10 +35,23 @@ export async function fetchRepuestos(categoria?: CategoriaRepuesto): Promise<Rep
 }
 
 export function stockBadge(r: Repuesto): { label: string; color: 'emerald' | 'amber' | 'rose' | 'slate' } {
-  if (r.stock <= 0) return { label: 'Agotado', color: 'rose' };
   if (r.stock <= r.stock_minimo) return { label: `Últimas ${r.stock}`, color: 'amber' };
   if (r.stock < 10) return { label: `${r.stock} disponibles`, color: 'emerald' };
   return { label: 'En stock', color: 'emerald' };
+}
+
+/**
+ * Format price for display. Returns null when the product has no price, so the
+ * UI can render the "Cotizar" CTA instead.
+ */
+export function formatPrecio(r: Repuesto): string | null {
+  if (!r.precio_venta || r.precio_venta <= 0) return null;
+  return new Intl.NumberFormat('es-PA', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(r.precio_venta);
 }
 
 export const CATEGORIAS_REPUESTOS = [

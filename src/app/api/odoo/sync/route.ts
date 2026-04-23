@@ -151,7 +151,10 @@ async function runSync(byCron: boolean) {
         subcategoria,
         descripcion,
         precio_venta: typeof p.list_price === 'number' ? p.list_price : null,
-        precio_publico: false, // prices hidden by default, shown via CTA Cotizar
+        // Todos los productos Odoo se publican en el landing. El frontend
+        // decide si muestra el precio (si precio_venta > 0) o sólo el CTA
+        // "Cotizar" (si precio_venta == 0/null).
+        precio_publico: true,
         stock: Math.max(0, Math.floor(p.qty_available || 0)),
         stock_minimo: 3,
         unidad: 'unidad',
