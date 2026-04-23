@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Search, MapPin, Phone, Mail, Building2 } from 'lucide-react';
+import { Search, MapPin, Phone, Mail, Building2, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 type ClienteRow = {
@@ -71,11 +71,17 @@ export default function ClientesPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-display text-2xl font-bold text-[var(--color-text-primary)] tracking-tight">Clientes</h1>
           <p className="text-sm text-[var(--color-text-muted)] mt-0.5">{loading ? 'Cargando…' : `${filtered.length} de ${rows.length} registros`}</p>
         </div>
+        <Link
+          href="/clientes/nuevo"
+          className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl bg-gradient-to-r from-[#E8821C] to-[#C96A10] hover:from-[#FF9F43] hover:to-[#E8821C] text-white text-[13px] font-semibold glow-brand-sm transition-all"
+        >
+          <Plus size={15} />Nuevo cliente
+        </Link>
       </div>
 
       {error && (
