@@ -1,0 +1,67 @@
+import { createClient } from '@/lib/supabase/client';
+
+export type CategoriaRepuesto = 'llantas' | 'asientos' | 'traspaletas_manuales' | 'tanques' | 'otros';
+
+export type Repuesto = {
+  id: string;
+  sku: string | null;
+  nombre: string;
+  categoria: CategoriaRepuesto;
+  subcategoria: string | null;
+  marca: string | null;
+  descripcion: string | null;
+  imagen_url: string | null;
+  precio_venta: number | null;
+  stock: number;
+  stock_minimo: number;
+  unidad: string | null;
+  compatible_con: string[] | null;
+  destacado: boolean;
+  ultima_sync_at: string | null;
+};
+
+export async function fetchRepuestos(categoria?: CategoriaRepuesto): Promise<Repuesto[]> {
+  const supabase = createClient();
+  let q = supabase
+    .from('parmonca_repuestos')
+    .select('id, sku, nombre, categoria, subcategoria, marca, descripcion, imagen_url, precio_venta, stock, stock_minimo, unidad, compatible_con, destacado, ultima_sync_at')
+    .order('destacado', { ascending: false })
+    .order('stock', { ascending: false });
+  if (categoria) q = q.eq('categoria', categoria);
+  const { data } = await q;
+  return (data || []) as Repuesto[];
+}
+
+export function stockBadge(r: Repuesto): { label: string; color: 'emerald' | 'amber' | 'rose' | 'slate' } {
+  if (r.stock <= 0) return { label: 'Agotado', color: 'rose' };
+  if (r.stock <= r.stock_minimo) return { label: `Últimas ${r.stock}`, color: 'amber' };
+  if (r.stock < 10) return { label: `${r.stock} disponibles`, color: 'emerald' };
+  return { label: 'En stock', color: 'emerald' };
+}
+
+export const CATEGORIAS_REPUESTOS = [
+  {
+    id: 'llantas' as CategoriaRepuesto,
+    label: 'Llantas',
+    emoji: '🛞',
+    hint: 'Sólidas y neumáticas para todo tipo de operación',
+  },
+  {
+    id: 'asientos' as CategoriaRepuesto,
+    label: 'Asientos',
+    emoji: '💺',
+    hint: 'Ergonómicos y con suspensión para tu operador',
+  },
+  {
+    id: 'traspaletas_manuales' as CategoriaRepuesto,
+    label: 'Traspaletas',
+    emoji: '🔧',
+    hint: 'Traspaletas manuales hidráulicas para pallets',
+  },
+  {
+    id: 'tanques' as CategoriaRepuesto,
+    label: 'Tanques GLP',
+    emoji: '⛽',
+    hint: 'Tanques intercambiables de 20 y 43 lb',
+  },
+];

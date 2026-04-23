@@ -10,6 +10,7 @@ import { recomendar } from '@/lib/recomendador';
 import { formatCurrency, cn } from '@/lib/utils';
 import { track } from '@/lib/visitor';
 import { PageView } from '@/components/PageView';
+import { RepuestosSection } from '@/components/RepuestosSection';
 
 export default function ProductosPage() {
   const [modalidad, setModalidad] = useState<Modalidad>('venta');
@@ -687,6 +688,8 @@ export default function ProductosPage() {
         )}
       </section>
 
+
+      <RepuestosSection />
 
       {/* Why PARMONCA */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
