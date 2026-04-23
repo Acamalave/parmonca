@@ -1,6 +1,7 @@
 'use client';
 
-import { User, Building2, Bell, Shield } from 'lucide-react';
+import Link from 'next/link';
+import { User, Building2, Bell, Shield, Database, ArrowRight } from 'lucide-react';
 import { empresasCotizadoras } from '@/lib/demo-data';
 
 export default function ConfiguracionPage() {
@@ -23,6 +24,22 @@ export default function ConfiguracionPage() {
           </div>
         </div>
       </div>
+
+      <Link
+        href="/configuracion/odoo"
+        className="glass rounded-xl p-5 flex items-center justify-between hover:border-[#E8821C]/40 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-lg bg-[#E8821C]/10 border border-[#E8821C]/20 flex items-center justify-center">
+            <Database size={15} className="text-[#E8821C]" />
+          </div>
+          <div>
+            <h2 className="text-[13px] font-semibold text-[var(--color-text-primary)]">Integración Odoo</h2>
+            <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">Sincronización de repuestos desde ml.parts</p>
+          </div>
+        </div>
+        <ArrowRight size={14} className="text-[var(--color-text-muted)]" />
+      </Link>
 
       <div className="glass rounded-xl p-5">
         <div className="flex items-center gap-2 mb-4"><Building2 size={15} className="text-[#E8821C]" /><h2 className="text-[13px] font-semibold text-[var(--color-text-secondary)]">Empresas Cotizadoras</h2></div>
