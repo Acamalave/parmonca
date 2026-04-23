@@ -69,7 +69,7 @@ export default function NuevaCotizacionPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    (async () => {
+    const reload = async () => {
       const [{ data: c }, { data: p }] = await Promise.all([
         supabase.from('parmonca_clientes').select('id, email, nombre, empresa, telefono, pais, ciudad, industria, ruc').order('nombre'),
         supabase.from('parmonca_productos').select('id, slug, modelo, marca, categoria, capacidad_kg, imagen_local, imagen_url, precio_venta, precio_alquiler_1ano, precio_alquiler_2anos, precio_alquiler_3anos, precio_alquiler_5anos').eq('activo', true).order('modelo'),
@@ -77,7 +77,17 @@ export default function NuevaCotizacionPage() {
       setClientes((c || []) as ClienteRow[]);
       setProductos((p || []) as ProductoRow[]);
       setLoadingData(false);
-    })();
+    };
+    reload();
+
+    // Realtime: si el admin edita precios/visibilidad mientras estás armando
+    // una cotización, el selector se refresca solo para que no uses datos viejos.
+    const channel = supabase
+      .channel('cotizacion_nueva_feed')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parmonca_productos' }, reload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parmonca_clientes' }, reload)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [supabase]);
 
   const cliente = clienteExistenteId ? clientes.find(c => c.id === clienteExistenteId) : null;

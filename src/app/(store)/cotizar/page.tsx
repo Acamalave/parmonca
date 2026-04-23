@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense, useMemo } from 'react';
+import { useState, Suspense, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -21,6 +21,9 @@ import {
 import { formatCurrency, cn } from '@/lib/utils';
 import { track, getDeviceId } from '@/lib/visitor';
 import { PageView } from '@/components/PageView';
+import { fetchProducto } from '@/lib/productos-live';
+import { createClient } from '@/lib/supabase/client';
+import type { StoreProduct } from '@/lib/store-data';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Wizard configuration
@@ -215,7 +218,29 @@ function CotizarContent() {
   const modalidadParam = (searchParams.get('modalidad') as Modalidad) || 'venta';
   const periodoParam = (searchParams.get('periodo') as PeriodoAlquiler) || '1_ano';
 
-  const product = productoSlug ? storeProducts.find(p => p.slug === productoSlug) : null;
+  // Producto en vivo desde Supabase; fallback a catálogo estático si
+  // todavía no cargó o el slug no existe en la BD.
+  const [liveProduct, setLiveProduct] = useState<StoreProduct | null>(null);
+  useEffect(() => {
+    if (!productoSlug) { setLiveProduct(null); return; }
+    const supabase = createClient();
+    const reload = () => fetchProducto(productoSlug).then(p => setLiveProduct(p || null));
+    reload();
+
+    // Realtime: si el admin cambia el precio/imagen/specs mientras el
+    // usuario arma su cotización, la página se actualiza sola.
+    const channel = supabase
+      .channel(`cotizar_producto_${productoSlug}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'parmonca_productos', filter: `slug=eq.${productoSlug}` },
+        reload
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [productoSlug]);
+
+  const product = liveProduct || (productoSlug ? storeProducts.find(p => p.slug === productoSlug) : null) || null;
   const cantidad = cantidadParam || 1;
 
   // ── Pre-llenado desde URL (asesor virtual ya capturó respuestas) ──
