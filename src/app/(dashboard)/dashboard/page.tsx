@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { FileText, Users, Receipt, TrendingUp, AlertTriangle, Clock, CheckCircle2, ArrowUpRight, Zap, Trophy, Flame } from 'lucide-react';
+import { FileText, Users, Receipt, TrendingUp, AlertTriangle, Clock, CheckCircle2, ArrowUpRight, Trophy } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { useCRM } from '@/context/CRMContext';
 import { createClient } from '@/lib/supabase/client';
@@ -31,7 +31,7 @@ const conversionData = [
 type RankingRow = { id: string; nombre: string | null; email: string; monto_cerrado_mes: number | string; ganadas_mes: number; pipeline_abiertas: number; };
 
 export default function DashboardPage() {
-  const { facturas } = useCRM(); // facturas still demo — not yet implemented in Supabase
+  const { facturas } = useCRM(); // facturas still demo — shown only to admin for now
   const supabase = useMemo(() => createClient(), []);
   const { profile } = useProfile();
   const userIsAdmin = isAdmin(profile?.rol);
@@ -42,7 +42,6 @@ export default function DashboardPage() {
     montoEnPipeline: 0,
     totalClientes: 0,
     leads: 0,
-    leadsDisponibles: 0,
   });
   const [ranking, setRanking] = useState<RankingRow[]>([]);
 
@@ -60,9 +59,8 @@ export default function DashboardPage() {
         .reduce((a, c) => a + Number(c.total || 0), 0);
       const totalClientes = cls?.length || 0;
       const leads = cls?.filter(c => c.tipo === 'lead').length || 0;
-      const leadsDisponibles = (cots || []).filter(c => !c.asignado_a).length;
 
-      setStats({ totalCotizaciones, ganadas, montoEnPipeline, totalClientes, leads, leadsDisponibles });
+      setStats({ totalCotizaciones, ganadas, montoEnPipeline, totalClientes, leads });
 
       if (userIsAdmin) {
         const { data: rk } = await supabase
@@ -83,19 +81,28 @@ export default function DashboardPage() {
     return () => { supabase.removeChannel(channel); };
   }, [supabase, userIsAdmin]);
 
-  const { totalCotizaciones, ganadas, montoEnPipeline, totalClientes, leads, leadsDisponibles } = stats;
+  const { totalCotizaciones, ganadas, montoEnPipeline, totalClientes, leads } = stats;
   const tasaConversion = totalCotizaciones > 0 ? ((ganadas / totalCotizaciones) * 100).toFixed(0) : '0';
   const totalFacturado = facturas.reduce((acc, f) => acc + f.total, 0);
   const facturasVencidas = facturas.filter(f => f.estado === 'vencida').length;
 
   const maxMonto = Math.max(1, ...ranking.map(r => Number(r.monto_cerrado_mes) || 0));
 
-  const kpis = [
-    { label: 'Pipeline Activo', value: formatCurrency(montoEnPipeline), change: '+$50K', up: true, icon: TrendingUp, gradient: 'from-[#E8821C]/20 to-[#E8821C]/5', iconColor: 'text-[#E8821C]', glowColor: '#E8821C' },
-    { label: 'Cotizaciones', value: totalCotizaciones.toString(), change: `${tasaConversion}% conv.`, up: true, icon: FileText, gradient: 'from-blue-500/20 to-blue-500/5', iconColor: 'text-blue-400', glowColor: '#3B82F6' },
-    { label: 'Facturado', value: formatCurrency(totalFacturado), change: `${facturasVencidas} vencidas`, up: false, icon: Receipt, gradient: 'from-emerald-500/20 to-emerald-500/5', iconColor: 'text-emerald-400', glowColor: '#22C55E' },
-    { label: 'Clientes', value: totalClientes.toString(), change: `${leads} leads`, up: true, icon: Users, gradient: 'from-violet-500/20 to-violet-500/5', iconColor: 'text-violet-400', glowColor: '#8B5CF6' },
-  ];
+  // KPIs — los admin ven la vista global; el asesor ve sólo lo que le corresponde
+  // por RLS, y reemplazamos "Facturado" (aún demo) por "Ganadas" real.
+  const kpis = userIsAdmin
+    ? [
+        { label: 'Pipeline Activo', value: formatCurrency(montoEnPipeline), change: `${ganadas} ganadas`, up: true, icon: TrendingUp, gradient: 'from-[#E8821C]/20 to-[#E8821C]/5', iconColor: 'text-[#E8821C]', glowColor: '#E8821C' },
+        { label: 'Cotizaciones', value: totalCotizaciones.toString(), change: `${tasaConversion}% conv.`, up: true, icon: FileText, gradient: 'from-blue-500/20 to-blue-500/5', iconColor: 'text-blue-400', glowColor: '#3B82F6' },
+        { label: 'Facturado', value: formatCurrency(totalFacturado), change: `${facturasVencidas} vencidas`, up: false, icon: Receipt, gradient: 'from-emerald-500/20 to-emerald-500/5', iconColor: 'text-emerald-400', glowColor: '#22C55E' },
+        { label: 'Clientes', value: totalClientes.toString(), change: `${leads} leads`, up: true, icon: Users, gradient: 'from-violet-500/20 to-violet-500/5', iconColor: 'text-violet-400', glowColor: '#8B5CF6' },
+      ]
+    : [
+        { label: 'Mi Pipeline', value: formatCurrency(montoEnPipeline), change: `${ganadas} ganadas`, up: true, icon: TrendingUp, gradient: 'from-[#E8821C]/20 to-[#E8821C]/5', iconColor: 'text-[#E8821C]', glowColor: '#E8821C' },
+        { label: 'Mis Cotizaciones', value: totalCotizaciones.toString(), change: `${tasaConversion}% conv.`, up: true, icon: FileText, gradient: 'from-blue-500/20 to-blue-500/5', iconColor: 'text-blue-400', glowColor: '#3B82F6' },
+        { label: 'Ganadas', value: ganadas.toString(), change: `de ${totalCotizaciones} totales`, up: true, icon: Trophy, gradient: 'from-emerald-500/20 to-emerald-500/5', iconColor: 'text-emerald-400', glowColor: '#22C55E' },
+        { label: 'Mis Clientes', value: totalClientes.toString(), change: `${leads} leads`, up: true, icon: Users, gradient: 'from-violet-500/20 to-violet-500/5', iconColor: 'text-violet-400', glowColor: '#8B5CF6' },
+      ];
 
   return (
     <div className="space-y-5 max-w-7xl mx-auto">
@@ -111,15 +118,6 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {leadsDisponibles > 0 && !userIsAdmin && (
-            <Link
-              href="/cotizaciones?filter=disponibles"
-              className="flex items-center gap-1.5 px-3 h-8 rounded-lg bg-[#E8821C]/10 border border-[#E8821C]/30 text-[#E8821C] text-[12px] font-semibold hover:bg-[#E8821C]/20 transition-all"
-            >
-              <Flame size={14} />
-              {leadsDisponibles} lead{leadsDisponibles === 1 ? '' : 's'} disponible{leadsDisponibles === 1 ? '' : 's'}
-            </Link>
-          )}
           <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot" />
             En vivo
@@ -149,7 +147,9 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* Charts */}
+      {/* Charts — solo admin. Los datos son aún de ejemplo hasta que exista
+          tabla de ingresos; al asesor no le mostramos agregados globales. */}
+      {userIsAdmin && (
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
         <div className="lg:col-span-3 glass rounded-xl p-4">
           <div className="flex items-center justify-between mb-4">
@@ -185,9 +185,10 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         </div>
       </div>
+      )}
 
       {/* Bottom */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <div className={userIsAdmin ? 'grid grid-cols-1 lg:grid-cols-2 gap-3' : 'grid grid-cols-1 gap-3'}>
         <div className="glass rounded-xl p-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-[13px] font-semibold text-[var(--color-text-secondary)]">
@@ -237,6 +238,7 @@ export default function DashboardPage() {
           )}
         </div>
 
+        {userIsAdmin && (
         <div className="glass rounded-xl p-4">
           <h3 className="text-[13px] font-semibold text-[var(--color-text-secondary)] mb-4">Alertas Activas</h3>
           <div className="space-y-2">
@@ -261,6 +263,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

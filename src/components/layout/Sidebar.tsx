@@ -25,7 +25,6 @@ import {
   Moon,
   UsersRound,
   PlusCircle,
-  Flame,
 } from 'lucide-react';
 
 type NavItem = {
@@ -41,7 +40,6 @@ const navItems: NavItem[] = [
   { label: 'Cotizaciones', href: '/cotizaciones', icon: FileText },
   { label: 'Clientes', href: '/clientes', icon: Users },
   { label: 'Pipeline', href: '/pipeline', icon: Kanban },
-  { label: 'Leads disponibles', href: '/cotizaciones?filter=disponibles', icon: Flame, hideForAdmin: true },
   { label: 'Mi Equipo', href: '/equipo', icon: UsersRound, adminOnly: true },
   { label: 'Facturas', href: '/facturas', icon: Receipt, adminOnly: true },
   { label: 'Catálogo', href: '/catalogo', icon: Package, adminOnly: true },
