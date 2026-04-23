@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient, createClient } from '@/lib/supabase/server';
 import { OdooClient, ODOO_CATEG_MAP, ODOO_CATEG_IDS } from '@/lib/odoo';
 
@@ -64,7 +65,21 @@ function isCronCaller(req: NextRequest): boolean {
 
 async function runSync(byCron: boolean) {
   const startedAt = new Date();
-  const admin = createAdminClient();
+  // For cron runs we need the service-role client (no user session).
+  // For admin-triggered runs, the user-session client has RLS write access
+  // via parmonca_is_admin(), so service-role is not required.
+  let admin: SupabaseClient;
+  if (byCron) {
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json(
+        { error: 'cron_disabled', details: 'SUPABASE_SERVICE_ROLE_KEY is not configured; cron sync is off.' },
+        { status: 503 }
+      );
+    }
+    admin = createAdminClient();
+  } else {
+    admin = await createClient();
+  }
 
   const tipo = byCron ? 'full' : 'manual';
 
@@ -256,7 +271,8 @@ export async function GET(req: NextRequest) {
   const ok = await isAdminCaller();
   if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const admin = createAdminClient();
+  // Admin's user-session client can read logs via RLS (sync_log_admin_read).
+  const admin = await createClient();
   const { data, error } = await admin
     .from('parmonca_odoo_sync_log')
     .select('*')
