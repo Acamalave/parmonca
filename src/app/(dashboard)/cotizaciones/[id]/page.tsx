@@ -7,6 +7,29 @@ import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils';
 import { periodoLabels, type PeriodoAlquiler } from '@/lib/store-data';
 
+const AMBIENTE_LABELS: Record<string, string> = {
+  interior: 'Interior (almacén, nave)',
+  exterior: 'Exterior (patio, obra)',
+  mixto: 'Mixto (ambos)',
+};
+
+const FRECUENCIA_LABELS: Record<string, string> = {
+  '1_turno': '1 turno (8h/día)',
+  '2_turnos': '2 turnos (16h/día)',
+  '3_turnos': '3 turnos (24h/día)',
+};
+
+const PLAZO_LABELS: Record<string, string> = {
+  inmediato: 'Inmediato',
+  '1-2-semanas': '1 – 2 semanas',
+  planificando: 'Planificando',
+  explorando: 'Investigando',
+};
+
+const prettyAmbiente = (v: string | null) => (v ? AMBIENTE_LABELS[v] || v : null);
+const prettyFrecuencia = (v: string | null) => (v ? FRECUENCIA_LABELS[v] || v : null);
+const prettyPlazo = (v: string | null) => (v ? PLAZO_LABELS[v] || v : null);
+
 type CotizacionDetail = {
   id: string;
   numero: string;
@@ -22,6 +45,9 @@ type CotizacionDetail = {
   presupuesto: string | null;
   financiamiento: string | null;
   ruc: string | null;
+  ambiente: string | null;
+  frecuencia: string | null;
+  plazo: string | null;
   modalidad: 'venta' | 'alquiler';
   periodo: string | null;
   producto: { marca?: string; modelo?: string; categoria?: string; precio?: number; imagen?: string } | null;
@@ -222,6 +248,9 @@ export default function CotizacionDetailPage({ params }: { params: Promise<{ id:
                 { icon: Wallet, label: 'Presupuesto', v: cot.presupuesto },
                 { icon: StickyNote, label: 'Financiamiento', v: cot.financiamiento === 'si' ? 'Sí, necesita' : cot.financiamiento === 'no' ? 'No necesita' : cot.financiamiento },
                 { icon: Building2, label: 'RUC / NIT', v: cot.ruc },
+                { icon: MapPin, label: 'Ambiente de trabajo', v: prettyAmbiente(cot.ambiente) },
+                { icon: Activity, label: 'Frecuencia de uso', v: prettyFrecuencia(cot.frecuencia) },
+                { icon: Calendar, label: 'Plazo de compra', v: prettyPlazo(cot.plazo) },
               ].map((d, i) => d.v && (
                 <div key={i} className="flex items-start gap-2 text-[13px]">
                   <d.icon size={13} className="text-[var(--color-text-muted)] mt-0.5" />

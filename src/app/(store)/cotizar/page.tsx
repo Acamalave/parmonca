@@ -317,6 +317,10 @@ function CotizarContent() {
         body: JSON.stringify({
           nombre, empresa, email, telefono, pais, ciudad, mensaje,
           industria, tamanoFlota, presupuesto, financiamiento, ruc,
+          // Respuestas del asesor virtual — las persistimos para histórico
+          ambiente: operacion,
+          frecuencia,
+          plazo,
           modalidad: modalidadParam,
           periodo: modalidadParam === 'alquiler' ? periodoParam : null,
           producto: product ? {

@@ -40,6 +40,10 @@ interface CotizacionRequest {
   presupuesto: string;
   financiamiento: string;
   ruc: string;
+  // Respuestas del asesor virtual (desde el wizard)
+  ambiente?: string | null;
+  frecuencia?: string | null;
+  plazo?: string | null;
   // Modality
   modalidad: 'venta' | 'alquiler';
   periodo: string | null;
@@ -314,6 +318,9 @@ export async function POST(request: NextRequest) {
         p_total: body.total,
         p_origen: 'landing',
         p_device_id: body.device_id || null,
+        p_ambiente: body.ambiente || null,
+        p_frecuencia: body.frecuencia || null,
+        p_plazo: body.plazo || null,
       });
 
       if (dbError) {
