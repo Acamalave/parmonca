@@ -14,7 +14,7 @@ import { RepuestosSection } from '@/components/RepuestosSection';
 
 export default function ProductosPage() {
   const [modalidad, setModalidad] = useState<Modalidad>('venta');
-  const [periodo, setPeriodo] = useState<PeriodoAlquiler>('mensual');
+  const [periodo, setPeriodo] = useState<PeriodoAlquiler>('1_ano');
 
   // Smart context form state
   const [industria, setIndustria] = useState('');
@@ -492,7 +492,7 @@ export default function ProductosPage() {
             </div>
             {modalidad === 'alquiler' && (
               <div className="flex h-8 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] p-0.5">
-                {(['diario', 'semanal', 'mensual', 'anual'] as PeriodoAlquiler[]).map(p => (
+                {(['1_ano', '2_anos', '3_anos', '5_anos'] as PeriodoAlquiler[]).map(p => (
                   <button key={p} onClick={() => setPeriodo(p)}
                     className={cn(
                       'px-3 rounded-md text-[11px] font-medium transition-all',

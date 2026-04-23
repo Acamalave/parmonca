@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, Calendar, User, Building2, Mail, Phone, MapPin, Package, Factory, Wallet, StickyNote, MessageSquare, Activity, Eye, Filter, HelpCircle, Zap } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils';
+import { periodoLabels, type PeriodoAlquiler } from '@/lib/store-data';
 
 type CotizacionDetail = {
   id: string;
@@ -165,7 +166,7 @@ export default function CotizacionDetailPage({ params }: { params: Promise<{ id:
               <h1 className="text-lg font-bold text-[var(--color-text-primary)] font-display">{cot.numero}</h1>
               <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${ESTADO_STYLES[cot.estado]}`}>{cot.estado}</span>
               <span className={`px-2 py-0.5 rounded text-[10px] font-semibold capitalize ${cot.modalidad === 'alquiler' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-[#E8821C]/10 text-[#E8821C] border border-[#E8821C]/20'}`}>
-                {cot.modalidad}{cot.periodo ? ` · ${cot.periodo}` : ''}
+                {cot.modalidad}{cot.periodo ? ` · ${periodoLabels[cot.periodo as PeriodoAlquiler] || cot.periodo}` : ''}
               </span>
             </div>
             <p className="text-[var(--color-text-secondary)] text-[13px] mt-0.5">Recibida {formatDate(cot.created_at)} · Origen: {cot.origen}</p>

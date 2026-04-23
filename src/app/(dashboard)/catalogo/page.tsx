@@ -19,7 +19,7 @@ type Producto = {
   imagen_url: string | null;
   imagen_local: string | null;
   precio_venta: number | null;
-  precio_alquiler_mensual: number | null;
+  precio_alquiler_1ano: number | null;
   activo: boolean;
   destacado: boolean;
   badge: string | null;
@@ -41,7 +41,7 @@ export default function CatalogoPage() {
     setError(null);
     const { data, error } = await supabase
       .from('parmonca_productos')
-      .select('id, slug, modelo, marca, categoria, motor, mastil_mm, capacidad_kg, imagen_url, imagen_local, precio_venta, precio_alquiler_mensual, activo, destacado, badge')
+      .select('id, slug, modelo, marca, categoria, motor, mastil_mm, capacidad_kg, imagen_url, imagen_local, precio_venta, precio_alquiler_1ano, activo, destacado, badge')
       .order('id', { ascending: false });
     if (error) setError(error.message);
     else setRows((data || []) as Producto[]);

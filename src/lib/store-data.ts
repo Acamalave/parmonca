@@ -1,11 +1,11 @@
 export type Modalidad = 'venta' | 'alquiler';
-export type PeriodoAlquiler = 'diario' | 'semanal' | 'mensual' | 'anual';
+export type PeriodoAlquiler = '1_ano' | '2_anos' | '3_anos' | '5_anos';
 
 export interface PreciosAlquiler {
-  diario: number;
-  semanal: number;
-  mensual: number;
-  anual: number;
+  '1_ano': number;
+  '2_anos': number;
+  '3_anos': number;
+  '5_anos': number;
 }
 
 export interface StoreProduct {
@@ -65,11 +65,14 @@ export interface Accesorio {
 }
 
 export const periodoLabels: Record<PeriodoAlquiler, string> = {
-  diario: 'Día',
-  semanal: 'Semana',
-  mensual: 'Mes',
-  anual: 'Año',
+  '1_ano': '1 año',
+  '2_anos': '2 años',
+  '3_anos': '3 años',
+  '5_anos': '5 años',
 };
+
+/** Periodos disponibles en el orden que se muestran en los pickers. */
+export const periodosAlquiler: PeriodoAlquiler[] = ['1_ano', '2_anos', '3_anos', '5_anos'];
 
 export const storeProducts: StoreProduct[] = [
   {
@@ -84,7 +87,7 @@ export const storeProducts: StoreProduct[] = [
     imagen: '/images/products/u20w3li-nobg.png',
     imagenNoBg: '/images/products/u20w3li-nobg.png',
     precioDesde: 19800,
-    preciosAlquiler: { diario: 250, semanal: 850, mensual: 2200, anual: 9500 },
+    preciosAlquiler: { '1_ano': 9500, '2_anos': 17480, '3_anos': 24225, '5_anos': 35625 },
     badge: 'Eléctrico',
     specs: {
       capacidadCarga: '2,000 kg',
@@ -124,7 +127,7 @@ export const storeProducts: StoreProduct[] = [
     imagen: '/images/products/tan35d-nobg.png',
     imagenNoBg: '/images/products/tan35d-nobg.png',
     precioDesde: 22000,
-    preciosAlquiler: { diario: 280, semanal: 950, mensual: 2500, anual: 10800 },
+    preciosAlquiler: { '1_ano': 10800, '2_anos': 19872, '3_anos': 27540, '5_anos': 40500 },
     badge: 'Mas Vendido',
     specs: {
       capacidadCarga: '3,500 kg',
@@ -163,7 +166,7 @@ export const storeProducts: StoreProduct[] = [
     imagen: '/images/products/uprr15li-nobg.png',
     imagenNoBg: '/images/products/uprr15li-nobg.png',
     precioDesde: 8500,
-    preciosAlquiler: { diario: 120, semanal: 420, mensual: 1100, anual: 4800 },
+    preciosAlquiler: { '1_ano': 4800, '2_anos': 8832, '3_anos': 12240, '5_anos': 18000 },
     badge: 'Compacto',
     specs: {
       capacidadCarga: '1,500 kg',
@@ -323,7 +326,7 @@ export function getRecommendation(
   // Determine modality
   if (frecuencia === 'ocasional') {
     bestModalidad = 'alquiler';
-    bestPeriodo = 'mensual';
+    bestPeriodo = '1_ano';
     reason += ' Con uso ocasional, el alquiler optimiza tu inversión.';
   } else if (frecuencia === '24-7') {
     bestModalidad = 'venta';

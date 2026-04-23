@@ -213,7 +213,7 @@ function CotizarContent() {
   const accIdsFromUrl = searchParams.get('accesorios')?.split(',').filter(Boolean) || [];
   const cantidadParam = parseInt(searchParams.get('cantidad') || '1');
   const modalidadParam = (searchParams.get('modalidad') as Modalidad) || 'venta';
-  const periodoParam = (searchParams.get('periodo') as PeriodoAlquiler) || 'mensual';
+  const periodoParam = (searchParams.get('periodo') as PeriodoAlquiler) || '1_ano';
 
   const product = productoSlug ? storeProducts.find(p => p.slug === productoSlug) : null;
   const cantidad = cantidadParam || 1;

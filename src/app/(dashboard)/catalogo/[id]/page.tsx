@@ -23,10 +23,10 @@ type Producto = {
   imagen_url: string | null;
   imagen_local: string | null;
   precio_venta: number | null;
-  precio_alquiler_diario: number | null;
-  precio_alquiler_semanal: number | null;
-  precio_alquiler_mensual: number | null;
-  precio_alquiler_anual: number | null;
+  precio_alquiler_1ano: number | null;
+  precio_alquiler_2anos: number | null;
+  precio_alquiler_3anos: number | null;
+  precio_alquiler_5anos: number | null;
   activo: boolean;
   destacado: boolean;
   badge: string | null;
@@ -121,10 +121,10 @@ export default function EditProductoPage({ params }: { params: Promise<{ id: str
       altura_chasis_mm: p.altura_chasis_mm,
       imagen_local: p.imagen_local,
       precio_venta: p.precio_venta,
-      precio_alquiler_diario: p.precio_alquiler_diario,
-      precio_alquiler_semanal: p.precio_alquiler_semanal,
-      precio_alquiler_mensual: p.precio_alquiler_mensual,
-      precio_alquiler_anual: p.precio_alquiler_anual,
+      precio_alquiler_1ano: p.precio_alquiler_1ano,
+      precio_alquiler_2anos: p.precio_alquiler_2anos,
+      precio_alquiler_3anos: p.precio_alquiler_3anos,
+      precio_alquiler_5anos: p.precio_alquiler_5anos,
       activo: p.activo,
       destacado: p.destacado,
       badge: p.badge,
@@ -277,10 +277,10 @@ export default function EditProductoPage({ params }: { params: Promise<{ id: str
             <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Precios (USD)</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Precio venta" value={p.precio_venta?.toString() || ''} onChange={(v) => update('precio_venta', numberOrNull(v))} type="number" prefix="$" />
-              <Field label="Alquiler diario" value={p.precio_alquiler_diario?.toString() || ''} onChange={(v) => update('precio_alquiler_diario', numberOrNull(v))} type="number" prefix="$" />
-              <Field label="Alquiler semanal" value={p.precio_alquiler_semanal?.toString() || ''} onChange={(v) => update('precio_alquiler_semanal', numberOrNull(v))} type="number" prefix="$" />
-              <Field label="Alquiler mensual" value={p.precio_alquiler_mensual?.toString() || ''} onChange={(v) => update('precio_alquiler_mensual', numberOrNull(v))} type="number" prefix="$" />
-              <Field label="Alquiler anual" value={p.precio_alquiler_anual?.toString() || ''} onChange={(v) => update('precio_alquiler_anual', numberOrNull(v))} type="number" prefix="$" />
+              <Field label="Alquiler 1 año" value={p.precio_alquiler_1ano?.toString() || ''} onChange={(v) => update('precio_alquiler_1ano', numberOrNull(v))} type="number" prefix="$" />
+              <Field label="Alquiler 2 años" value={p.precio_alquiler_2anos?.toString() || ''} onChange={(v) => update('precio_alquiler_2anos', numberOrNull(v))} type="number" prefix="$" />
+              <Field label="Alquiler 3 años" value={p.precio_alquiler_3anos?.toString() || ''} onChange={(v) => update('precio_alquiler_3anos', numberOrNull(v))} type="number" prefix="$" />
+              <Field label="Alquiler 5 años" value={p.precio_alquiler_5anos?.toString() || ''} onChange={(v) => update('precio_alquiler_5anos', numberOrNull(v))} type="number" prefix="$" />
             </div>
           </div>
         </div>

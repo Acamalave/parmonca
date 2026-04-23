@@ -21,10 +21,10 @@ export type ProductoRow = {
   imagen_url: string | null;
   imagen_local: string | null;
   precio_venta: number | string | null;
-  precio_alquiler_diario: number | string | null;
-  precio_alquiler_semanal: number | string | null;
-  precio_alquiler_mensual: number | string | null;
-  precio_alquiler_anual: number | string | null;
+  precio_alquiler_1ano: number | string | null;
+  precio_alquiler_2anos: number | string | null;
+  precio_alquiler_3anos: number | string | null;
+  precio_alquiler_5anos: number | string | null;
   activo: boolean;
   destacado: boolean;
   badge: string | null;
@@ -73,10 +73,10 @@ export function rowToStoreProduct(row: ProductoRow): StoreProduct {
     imagenNoBg: imagen,
     precioDesde: num(row.precio_venta),
     preciosAlquiler: {
-      diario: num(row.precio_alquiler_diario),
-      semanal: num(row.precio_alquiler_semanal),
-      mensual: num(row.precio_alquiler_mensual),
-      anual: num(row.precio_alquiler_anual),
+      '1_ano': num(row.precio_alquiler_1ano),
+      '2_anos': num(row.precio_alquiler_2anos),
+      '3_anos': num(row.precio_alquiler_3anos),
+      '5_anos': num(row.precio_alquiler_5anos),
     },
     badge: row.badge || undefined,
     specs: {

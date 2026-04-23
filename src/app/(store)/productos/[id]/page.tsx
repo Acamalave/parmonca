@@ -27,7 +27,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   // Modalidad from URL or default
   const initialModalidad = (searchParams.get('modalidad') as Modalidad) || 'venta';
-  const initialPeriodo = (searchParams.get('periodo') as PeriodoAlquiler) || 'mensual';
+  const initialPeriodo = (searchParams.get('periodo') as PeriodoAlquiler) || '1_ano';
   const [modalidad, setModalidad] = useState<Modalidad>(initialModalidad);
   const [periodo, setPeriodo] = useState<PeriodoAlquiler>(initialPeriodo);
 
@@ -106,7 +106,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
             {modalidad === 'alquiler' && (
               <div className="flex h-9 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] p-0.5 mb-3">
-                {(['diario', 'semanal', 'mensual', 'anual'] as PeriodoAlquiler[]).map(p => (
+                {(['1_ano', '2_anos', '3_anos', '5_anos'] as PeriodoAlquiler[]).map(p => (
                   <button key={p} onClick={() => setPeriodo(p)}
                     className={cn(
                       'flex-1 rounded-md text-[11px] font-medium transition-all',

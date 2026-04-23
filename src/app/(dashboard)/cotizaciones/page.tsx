@@ -8,6 +8,10 @@ import { createClient } from '@/lib/supabase/client';
 import { useProfile } from '@/lib/supabase/use-profile';
 import { isAdmin } from '@/lib/supabase/roles';
 import { formatCurrency } from '@/lib/utils';
+import { periodoLabels, type PeriodoAlquiler } from '@/lib/store-data';
+
+const prettyPeriodo = (p: string | null): string =>
+  p ? (periodoLabels[p as PeriodoAlquiler] || p) : '';
 
 type CotizacionRow = {
   id: string;
@@ -358,7 +362,7 @@ function CotizacionesContent() {
                   </td>
                   <td className="px-4 py-3 hidden sm:table-cell">
                     <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold capitalize ${r.modalidad === 'alquiler' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-[#E8821C]/10 text-[#E8821C] border border-[#E8821C]/20'}`}>
-                      {r.modalidad}{r.periodo ? ` · ${r.periodo}` : ''}
+                      {r.modalidad}{r.periodo ? ` · ${prettyPeriodo(r.periodo)}` : ''}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-[13px] font-semibold text-[var(--color-text-primary)] text-right">{formatCurrency(r.total)}</td>
