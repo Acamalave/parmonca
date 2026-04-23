@@ -136,6 +136,15 @@ export default function CotizacionDetailPage({ params }: { params: Promise<{ id:
 
   useEffect(() => {
     loadAll().finally(() => setLoading(false));
+
+    // Realtime: si otro admin/asesor edita el estado, se asigna la cotización
+    // o añade una nota, los cambios aparecen sin necesidad de recargar.
+    const channel = supabase
+      .channel(`cotizacion_${id}_feed`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parmonca_cotizaciones', filter: `id=eq.${id}` }, loadAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parmonca_cotizacion_notas', filter: `cotizacion_id=eq.${id}` }, loadAll)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 

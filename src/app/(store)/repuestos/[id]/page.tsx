@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { ArrowLeft, ArrowRight, Package, Zap, CheckCircle2, Truck, ShieldCheck, RefreshCw } from 'lucide-react';
 import { fetchRepuesto, stockBadge, formatPrecio, CATEGORIAS_REPUESTOS, type Repuesto } from '@/lib/repuestos-live';
 import { cn } from '@/lib/utils';
+import { createClient } from '@/lib/supabase/client';
 
 const BADGE_COLORS: Record<string, string> = {
   emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
@@ -19,7 +20,21 @@ export default function RepuestoDetailPage({ params }: { params: Promise<{ id: s
   const [r, setR] = useState<Repuesto | null | undefined>(undefined);
 
   useEffect(() => {
+    const supabase = createClient();
     fetchRepuesto(id).then(setR);
+
+    // Realtime: si el cron de Odoo actualiza stock/precio o el admin edita,
+    // el detalle se refresca al momento.
+    const channel = supabase
+      .channel(`repuesto_${id}_feed`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'parmonca_repuestos', filter: `id=eq.${id}` },
+        async () => setR(await fetchRepuesto(id))
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [id]);
 
   if (r === undefined) {

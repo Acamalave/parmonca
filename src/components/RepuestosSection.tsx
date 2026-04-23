@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Package, ArrowRight, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchRepuestos, stockBadge, formatPrecio, CATEGORIAS_REPUESTOS, type Repuesto, type CategoriaRepuesto } from '@/lib/repuestos-live';
+import { createClient } from '@/lib/supabase/client';
 
 const BADGE_COLORS: Record<string, string> = {
   emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
@@ -20,7 +21,20 @@ export function RepuestosSection() {
   const [filtro, setFiltro] = useState<CategoriaRepuesto | 'todos'>('todos');
 
   useEffect(() => {
+    const supabase = createClient();
     fetchRepuestos().then(setItems).finally(() => setLoading(false));
+
+    // Realtime: cualquier cambio en parmonca_repuestos refresca el listado.
+    // El cron de Odoo + el admin editando disparan eventos aquí.
+    const channel = supabase
+      .channel('repuestos_landing_feed')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parmonca_repuestos' }, async () => {
+        const fresh = await fetchRepuestos();
+        setItems(fresh);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const conteos = useMemo(() => {

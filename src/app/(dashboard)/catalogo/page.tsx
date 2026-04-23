@@ -49,6 +49,15 @@ export default function CatalogoPage() {
 
   useEffect(() => {
     fetchRows().finally(() => setLoading(false));
+
+    // Realtime: si otro admin crea/edita/archiva un producto,
+    // el listado del catálogo refleja el cambio en vivo.
+    const channel = supabase
+      .channel('catalogo_admin_feed')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parmonca_productos' }, fetchRows)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

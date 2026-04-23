@@ -9,6 +9,7 @@ import { storeProducts, accesoriosParaCategoria, periodoLabels, type Modalidad, 
 import { fetchProducto } from '@/lib/productos-live';
 import { cn } from '@/lib/utils';
 import { ProductView } from '@/components/PageView';
+import { createClient } from '@/lib/supabase/client';
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -19,10 +20,26 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [cantidad, setCantidad] = useState(1);
 
   useEffect(() => {
+    const supabase = createClient();
     // Try live DB first (covers all 207 products), fall back to hardcoded if not found
-    fetchProducto(id).then((p) => {
-      setProduct(p || storeProducts.find(sp => sp.slug === id) || null);
-    });
+    const reload = () =>
+      fetchProducto(id).then((p) => {
+        setProduct(p || storeProducts.find(sp => sp.slug === id) || null);
+      });
+    reload();
+
+    // Realtime: si el admin edita este producto (imagen, precios, specs),
+    // el detalle se recarga automáticamente.
+    const channel = supabase
+      .channel(`producto_${id}_feed`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'parmonca_productos', filter: `slug=eq.${id}` },
+        reload
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [id]);
 
   // Modalidad from URL or default

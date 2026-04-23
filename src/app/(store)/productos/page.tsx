@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowRight, Zap, Shield, Truck, Battery, ChevronRight, Factory, MapPin, Clock, Users, Lightbulb, TrendingDown, Calculator, Search, Package, Boxes, MoveVertical, Grid3x3, Check } from 'lucide-react';
 import { storeProducts, industriaOptions, ambienteOptions, frecuenciaOptions, plazoOptions, getRecommendation, periodoLabels, type Modalidad, type PeriodoAlquiler, type StoreProduct } from '@/lib/store-data';
 import { fetchActivos } from '@/lib/productos-live';
+import { createClient } from '@/lib/supabase/client';
 import { recomendar } from '@/lib/recomendador';
 import { formatCurrency, cn } from '@/lib/utils';
 import { track } from '@/lib/visitor';
@@ -39,9 +40,22 @@ export default function ProductosPage() {
   const [visibleCount, setVisibleCount] = useState(12);
 
   useEffect(() => {
+    const supabase = createClient();
     fetchActivos(300)
       .then((p) => setLiveProducts(p))
       .finally(() => setLoadingLive(false));
+
+    // Realtime: si el admin activa/desactiva un producto o edita precios,
+    // el catálogo del landing se refresca en el momento.
+    const channel = supabase
+      .channel('productos_landing_feed')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parmonca_productos' }, async () => {
+        const fresh = await fetchActivos(300);
+        setLiveProducts(fresh);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   // Live recomendaciones (top 3) basadas en el catálogo real + respuestas
