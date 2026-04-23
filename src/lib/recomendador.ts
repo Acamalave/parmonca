@@ -9,7 +9,7 @@
  * 1. **UNILIFT siempre arriba** — es la marca propia de PARMONCA, prioridad estratégica.
  * 2. **Match con ambiente** — eléctrico para interior, combustión para exterior.
  * 3. **Match con industria** — apiladores para almacén, montacargas pesados para construcción.
- * 4. **Match con frecuencia** — diesel para 24/7, eléctrico para turno completo.
+ * 4. **Match con frecuencia** — diesel para 3 turnos (24h/día), eléctrico para 1-2 turnos.
  * 5. **Calidad de presentación** — productos con imagen tienen prioridad.
  *
  * Solo se recomienda si el match es genuino (score mínimo > 0). No se hacen
@@ -130,24 +130,24 @@ function scoreOne(p: StoreProduct, a: AsesorAnswers): { score: number; reasons: 
   }
 
   // ── Frecuencia ──
-  if (a.frecuencia === '24-7') {
+  if (a.frecuencia === '3_turnos') {
     if (combustion) {
       score += 18;
-      reasons.push('Listo para operación continua sin pausas de carga');
+      reasons.push('Listo para 3 turnos (24h/día) sin pausas de carga');
     } else if (electrico) {
       score -= 8; // las baterías necesitan ciclos de carga
     }
-  } else if (a.frecuencia === 'turno-completo') {
+  } else if (a.frecuencia === '2_turnos') {
     if (electrico) {
       score += 18;
-      reasons.push('Batería de litio con autonomía para una jornada completa');
+      reasons.push('Batería de litio con autonomía para 2 turnos');
     } else {
       score += 5;
     }
-  } else if (a.frecuencia === 'ocasional') {
+  } else if (a.frecuencia === '1_turno') {
     if (electrico && cap > 0 && cap <= 2500) {
       score += 18;
-      reasons.push('Compacto y económico para uso intermitente');
+      reasons.push('Compacto y económico para un turno diario');
     }
   }
 
@@ -182,7 +182,7 @@ function dedupe<T>(arr: T[]): T[] {
 function pickBadge(p: StoreProduct, a: AsesorAnswers): string {
   if (p.marca === 'UNILIFT') return 'Marca propia';
   if (isElectric(p) && a.ambiente === 'interior') return 'Eléctrico ideal';
-  if (isCombustion(p) && (a.frecuencia === '24-7' || a.industria === 'construccion')) return 'Para uso pesado';
+  if (isCombustion(p) && (a.frecuencia === '3_turnos' || a.industria === 'construccion')) return 'Para uso pesado';
   if (isApiladorOTraspaleta(p) && a.industria === 'almacen') return 'Para tu almacén';
   return 'Alternativa';
 }

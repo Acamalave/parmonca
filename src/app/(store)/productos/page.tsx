@@ -226,9 +226,9 @@ export default function ProductosPage() {
                 value: frecuencia,
                 setValue: setFrecuencia,
                 options: [
-                  { value: 'ocasional', label: 'Ocasional', hint: 'Pocas horas por semana', icon: '🕐' },
-                  { value: 'turno-completo', label: 'Turno completo', hint: '8 horas al día', icon: '☀️' },
-                  { value: '24-7', label: 'Continuo 24/7', hint: 'Múltiples turnos', icon: '🔄' },
+                  { value: '1_turno', label: '1 turno', hint: '8 horas al día', icon: '☀️' },
+                  { value: '2_turnos', label: '2 turnos', hint: '16 horas al día', icon: '🌗' },
+                  { value: '3_turnos', label: '3 turnos', hint: '24 horas al día', icon: '🔄' },
                 ],
               },
               {

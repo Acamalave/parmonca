@@ -68,9 +68,9 @@ const OPERACIONES: OptionCard[] = [
 ];
 
 const FRECUENCIAS: OptionCard[] = [
-  { value: 'ocasional', title: 'Ocasional', icon: Clock3 },
-  { value: 'turno-completo', title: 'Turno completo', icon: Sun },
-  { value: '24-7', title: 'Continuo 24/7', icon: RotateCw },
+  { value: '1_turno', title: '1 turno', icon: Sun },
+  { value: '2_turnos', title: '2 turnos', icon: Clock3 },
+  { value: '3_turnos', title: '3 turnos', icon: RotateCw },
 ];
 
 const PLAZOS: OptionCard[] = [

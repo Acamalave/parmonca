@@ -41,7 +41,7 @@ export interface StoreProduct {
   usoRecomendado: {
     ambiente: ('interior' | 'exterior' | 'mixto')[];
     industrias: string[];
-    frecuencia: ('ocasional' | 'turno-completo' | '24-7')[];
+    frecuencia: ('1_turno' | '2_turnos' | '3_turnos')[];
   };
 }
 
@@ -112,7 +112,7 @@ export const storeProducts: StoreProduct[] = [
     usoRecomendado: {
       ambiente: ['interior', 'mixto'],
       industrias: ['almacen', 'manufactura', 'retail', 'farmaceutica'],
-      frecuencia: ['turno-completo', '24-7'],
+      frecuencia: ['2_turnos', '3_turnos'],
     },
   },
   {
@@ -151,7 +151,7 @@ export const storeProducts: StoreProduct[] = [
     usoRecomendado: {
       ambiente: ['exterior', 'mixto'],
       industrias: ['construccion', 'logistica', 'agricola', 'manufactura'],
-      frecuencia: ['turno-completo', '24-7'],
+      frecuencia: ['2_turnos', '3_turnos'],
     },
   },
   {
@@ -191,7 +191,7 @@ export const storeProducts: StoreProduct[] = [
     usoRecomendado: {
       ambiente: ['interior'],
       industrias: ['almacen', 'retail', 'farmaceutica'],
-      frecuencia: ['ocasional', 'turno-completo'],
+      frecuencia: ['1_turno', '2_turnos'],
     },
   },
 ];
@@ -277,9 +277,9 @@ export const ambienteOptions = [
 ];
 
 export const frecuenciaOptions = [
-  { value: 'ocasional', label: 'Ocasional (pocas horas/semana)' },
-  { value: 'turno-completo', label: 'Turno completo (8h/día)' },
-  { value: '24-7', label: 'Operación continua (24/7)' },
+  { value: '1_turno', label: '1 turno (8h/día)' },
+  { value: '2_turnos', label: '2 turnos (16h/día)' },
+  { value: '3_turnos', label: '3 turnos (24h/día)' },
 ];
 
 export const plazoOptions = [
@@ -305,32 +305,32 @@ export function getRecommendation(
     bestProduct = storeProducts.find(p => p.categoria === 'montacarga-combustion') || storeProducts[1];
     reason = 'Para operaciones en exterior, el motor diesel ofrece la potencia y resistencia necesaria.';
   } else if (ambiente === 'interior') {
-    if (frecuencia === 'ocasional') {
+    if (frecuencia === '1_turno') {
       bestProduct = storeProducts.find(p => p.categoria === 'apilador-electrico') || storeProducts[2];
-      reason = 'Para uso interior ocasional, el apilador eléctrico es compacto y eficiente.';
+      reason = 'Para un turno en interior, el apilador eléctrico es compacto y eficiente.';
     } else {
       bestProduct = storeProducts.find(p => p.categoria === 'montacarga-electrico') || storeProducts[0];
       reason = 'Para operaciones intensivas en interior, el montacarga eléctrico ofrece cero emisiones y máxima eficiencia.';
     }
   } else {
     // Mixed
-    if (frecuencia === '24-7') {
+    if (frecuencia === '3_turnos') {
       bestProduct = storeProducts[1]; // Diesel for heavy use
-      reason = 'Para operación continua mixta, el diesel ofrece autonomía y potencia sin pausa.';
+      reason = 'Para operación continua (3 turnos) en ambiente mixto, el diesel ofrece autonomía y potencia sin pausa.';
     } else {
       bestProduct = storeProducts[0]; // Electric for mixed moderate
-      reason = 'Para uso mixto moderado, el eléctrico Li-Ion es versátil y de bajo costo operativo.';
+      reason = 'Para uso mixto de 1 a 2 turnos, el eléctrico Li-Ion es versátil y de bajo costo operativo.';
     }
   }
 
   // Determine modality
-  if (frecuencia === 'ocasional') {
+  if (frecuencia === '1_turno') {
     bestModalidad = 'alquiler';
     bestPeriodo = '1_ano';
-    reason += ' Con uso ocasional, el alquiler optimiza tu inversión.';
-  } else if (frecuencia === '24-7') {
+    reason += ' Con un turno diario, el alquiler optimiza tu inversión inicial.';
+  } else if (frecuencia === '3_turnos') {
     bestModalidad = 'venta';
-    reason += ' Con operación 24/7, la compra es más rentable a largo plazo.';
+    reason += ' Con 3 turnos (24h/día), la compra es más rentable a largo plazo.';
   }
 
   // Industry-specific tweaks
