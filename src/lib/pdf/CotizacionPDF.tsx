@@ -1,6 +1,6 @@
 /* eslint-disable jsx-a11y/alt-text */
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -88,18 +88,12 @@ const ISOTIPO_URL = 'https://parmonca.com/images/isotipo.png';
 // Estilos
 // ──────────────────────────────────────────────────────────────────────────
 
-Font.register({
-  family: 'Inter',
-  fonts: [
-    { src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50ojLazXjE7w.ttf' }, // 400
-    { src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50ojLczXjE7w.ttf', fontWeight: 600 }, // 600
-    { src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50ojLdzXjE7w.ttf', fontWeight: 700 }, // 700
-  ],
-});
+// Usamos la fuente nativa Helvetica — viene incluida en @react-pdf/renderer
+// y evita el latency/error de fetch a Google Fonts en runtime serverless.
 
 const s = StyleSheet.create({
   page: {
-    fontFamily: 'Inter',
+    fontFamily: 'Helvetica',
     fontSize: 9,
     paddingTop: 30,
     paddingBottom: 50,
