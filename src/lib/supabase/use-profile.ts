@@ -11,6 +11,7 @@ export type Profile = {
   rol: Rol;
   activo: boolean;
   avatar_url: string | null;
+  meta_mensual_usd: number | null;
 };
 
 /**
@@ -33,7 +34,7 @@ export function useProfile() {
       }
       const { data } = await supabase
         .from('parmonca_profiles')
-        .select('id, email, nombre, rol, activo, avatar_url')
+        .select('id, email, nombre, rol, activo, avatar_url, meta_mensual_usd')
         .eq('id', user.id)
         .maybeSingle();
       if (!canceled) {
