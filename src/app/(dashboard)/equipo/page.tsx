@@ -27,7 +27,7 @@ type RankingRow = {
 const SITE_URL =
   typeof window !== 'undefined'
     ? window.location.origin
-    : 'https://parmonca-crm.vercel.app';
+    : 'https://parmonca.com';
 
 function getInitials(nombre: string | null, email: string) {
   const base = (nombre || email.split('@')[0]).trim();
@@ -258,7 +258,7 @@ function NuevoVendedorModal({
   const shareMessage = created
     ? `Hola ${nombre.split(' ')[0] || ''}, ya tienes acceso al CRM PARMONCA.\n\n` +
       `Abre este link desde tu celular o computador para crear tu PIN de acceso:\n${activationUrl}\n\n` +
-      `Una vez lo crees, podrás entrar a https://parmonca-crm.vercel.app/login con tu email o teléfono + tu PIN.`
+      `Una vez lo crees, podrás entrar a https://parmonca.com/login con tu email o teléfono + tu PIN.`
     : '';
 
   const handleCopyLink = async () => {
