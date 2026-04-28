@@ -2,7 +2,8 @@
 
 import { use, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, User, Building2, Mail, Phone, MapPin, Package, Factory, Wallet, StickyNote, MessageSquare, Activity, Eye, Filter, HelpCircle, Zap, FileText } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, Calendar, User, Building2, Mail, Phone, MapPin, Package, Factory, Wallet, StickyNote, MessageSquare, Activity, Eye, Filter, HelpCircle, Zap, FileText, Receipt } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils';
 import { periodoLabels, type PeriodoAlquiler } from '@/lib/store-data';
@@ -106,6 +107,7 @@ function formatDate(iso: string) {
 export default function CotizacionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
   const [cot, setCot] = useState<CotizacionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -158,6 +160,16 @@ export default function CotizacionDetailPage({ params }: { params: Promise<{ id:
     }).eq('id', id);
     if (!error) setCot({ ...cot, estado: nuevo });
     setSaving(false);
+  };
+
+  const facturar = async () => {
+    if (!cot) return;
+    setSaving(true);
+    const { data, error } = await supabase.rpc('parmonca_facturar_cotizacion', { p_cotizacion_id: cot.id });
+    setSaving(false);
+    if (error) { setError(error.message); return; }
+    const newId = Array.isArray(data) ? data[0]?.id : null;
+    if (newId) router.push(`/facturas/${newId}`);
   };
 
   const agregarNota = async () => {
@@ -216,6 +228,15 @@ export default function CotizacionDetailPage({ params }: { params: Promise<{ id:
               {ESTADO_OPTIONS.map(e => <option key={e} value={e}>{e}</option>)}
             </select>
             <a href={`/api/cotizacion/${cot.id}/pdf`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 h-8 rounded-lg bg-[#E8821C]/10 text-[#E8821C] border border-[#E8821C]/30 text-[12px] font-medium hover:bg-[#E8821C]/20 transition-all"><FileText size={12} />PDF</a>
+            {cot.estado === 'ganada' && (
+              <button
+                onClick={facturar}
+                disabled={saving}
+                className="flex items-center gap-1.5 px-3 h-8 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[12px] font-semibold disabled:opacity-50 shadow-[0_0_12px_#22C55E30]"
+              >
+                <Receipt size={12} />Facturar
+              </button>
+            )}
             <a href={`mailto:${cot.email}`} className="flex items-center gap-1.5 px-3 h-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-glass)] text-[12px] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] transition-all"><Mail size={12} />Email</a>
             {whatsappNum && (
               <a href={`https://wa.me/${cot.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${cot.nombre}, nos contactamos respecto a la cotización ${cot.numero}...`)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 h-8 rounded-lg bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/20 text-[12px] font-medium hover:bg-[#25D366]/20 transition-all"><MessageSquare size={12} />WhatsApp</a>

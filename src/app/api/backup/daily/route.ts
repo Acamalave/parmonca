@@ -24,6 +24,8 @@ const TABLAS = [
   'parmonca_clientes',
   'parmonca_cotizaciones',
   'parmonca_cotizacion_notas',
+  'parmonca_facturas',
+  'parmonca_pagos',
   'parmonca_profiles',
   'parmonca_visitantes',
   'parmonca_visitante_eventos',

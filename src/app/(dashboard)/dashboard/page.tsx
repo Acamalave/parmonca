@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FileText, Users, Receipt, TrendingUp, AlertTriangle, CheckCircle2, ArrowUpRight, Trophy } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { useCRM } from '@/context/CRMContext';
 import { createClient } from '@/lib/supabase/client';
 import { useProfile } from '@/lib/supabase/use-profile';
 import { isAdmin } from '@/lib/supabase/roles';
@@ -62,7 +61,6 @@ function buildChartData(rows: CotChartRow[]) {
 }
 
 export default function DashboardPage() {
-  const { facturas } = useCRM(); // facturas still demo — shown only to admin for now
   const supabase = useMemo(() => createClient(), []);
   const { profile } = useProfile();
   const userIsAdmin = isAdmin(profile?.rol);
@@ -73,15 +71,18 @@ export default function DashboardPage() {
     montoEnPipeline: 0,
     totalClientes: 0,
     leads: 0,
+    totalFacturado: 0,
+    facturasVencidas: 0,
   });
   const [ranking, setRanking] = useState<RankingRow[]>([]);
   const [chartData, setChartData] = useState<{ mes: string; monto: number; tasa: number }[]>([]);
 
   useEffect(() => {
     const load = async () => {
-      const [{ data: cots }, { data: cls }] = await Promise.all([
+      const [{ data: cots }, { data: cls }, { data: facs }] = await Promise.all([
         supabase.from('parmonca_cotizaciones').select('total, estado, etapa_pipeline, asignado_a, created_at, cerrado_at'),
         supabase.from('parmonca_clientes').select('tipo'),
+        supabase.from('parmonca_facturas').select('total, monto_pagado, estado'),
       ]);
 
       const totalCotizaciones = cots?.length || 0;
@@ -91,8 +92,10 @@ export default function DashboardPage() {
         .reduce((a, c) => a + Number(c.total || 0), 0);
       const totalClientes = cls?.length || 0;
       const leads = cls?.filter(c => c.tipo === 'lead').length || 0;
+      const totalFacturado = (facs || []).reduce((a, f) => a + Number(f.total || 0), 0);
+      const facturasVencidas = (facs || []).filter(f => f.estado === 'vencida').length;
 
-      setStats({ totalCotizaciones, ganadas, montoEnPipeline, totalClientes, leads });
+      setStats({ totalCotizaciones, ganadas, montoEnPipeline, totalClientes, leads, totalFacturado, facturasVencidas });
       setChartData(buildChartData((cots || []) as CotChartRow[]));
 
       if (userIsAdmin) {
@@ -110,14 +113,14 @@ export default function DashboardPage() {
       .channel('parmonca_dashboard_feed')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'parmonca_cotizaciones' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'parmonca_clientes' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parmonca_facturas' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parmonca_pagos' }, load)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [supabase, userIsAdmin]);
 
-  const { totalCotizaciones, ganadas, montoEnPipeline, totalClientes, leads } = stats;
+  const { totalCotizaciones, ganadas, montoEnPipeline, totalClientes, leads, totalFacturado, facturasVencidas } = stats;
   const tasaConversion = totalCotizaciones > 0 ? ((ganadas / totalCotizaciones) * 100).toFixed(0) : '0';
-  const totalFacturado = facturas.reduce((acc, f) => acc + f.total, 0);
-  const facturasVencidas = facturas.filter(f => f.estado === 'vencida').length;
 
   const maxMonto = Math.max(1, ...ranking.map(r => Number(r.monto_cerrado_mes) || 0));
 
