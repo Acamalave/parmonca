@@ -1,8 +1,80 @@
 import { NextRequest, NextResponse } from 'next/server';
+import React from 'react';
 import { Resend } from 'resend';
-import { createAnonClient } from '@/lib/supabase/server';
+import { renderToBuffer } from '@react-pdf/renderer';
+import { createAnonClient, createAdminClient } from '@/lib/supabase/server';
+import { CotizacionPDF, type CotizacionData } from '@/lib/pdf/CotizacionPDF';
+
+export const runtime = 'nodejs';
+export const maxDuration = 60;
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+/**
+ * Build the PDF buffer for an already-inserted cotización. Looks up the
+ * asesor profile and product specs, then renders with @react-pdf/renderer.
+ */
+async function buildCotizacionPDF(cotizacionId: string): Promise<{ buffer: Buffer; numero: string } | null> {
+  try {
+    const client = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : createAnonClient();
+    const { data: cot } = await client
+      .from('parmonca_cotizaciones')
+      .select('id, numero, nombre, empresa, email, telefono, pais, ciudad, mensaje, modalidad, periodo, producto, cantidad, subtotal, impuesto, total, asignado_a, created_at')
+      .eq('id', cotizacionId)
+      .maybeSingle();
+    if (!cot) return null;
+
+    let asesor: { nombre?: string | null; email?: string | null } | null = null;
+    if (cot.asignado_a) {
+      const { data: p } = await client
+        .from('parmonca_profiles')
+        .select('nombre, email')
+        .eq('id', cot.asignado_a)
+        .maybeSingle();
+      if (p) asesor = { nombre: p.nombre, email: p.email };
+    }
+
+    let specs: CotizacionData['specs'] = {};
+    const productoJson = cot.producto as { modelo?: string; marca?: string; categoria?: string; precio?: number; imagen?: string } | null;
+    if (productoJson?.modelo) {
+      const { data: prod } = await client
+        .from('parmonca_productos')
+        .select('capacidad_kg, ancho_pasillo_mm, longitud_sin_horquillas_mm, ancho_total_mm, altura_chasis_mm, motor, descripcion')
+        .eq('modelo', productoJson.modelo)
+        .maybeSingle();
+      if (prod) specs = prod;
+    }
+
+    const created = new Date(cot.created_at);
+    const validaHasta = new Date(created.getTime() + 30 * 24 * 3600 * 1000);
+    const data: CotizacionData = {
+      numero: cot.numero,
+      created_at: cot.created_at,
+      validaHasta: validaHasta.toISOString(),
+      cliente: {
+        nombre: cot.nombre, empresa: cot.empresa, telefono: cot.telefono,
+        email: cot.email, pais: cot.pais, ciudad: cot.ciudad,
+      },
+      asesor,
+      modalidad: cot.modalidad,
+      periodo: cot.periodo,
+      cantidad: cot.cantidad ?? 1,
+      subtotal: Number(cot.subtotal) || 0,
+      impuesto: Number(cot.impuesto) || 0,
+      total: Number(cot.total) || 0,
+      producto: productoJson,
+      specs,
+      mensaje: cot.mensaje,
+    };
+    // CotizacionPDF returns <Document>; cast tells the typed renderToBuffer signature.
+    const element = React.createElement(CotizacionPDF, { data }) as unknown as Parameters<typeof renderToBuffer>[0];
+    const buffer = await renderToBuffer(element);
+    return { buffer, numero: cot.numero };
+  } catch (err) {
+    console.error('PDF build failed:', err);
+    return null;
+  }
+}
 
 /**
  * Send Slack notification when SLACK_WEBHOOK_URL is configured.
@@ -123,6 +195,9 @@ export async function POST(request: NextRequest) {
       </tr>
     ` : '';
 
+    // Número provisional para el correo; se reemplaza con el real tras el insert.
+    let displayNumero = 'pendiente';
+
     const emailHTML = `
 <!DOCTYPE html>
 <html>
@@ -159,7 +234,19 @@ export async function POST(request: NextRequest) {
             <td style="padding:32px;background:#0e0e11;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06);">
               <p style="margin:0;font-size:20px;font-weight:700;color:#fff;font-family:'Syne',system-ui;">Hola ${body.nombre},</p>
               <p style="margin:8px 0 0;font-size:14px;color:#71717a;line-height:1.6;">
-                Gracias por tu interes en PARMONCA. Hemos recibido tu solicitud de ${body.modalidad === 'alquiler' ? 'alquiler' : 'cotizacion'} y nuestro equipo la esta revisando. A continuacion el detalle:
+                Tu cotización <strong style="color:#E8821C;font-family:'JetBrains Mono',monospace;">___NUMERO___</strong> está lista.
+                Adjunto a este correo encontrarás el documento PDF con todos los detalles, características técnicas, condiciones comerciales y garantía.
+              </p>
+              <table cellpadding="0" cellspacing="0" style="margin-top:16px;background:#16161a;border:1px solid rgba(232,130,28,0.25);border-radius:10px;">
+                <tr>
+                  <td style="padding:12px 14px;">
+                    <p style="margin:0;font-size:11px;color:#E8821C;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">📎 Cotización adjunta</p>
+                    <p style="margin:4px 0 0;font-size:13px;color:#e4e4e7;font-family:'JetBrains Mono',monospace;">___NUMERO___-PARMONCA.pdf</p>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:14px 0 0;font-size:13px;color:#a1a1aa;line-height:1.55;">
+                A continuación un resumen rápido y abajo los datos del seguimiento:
               </p>
             </td>
           </tr>
@@ -334,22 +421,42 @@ export async function POST(request: NextRequest) {
       // Do not block the user — we still send emails
     }
 
-    const displayNumero = cotizacionNumero || 'pendiente';
+    displayNumero = cotizacionNumero || 'pendiente';
 
-    // 2) Send email to the customer (using Resend test sender while custom domain is pending)
+    // 2) Generar PDF de la cotización (sólo si la cotización se guardó OK)
+    let pdfAttachment: { filename: string; content: string } | null = null;
+    if (cotizacionId) {
+      const pdf = await buildCotizacionPDF(cotizacionId);
+      if (pdf) {
+        pdfAttachment = {
+          filename: `${pdf.numero}-PARMONCA.pdf`,
+          content: pdf.buffer.toString('base64'),
+        };
+      }
+    }
+    const attachments = pdfAttachment ? [pdfAttachment] : undefined;
+
+    const productoLabel = body.producto ? ` ${body.producto.marca} ${body.producto.modelo}` : '';
+
+    // Reemplaza el placeholder con el número real de la cotización
+    const emailHTMLFinal = emailHTML.replaceAll('___NUMERO___', displayNumero);
+
+    // 3) Send email to the customer (using Resend test sender while custom domain is pending)
     const customerEmail = await resend.emails.send({
       from: 'PARMONCA <onboarding@resend.dev>',
       to: ['malave.acacio@gmail.com'], // TODO: change to [body.email] after adding custom domain in Resend
-      subject: `Tu ${body.modalidad === 'alquiler' ? 'cotizacion de alquiler' : 'cotizacion'} PARMONCA${body.producto ? ` - ${body.producto.marca} ${body.producto.modelo}` : ''} esta lista`,
-      html: emailHTML,
+      subject: `Cotización ${displayNumero}${productoLabel} — PARMONCA`,
+      html: emailHTMLFinal,
+      attachments,
     });
 
-    // 3) Notify admin
+    // 4) Notify admin
     await resend.emails.send({
       from: 'PARMONCA CRM <onboarding@resend.dev>',
       to: ['malave.acacio@gmail.com'],
-      subject: `[${modalidadLabel}] ${displayNumero} — ${body.nombre}${body.producto ? ` / ${body.producto.marca} ${body.producto.modelo}` : ''} ($${body.total.toLocaleString()})`,
-      html: emailHTML,
+      subject: `[${modalidadLabel}] ${displayNumero} — ${body.nombre}${productoLabel} ($${body.total.toLocaleString()})`,
+      html: emailHTMLFinal,
+      attachments,
     });
 
     // 4) Notify Slack (if configured) — non-blocking

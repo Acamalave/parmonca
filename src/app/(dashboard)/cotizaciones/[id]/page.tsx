@@ -2,7 +2,7 @@
 
 import { use, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, User, Building2, Mail, Phone, MapPin, Package, Factory, Wallet, StickyNote, MessageSquare, Activity, Eye, Filter, HelpCircle, Zap } from 'lucide-react';
+import { ArrowLeft, Calendar, User, Building2, Mail, Phone, MapPin, Package, Factory, Wallet, StickyNote, MessageSquare, Activity, Eye, Filter, HelpCircle, Zap, FileText } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils';
 import { periodoLabels, type PeriodoAlquiler } from '@/lib/store-data';
@@ -215,6 +215,7 @@ export default function CotizacionDetailPage({ params }: { params: Promise<{ id:
             >
               {ESTADO_OPTIONS.map(e => <option key={e} value={e}>{e}</option>)}
             </select>
+            <a href={`/api/cotizacion/${cot.id}/pdf`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 h-8 rounded-lg bg-[#E8821C]/10 text-[#E8821C] border border-[#E8821C]/30 text-[12px] font-medium hover:bg-[#E8821C]/20 transition-all"><FileText size={12} />PDF</a>
             <a href={`mailto:${cot.email}`} className="flex items-center gap-1.5 px-3 h-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-glass)] text-[12px] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] transition-all"><Mail size={12} />Email</a>
             {whatsappNum && (
               <a href={`https://wa.me/${cot.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${cot.nombre}, nos contactamos respecto a la cotización ${cot.numero}...`)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 h-8 rounded-lg bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/20 text-[12px] font-medium hover:bg-[#25D366]/20 transition-all"><MessageSquare size={12} />WhatsApp</a>
