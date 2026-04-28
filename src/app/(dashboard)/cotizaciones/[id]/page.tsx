@@ -52,7 +52,20 @@ type CotizacionDetail = {
   modalidad: 'venta' | 'alquiler';
   periodo: string | null;
   producto: { marca?: string; modelo?: string; categoria?: string; precio?: number; imagen?: string } | null;
-  accesorios: { nombre: string; precio: number }[];
+  accesorios: Array<{
+    // Forma legacy (accesorios sueltos)
+    nombre?: string;
+    precio?: number;
+    // Forma nueva (line items completos del carrito)
+    tipo?: 'producto' | 'repuesto';
+    modelo?: string;
+    marca?: string;
+    categoria?: string;
+    cantidad?: number;
+    precio_unitario?: number;
+    precio_total?: number;
+    imagen?: string;
+  }>;
   cantidad: number;
   subtotal: number;
   impuesto: number;
@@ -444,27 +457,73 @@ export default function CotizacionDetailPage({ params }: { params: Promise<{ id:
         {/* Right: Precios + producto */}
         <div className="space-y-5">
           <div className="glass rounded-xl p-5">
-            <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-3">Producto solicitado</h2>
-            <div className="space-y-2">
-              <p className="text-[13px] font-semibold text-[var(--color-text-primary)]">{productoLabel}</p>
-              {cot.producto?.categoria && (
-                <p className="text-[11px] text-[var(--color-text-muted)] capitalize">{cot.producto.categoria.replace(/-/g, ' ')}</p>
-              )}
-              <p className="text-[12px] text-[var(--color-text-secondary)]">Cantidad: <span className="font-medium">{cot.cantidad}</span></p>
-            </div>
-            {cot.accesorios && cot.accesorios.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-[var(--color-border)]">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-2">Accesorios</p>
-                <div className="space-y-1">
-                  {cot.accesorios.map((a, i) => (
-                    <div key={i} className="flex justify-between text-[12px]">
-                      <span className="text-[var(--color-text-secondary)]">{a.nombre}</span>
-                      <span className="font-medium text-[var(--color-text-primary)]">{formatCurrency(a.precio)}</span>
+            {(() => {
+              // Detecta el formato: cotizaciones nuevas vienen con line items
+              // completos (tipo, modelo, cantidad, precio_unitario, precio_total)
+              // en accesorios. Cotizaciones viejas tienen sólo {nombre, precio}.
+              const lineItems = (cot.accesorios || []).filter(a => a.modelo || a.tipo);
+              const accesoriosLegacy = (cot.accesorios || []).filter(a => !a.modelo && !a.tipo && a.nombre);
+
+              if (lineItems.length > 0) {
+                return (
+                  <>
+                    <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-3">
+                      Productos cotizados ({lineItems.length})
+                    </h2>
+                    <div className="space-y-2.5">
+                      {lineItems.map((it, i) => (
+                        <div key={i} className="flex justify-between gap-3 pb-2.5 border-b border-[var(--color-border)] last:border-0 last:pb-0">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-[13px] font-semibold text-[var(--color-text-primary)] truncate">{it.modelo || '—'}</p>
+                              {it.tipo === 'repuesto' && (
+                                <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shrink-0">Repuesto</span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-[var(--color-text-muted)] truncate">
+                              {it.marca}{it.categoria && ` · ${it.categoria}`}
+                            </p>
+                            <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5 font-mono">
+                              {it.cantidad} × {formatCurrency(Number(it.precio_unitario || 0))}
+                            </p>
+                          </div>
+                          <p className="text-[13px] font-bold font-mono text-[var(--color-text-primary)] whitespace-nowrap">
+                            {formatCurrency(Number(it.precio_total || 0))}
+                          </p>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                  </>
+                );
+              }
+
+              // Formato legacy
+              return (
+                <>
+                  <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-3">Producto solicitado</h2>
+                  <div className="space-y-2">
+                    <p className="text-[13px] font-semibold text-[var(--color-text-primary)]">{productoLabel}</p>
+                    {cot.producto?.categoria && (
+                      <p className="text-[11px] text-[var(--color-text-muted)] capitalize">{cot.producto.categoria.replace(/-/g, ' ')}</p>
+                    )}
+                    <p className="text-[12px] text-[var(--color-text-secondary)]">Cantidad: <span className="font-medium">{cot.cantidad}</span></p>
+                  </div>
+                  {accesoriosLegacy.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-[var(--color-border)]">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-2">Accesorios</p>
+                      <div className="space-y-1">
+                        {accesoriosLegacy.map((a, i) => (
+                          <div key={i} className="flex justify-between text-[12px]">
+                            <span className="text-[var(--color-text-secondary)]">{a.nombre}</span>
+                            <span className="font-medium text-[var(--color-text-primary)]">{formatCurrency(Number(a.precio || 0))}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           <div className="glass rounded-xl p-5">
