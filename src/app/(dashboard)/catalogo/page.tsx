@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Search, Package, Zap, DollarSign, Image as ImageIcon, RefreshCw, Pencil } from 'lucide-react';
+import { Search, Package, Zap, DollarSign, Image as ImageIcon, RefreshCw, Pencil, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils';
 
@@ -98,14 +98,22 @@ export default function CatalogoPage() {
             {loading ? 'Cargando…' : `${filtered.length} de ${rows.length} modelos`}
           </p>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-glass)] text-[var(--color-text-secondary)] text-[12px] hover:bg-[var(--color-surface-hover)] transition-all disabled:opacity-50"
-        >
-          <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
-          Refrescar
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-glass)] text-[var(--color-text-secondary)] text-[12px] hover:bg-[var(--color-surface-hover)] transition-all disabled:opacity-50"
+          >
+            <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+            Refrescar
+          </button>
+          <Link
+            href="/catalogo/nuevo"
+            className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-gradient-to-r from-[#E8821C] to-[#C96A10] hover:from-[#FF9F43] hover:to-[#E8821C] text-white text-[13px] font-semibold glow-brand-sm transition-all"
+          >
+            <Plus size={14} />Nuevo producto
+          </Link>
+        </div>
       </div>
 
       {error && (

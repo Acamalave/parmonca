@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { ArrowLeft, Check, Plus, Minus, Zap, ArrowRight, ChevronDown } from 'lucide-react';
 import { storeProducts, accesoriosParaCategoria, periodoLabels, type Modalidad, type PeriodoAlquiler, type StoreProduct, type Accesorio } from '@/lib/store-data';
 import { fetchProducto } from '@/lib/productos-live';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import { ProductView } from '@/components/PageView';
 import { createClient } from '@/lib/supabase/client';
 
@@ -137,26 +137,56 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               </div>
             )}
 
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div>
-                <p className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider">
-                  Precio
-                </p>
-                <p className="text-[15px] font-semibold text-[var(--color-text-primary)] mt-0.5">
-                  Cotiza con un asesor
-                </p>
-                <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
-                  {modalidad === 'alquiler' ? `Renta ${periodoLabels[periodo].toLowerCase()} · incluye mantenimiento básico` : 'Precio personalizado según tu operación y volumen'}
-                </p>
-              </div>
-              <Link
-                href={`/cotizar?producto=${product.slug}&modalidad=${modalidad}${modalidad === 'alquiler' ? `&periodo=${periodo}` : ''}`}
-                className="inline-flex items-center gap-1.5 h-10 px-5 rounded-full bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold hover:shadow-[0_0_20px_rgba(232,130,28,0.35)] transition-all"
-              >
-                Solicitar cotización
-                <ArrowRight size={13} />
-              </Link>
-            </div>
+            {(() => {
+              const precio = modalidad === 'alquiler'
+                ? product.preciosAlquiler[periodo] || 0
+                : product.precioDesde || 0;
+              const tienePrecio = precio > 0;
+              return (
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <p className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider">
+                      {tienePrecio ? (modalidad === 'alquiler' ? `Alquiler ${periodoLabels[periodo]}` : 'Precio') : 'Precio'}
+                    </p>
+                    {tienePrecio ? (
+                      <>
+                        <p className="text-2xl font-bold text-[var(--color-text-primary)] font-mono mt-0.5">
+                          {formatCurrency(precio)}
+                          {modalidad === 'alquiler' && (
+                            <span className="text-[12px] text-[var(--color-text-muted)] font-sans font-normal ml-1.5">
+                              / {periodoLabels[periodo].toLowerCase()}
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
+                          {modalidad === 'alquiler'
+                            ? 'Incluye mantenimiento básico · ITBMS no incluido'
+                            : 'Precio EXW Panamá · ITBMS no incluido'}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-[15px] font-semibold text-[var(--color-text-primary)] mt-0.5">
+                          Cotiza con un asesor
+                        </p>
+                        <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
+                          {modalidad === 'alquiler'
+                            ? `Renta ${periodoLabels[periodo].toLowerCase()} · personalizado`
+                            : 'Precio personalizado según tu operación y volumen'}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                  <Link
+                    href={`/cotizar?producto=${product.slug}&modalidad=${modalidad}${modalidad === 'alquiler' ? `&periodo=${periodo}` : ''}`}
+                    className="inline-flex items-center gap-1.5 h-10 px-5 rounded-full bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold hover:shadow-[0_0_20px_rgba(232,130,28,0.35)] transition-all"
+                  >
+                    {tienePrecio ? 'Cotizar ahora' : 'Pedir cotización'}
+                    <ArrowRight size={13} />
+                  </Link>
+                </div>
+              );
+            })()}
           </div>
 
           <p className="text-[var(--color-text-secondary)] text-[14px] mt-4 leading-relaxed">{product.descripcion}</p>

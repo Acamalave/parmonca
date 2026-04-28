@@ -675,12 +675,28 @@ export default function ProductosPage() {
                       <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#E8821C]">{product.marca}</p>
                       <h3 className="font-display text-[15px] font-bold text-[var(--color-text-primary)] mt-0.5 leading-tight truncate">{product.modelo}</h3>
                       <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5 truncate">{product.categoriaLabel}</p>
-                      <div className="mt-2.5 flex items-center justify-between gap-2">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#E8821C]/10 border border-[#E8821C]/20 text-[10px] font-semibold text-[#E8821C]">
-                          Cotiza ahora
-                        </span>
-                        <span className="text-[10px] text-[var(--color-text-muted)]">{product.capacidad}</span>
-                      </div>
+
+                      {hasPrice ? (
+                        <div className="mt-2 pt-2 border-t border-[var(--color-border)] flex items-end justify-between gap-2">
+                          <div className="leading-tight min-w-0">
+                            <p className="text-[9px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+                              {modalidad === 'alquiler' ? 'Alquiler' : 'Precio'}
+                            </p>
+                            <p className="font-mono text-[14px] font-bold text-[var(--color-text-primary)] truncate">
+                              {formatCurrency(getDisplayPrice(product))}
+                              <span className="text-[10px] text-[var(--color-text-muted)] font-sans font-normal">{getPriceLabel()}</span>
+                            </p>
+                          </div>
+                          <span className="text-[10px] text-[var(--color-text-muted)] whitespace-nowrap">{product.capacidad}</span>
+                        </div>
+                      ) : (
+                        <div className="mt-2.5 flex items-center justify-between gap-2">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#E8821C]/10 border border-[#E8821C]/20 text-[10px] font-semibold text-[#E8821C]">
+                            Pedir cotización
+                          </span>
+                          <span className="text-[10px] text-[var(--color-text-muted)]">{product.capacidad}</span>
+                        </div>
+                      )}
                     </div>
                   </Link>
                 );
