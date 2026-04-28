@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, AlertCircle, Check, Package, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Check, Package, Upload, X, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 const CATEGORIAS = [
@@ -64,9 +65,35 @@ export default function NuevoProductoPage() {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   function update<K extends keyof typeof form>(k: K, v: typeof form[K]) {
     setForm(f => ({ ...f, [k]: v }));
+  }
+
+  async function handleUpload(file: File) {
+    setError(null);
+    if (file.size > 10 * 1024 * 1024) {
+      setError('La imagen excede 10 MB. Comprímela antes de subir.');
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const slug = slugify(`${form.marca}-${form.modelo || 'producto'}`);
+      const path = `nuevo/${slug}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('parmonca-productos')
+        .upload(path, file, { cacheControl: '86400', upsert: true, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from('parmonca-productos').getPublicUrl(path);
+      update('imagen_url', data.publicUrl);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setUploading(false);
+    }
   }
 
   const numberOrNull = (v: string) => {
@@ -158,13 +185,64 @@ export default function NuevoProductoPage() {
             <Field label="Badge (opcional)" value={form.badge} onChange={v => update('badge', v)} placeholder='Ej: "Más vendido"' />
           </div>
           <Textarea label="Descripción" value={form.descripcion} onChange={v => update('descripcion', v)} placeholder="Texto que verá el cliente en la ficha del producto." rows={3} />
-          <Field
-            label="URL de imagen"
-            icon={ImageIcon}
-            value={form.imagen_url}
-            onChange={v => update('imagen_url', v)}
-            placeholder="https://… (si la dejas vacía se muestra un placeholder)"
-          />
+
+          {/* Imagen del producto — upload o URL externa */}
+          <div>
+            <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-1.5">
+              Imagen del producto
+            </label>
+
+            <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-3">
+              {/* Preview / dropzone */}
+              <div className="relative h-[140px] rounded-lg border border-dashed border-[var(--color-border)] bg-[var(--color-surface-glass)] flex items-center justify-center overflow-hidden">
+                {form.imagen_url ? (
+                  <>
+                    <Image src={form.imagen_url} alt="Vista previa" fill sizes="160px" className="object-contain p-2" unoptimized />
+                    <button type="button" onClick={() => update('imagen_url', '')}
+                      className="absolute top-1 right-1 w-6 h-6 rounded-full bg-rose-500/80 hover:bg-rose-500 text-white flex items-center justify-center">
+                      <X size={12} />
+                    </button>
+                  </>
+                ) : uploading ? (
+                  <Loader2 size={22} className="animate-spin text-[#E8821C]" />
+                ) : (
+                  <div className="text-center">
+                    <Package size={22} className="text-[var(--color-text-muted)]/40 mx-auto mb-1" />
+                    <p className="text-[10px] text-[var(--color-text-muted)]">Sin imagen</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Controles */}
+              <div className="flex flex-col gap-2">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }}
+                />
+                <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+                  className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-gradient-to-r from-[#E8821C] to-[#C96A10] hover:from-[#FF9F43] hover:to-[#E8821C] text-white text-[12px] font-semibold disabled:opacity-50">
+                  {uploading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+                  {uploading ? 'Subiendo…' : (form.imagen_url ? 'Reemplazar imagen' : 'Subir imagen')}
+                </button>
+                <p className="text-[10px] text-[var(--color-text-muted)] leading-snug">
+                  PNG, JPG, WebP o SVG · hasta 10 MB. Recomendado: fondo transparente, 1000×1000px.
+                </p>
+                <details className="text-[10px] text-[var(--color-text-muted)]">
+                  <summary className="cursor-pointer hover:text-[var(--color-text-secondary)]">…o pegar URL externa</summary>
+                  <input
+                    type="url"
+                    value={form.imagen_url}
+                    onChange={(e) => update('imagen_url', e.target.value)}
+                    placeholder="https://…"
+                    className="mt-1.5 w-full h-8 px-2.5 rounded-md bg-[var(--color-surface)] border border-[var(--color-border)] text-[11px] text-[var(--color-text-primary)] focus:outline-none focus:border-[#E8821C]/40"
+                  />
+                </details>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* Especificaciones */}
