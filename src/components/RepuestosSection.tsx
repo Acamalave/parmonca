@@ -15,10 +15,13 @@ const BADGE_COLORS: Record<string, string> = {
   slate: 'bg-[var(--color-surface-glass)] border-[var(--color-border)] text-[var(--color-text-muted)]',
 };
 
+const PAGE_SIZE = 10;
+
 export function RepuestosSection() {
   const [items, setItems] = useState<Repuesto[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<CategoriaRepuesto | 'todos'>('todos');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   useEffect(() => {
     const supabase = createClient();
@@ -44,6 +47,15 @@ export function RepuestosSection() {
   }, [items]);
 
   const filtered = filtro === 'todos' ? items : items.filter(i => i.categoria === filtro);
+  const visible = filtered.slice(0, visibleCount);
+  const hayMas = visibleCount < filtered.length;
+
+  // Cuando cambias de filtro, vuelve a mostrar sólo los primeros 10.
+  // (Usar useEffect dispararía render extra; lo controlamos en el handler).
+  const aplicarFiltro = (f: CategoriaRepuesto | 'todos') => {
+    setFiltro(f);
+    setVisibleCount(PAGE_SIZE);
+  };
 
   if (!loading && items.length === 0) return null;
 
@@ -64,7 +76,7 @@ export function RepuestosSection() {
       {/* 4 category cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-6">
         <button
-          onClick={() => setFiltro('todos')}
+          onClick={() => aplicarFiltro('todos')}
           className={cn(
             'flex flex-col items-start gap-1 p-3 rounded-xl border transition-all',
             filtro === 'todos'
@@ -79,7 +91,7 @@ export function RepuestosSection() {
         {CATEGORIAS_REPUESTOS.map(cat => (
           <button
             key={cat.id}
-            onClick={() => setFiltro(cat.id)}
+            onClick={() => aplicarFiltro(cat.id)}
             className={cn(
               'flex flex-col items-start gap-1 p-3 rounded-xl border text-left transition-all',
               filtro === cat.id
@@ -106,7 +118,7 @@ export function RepuestosSection() {
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {filtered.map((r) => {
+          {visible.map((r) => {
             const badge = stockBadge(r);
             const precio = formatPrecio(r);
             return (
@@ -186,6 +198,22 @@ export function RepuestosSection() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Botón "Ver más" — paginación incremental para no saturar el landing */}
+      {!loading && hayMas && (
+        <div className="mt-6 flex flex-col items-center gap-1.5">
+          <button
+            onClick={() => setVisibleCount(c => c + PAGE_SIZE)}
+            className="inline-flex items-center gap-2 h-10 px-5 rounded-xl border border-[#E8821C]/30 bg-[#E8821C]/[0.06] hover:bg-[#E8821C]/[0.12] text-[#E8821C] text-[13px] font-semibold transition-all"
+          >
+            Ver más repuestos
+            <ArrowRight size={13} />
+          </button>
+          <span className="text-[11px] text-[var(--color-text-muted)]">
+            Mostrando {visible.length} de {filtered.length}
+          </span>
         </div>
       )}
 
