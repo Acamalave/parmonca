@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import React from 'react';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { createAnonClient, createAdminClient } from '@/lib/supabase/server';
-import { CotizacionPDF, type CotizacionData } from '@/lib/pdf/CotizacionPDF';
+import { CotizacionPDF, type CotizacionData, type LineItem } from '@/lib/pdf/CotizacionPDF';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -34,10 +34,10 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 }
 
 async function build(client: ReturnType<typeof createAnonClient>, id: string) {
-  // 1) cotización
+  // 1) cotización (incluye accesorios = line items multi-producto)
   const { data: cot, error } = await client
     .from('parmonca_cotizaciones')
-    .select('id, numero, nombre, empresa, email, telefono, pais, ciudad, mensaje, modalidad, periodo, producto, cantidad, subtotal, impuesto, total, asignado_a, created_at')
+    .select('id, numero, nombre, empresa, email, telefono, pais, ciudad, mensaje, modalidad, periodo, producto, accesorios, cantidad, subtotal, impuesto, total, asignado_a, created_at')
     .eq('id', id)
     .maybeSingle();
 
@@ -56,17 +56,58 @@ async function build(client: ReturnType<typeof createAnonClient>, id: string) {
     if (p) asesor = { nombre: p.nombre, email: p.email };
   }
 
-  // 3) Specs del producto (lookup por modelo si tiene slug en el JSON)
-  let specs: CotizacionData['specs'] = {};
+  // 3) Construir line items
+  // Si la cotización vino del carrito multi-ítem, accesorios contiene la lista
+  // completa con tipo/modelo/cantidad/precio_unitario/precio_total/imagen.
+  // Si es legacy (single producto), construimos el array desde producto + cantidad.
   const productoJson = cot.producto as { modelo?: string; marca?: string; categoria?: string; precio?: number; imagen?: string } | null;
-  if (productoJson?.modelo) {
-    const { data: prod } = await client
-      .from('parmonca_productos')
-      .select('capacidad_kg, ancho_pasillo_mm, longitud_sin_horquillas_mm, ancho_total_mm, altura_chasis_mm, motor, descripcion')
-      .eq('modelo', productoJson.modelo)
-      .maybeSingle();
-    if (prod) specs = prod;
+  const accesoriosRaw = (cot.accesorios as Array<Record<string, unknown>>) || [];
+  const lineItemsRaw = accesoriosRaw.filter(a => a.modelo || a.tipo);
+
+  let items: LineItem[] = [];
+  if (lineItemsRaw.length > 0) {
+    items = lineItemsRaw.map(a => ({
+      tipo: (a.tipo as 'producto' | 'repuesto') || 'producto',
+      modelo: String(a.modelo || ''),
+      marca: (a.marca as string) || null,
+      categoria: (a.categoria as string) || null,
+      cantidad: Number(a.cantidad) || 1,
+      precio_unitario: Number(a.precio_unitario) || 0,
+      precio_total: Number(a.precio_total) || 0,
+      imagen: (a.imagen as string) || null,
+    }));
+  } else if (productoJson?.modelo) {
+    items = [{
+      tipo: 'producto',
+      modelo: productoJson.modelo,
+      marca: productoJson.marca || null,
+      categoria: productoJson.categoria || null,
+      cantidad: cot.cantidad ?? 1,
+      precio_unitario: Number(productoJson.precio) || 0,
+      precio_total: (Number(productoJson.precio) || 0) * (cot.cantidad ?? 1),
+      imagen: productoJson.imagen || null,
+    }];
   }
+
+  // 4) Hidrata cada item de tipo 'producto' con sus specs desde parmonca_productos
+  if (items.length > 0) {
+    const modelos = items.filter(i => i.tipo !== 'repuesto').map(i => i.modelo).filter(Boolean);
+    if (modelos.length > 0) {
+      const { data: prods } = await client
+        .from('parmonca_productos')
+        .select('modelo, capacidad_kg, ancho_pasillo_mm, longitud_sin_horquillas_mm, ancho_total_mm, altura_chasis_mm, motor, descripcion')
+        .in('modelo', modelos);
+      const byModelo = new Map((prods || []).map(p => [p.modelo, p]));
+      items = items.map(it => {
+        if (it.tipo === 'repuesto') return it;
+        const sp = byModelo.get(it.modelo);
+        return sp ? { ...it, specs: sp } : it;
+      });
+    }
+  }
+
+  // Specs del primer producto para legacy compat
+  const specs: CotizacionData['specs'] = items[0]?.specs || {};
 
   // 4) Validez 30 días por defecto
   const created = new Date(cot.created_at);
@@ -93,6 +134,7 @@ async function build(client: ReturnType<typeof createAnonClient>, id: string) {
     total: Number(cot.total) || 0,
     producto: productoJson,
     specs,
+    items,
     mensaje: cot.mensaje,
   };
 

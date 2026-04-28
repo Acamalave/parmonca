@@ -14,6 +14,28 @@ export type ProductoCotizado = {
   imagen?: string;
 };
 
+export type ItemSpecs = {
+  capacidad_kg?: number | null;
+  ancho_pasillo_mm?: number | null;
+  longitud_sin_horquillas_mm?: number | null;
+  ancho_total_mm?: number | null;
+  altura_chasis_mm?: number | null;
+  motor?: string | null;
+  descripcion?: string | null;
+};
+
+export type LineItem = {
+  tipo?: 'producto' | 'repuesto';
+  modelo: string;
+  marca: string | null;
+  categoria: string | null;
+  cantidad: number;
+  precio_unitario: number;
+  precio_total: number;
+  imagen?: string | null;
+  specs?: ItemSpecs;
+};
+
 export type CotizacionData = {
   numero: string;                     // COT-2026-0001
   created_at: string;                 // ISO
@@ -29,21 +51,15 @@ export type CotizacionData = {
   asesor?: { nombre?: string | null; email?: string | null } | null;
   modalidad: 'venta' | 'alquiler';
   periodo?: string | null;            // 1_ano | 2_anos | ...
-  cantidad: number;
+  cantidad: number;                   // cantidad del primer item (legacy)
   subtotal: number;
   impuesto: number;
   total: number;
-  producto: ProductoCotizado | null;
-  // Specs detalladas que vienen del catálogo (parmonca_productos)
-  specs?: {
-    capacidad_kg?: number | null;
-    ancho_pasillo_mm?: number | null;
-    longitud_sin_horquillas_mm?: number | null;
-    ancho_total_mm?: number | null;
-    altura_chasis_mm?: number | null;
-    motor?: string | null;
-    descripcion?: string | null;
-  };
+  producto: ProductoCotizado | null;  // primer item (legacy compat)
+  // Specs del primer producto (legacy compat)
+  specs?: ItemSpecs;
+  // Lista completa de items cotizados (multi-producto)
+  items?: LineItem[];
   mensaje?: string | null;
 };
 
@@ -348,16 +364,20 @@ function PageNum() {
 // Páginas
 // ──────────────────────────────────────────────────────────────────────────
 
-function PageEquipo({ data }: { data: CotizacionData }) {
-  const p = data.producto;
-  if (!p) return null;
-  const precio = Number(p.precio || 0);
-  const total = precio * data.cantidad;
-  const specs = data.specs || {};
+function PageEquipo({
+  data, item, pageIdx, totalPages, isMaquinaria,
+}: {
+  data: CotizacionData;
+  item: LineItem;
+  pageIdx: number;
+  totalPages: number;
+  isMaquinaria: boolean;
+}) {
+  const specs = item.specs || {};
 
   const specsList: { label: string; value: string }[] = [
     { label: 'Condición', value: 'NUEVO' },
-    { label: 'Tipo', value: p.categoria || '—' },
+    { label: 'Tipo', value: item.categoria || '—' },
     { label: 'Capacidad de Carga (kg)', value: specs.capacidad_kg ? specs.capacidad_kg.toLocaleString() : '—' },
     { label: 'Longitud sin horquillas (mm)', value: specs.longitud_sin_horquillas_mm?.toString() || '—' },
     { label: 'Ancho Total (mm)', value: specs.ancho_total_mm?.toString() || '—' },
@@ -368,7 +388,7 @@ function PageEquipo({ data }: { data: CotizacionData }) {
 
   return (
     <Page size="LETTER" style={s.page}>
-      <Header data={data} page={1} total={3} />
+      <Header data={data} page={pageIdx} total={totalPages} />
       <InfoBar data={data} />
 
       {/* Tabla del equipo */}
@@ -379,34 +399,38 @@ function PageEquipo({ data }: { data: CotizacionData }) {
         <Text style={s.colTotal}>Total</Text>
       </View>
       <View style={s.equipoTableRow}>
-        <Text style={s.colEquipo}>{`MARCA ${(p.marca || '').toUpperCase()} - MODELO ${p.modelo || ''}`}</Text>
-        <Text style={s.colCant}>{data.cantidad.toFixed(2)}</Text>
-        <Text style={s.colPrecio}>{formatCurrency(precio)}</Text>
-        <Text style={s.colTotal}>{formatCurrency(total)}</Text>
+        <Text style={s.colEquipo}>{`MARCA ${(item.marca || '').toUpperCase()} - MODELO ${item.modelo}`}</Text>
+        <Text style={s.colCant}>{item.cantidad.toFixed(2)}</Text>
+        <Text style={s.colPrecio}>{formatCurrency(item.precio_unitario)}</Text>
+        <Text style={s.colTotal}>{formatCurrency(item.precio_total)}</Text>
       </View>
 
       {/* Imagen + meta */}
       <View style={s.equipoImageWrap}>
-        {p.imagen ? <Image style={s.equipoImage} src={p.imagen} /> : <View style={s.equipoImage} />}
+        {item.imagen ? <Image style={s.equipoImage} src={item.imagen} /> : <View style={s.equipoImage} />}
         <View style={s.equipoMeta}>
-          <Text style={s.equipoMarca}>{p.marca}</Text>
-          <Text style={s.equipoModelo}>{p.modelo}</Text>
-          <Text style={s.equipoCategoria}>{p.categoria}</Text>
+          <Text style={s.equipoMarca}>{item.marca || ''}</Text>
+          <Text style={s.equipoModelo}>{item.modelo}</Text>
+          <Text style={s.equipoCategoria}>{item.categoria || ''}</Text>
           {specs.descripcion && (
             <Text style={[s.body, { marginTop: 6 }]}>{specs.descripcion}</Text>
           )}
         </View>
       </View>
 
-      <Text style={s.sectionTitle}>Características</Text>
-      <View style={s.specsGrid}>
-        {specsList.map((row, i) => (
-          <View key={i} style={s.specRow}>
-            <Text style={s.specLabel}>{row.label}</Text>
-            <Text style={s.specValue}>{row.value}</Text>
+      {isMaquinaria && (
+        <>
+          <Text style={s.sectionTitle}>Características</Text>
+          <View style={s.specsGrid}>
+            {specsList.map((row, i) => (
+              <View key={i} style={s.specRow}>
+                <Text style={s.specLabel}>{row.label}</Text>
+                <Text style={s.specValue}>{row.value}</Text>
+              </View>
+            ))}
           </View>
-        ))}
-      </View>
+        </>
+      )}
 
       <Text style={s.sectionTitle}>Condiciones del equipo</Text>
       <Text style={s.body}>
@@ -415,7 +439,7 @@ function PageEquipo({ data }: { data: CotizacionData }) {
           : 'Pago: 50% anticipado / 50% antes del despacho desde nuestro centro logístico en Panamá. Precio en términos EXW (Ex-Works) Panamá.'}
       </Text>
 
-      {data.mensaje && (
+      {data.mensaje && pageIdx === 1 && (
         <>
           <Text style={s.sectionTitle}>Notas del cliente</Text>
           <Text style={s.body}>{data.mensaje}</Text>
@@ -428,30 +452,39 @@ function PageEquipo({ data }: { data: CotizacionData }) {
   );
 }
 
-function PageResumen({ data }: { data: CotizacionData }) {
-  const p = data.producto;
-  if (!p) return null;
-  const precio = Number(p.precio || 0);
-  const total = precio * data.cantidad;
+function PageResumen({
+  data, items, pageIdx, totalPages,
+}: {
+  data: CotizacionData;
+  items: LineItem[];
+  pageIdx: number;
+  totalPages: number;
+}) {
   return (
     <Page size="LETTER" style={s.page}>
-      <Header data={data} page={2} total={3} />
+      <Header data={data} page={pageIdx} total={totalPages} />
       <InfoBar data={data} />
 
       <Text style={s.sectionTitle}>Resumen financiero</Text>
 
       <View style={s.equipoTableHeader}>
-        <Text style={s.colEquipo}>Equipo / Maquinaria</Text>
+        <Text style={s.colEquipo}>Equipo / Producto</Text>
         <Text style={s.colCant}>Cant.</Text>
         <Text style={s.colPrecio}>Precio / Unidad</Text>
         <Text style={s.colTotal}>Total</Text>
       </View>
-      <View style={s.equipoTableRow}>
-        <Text style={s.colEquipo}>{`MARCA ${(p.marca || '').toUpperCase()} - MODELO ${p.modelo || ''}`}</Text>
-        <Text style={s.colCant}>{data.cantidad.toFixed(2)}</Text>
-        <Text style={s.colPrecio}>{formatCurrency(precio)}</Text>
-        <Text style={s.colTotal}>{formatCurrency(total)}</Text>
-      </View>
+      {items.map((it, i) => (
+        <View key={i} style={s.equipoTableRow}>
+          <Text style={s.colEquipo}>
+            {it.tipo === 'repuesto'
+              ? `${it.modelo}${it.marca ? ` (${it.marca})` : ''}`
+              : `MARCA ${(it.marca || '').toUpperCase()} - MODELO ${it.modelo}`}
+          </Text>
+          <Text style={s.colCant}>{it.cantidad.toFixed(2)}</Text>
+          <Text style={s.colPrecio}>{formatCurrency(it.precio_unitario)}</Text>
+          <Text style={s.colTotal}>{formatCurrency(it.precio_total)}</Text>
+        </View>
+      ))}
 
       <View style={s.resumenWrap}>
         <View style={s.resumenRow}>
@@ -482,10 +515,10 @@ function PageResumen({ data }: { data: CotizacionData }) {
   );
 }
 
-function PageCondiciones({ data }: { data: CotizacionData }) {
+function PageCondiciones({ data, pageIdx, totalPages }: { data: CotizacionData; pageIdx: number; totalPages: number }) {
   return (
     <Page size="LETTER" style={s.page}>
-      <Header data={data} page={3} total={3} />
+      <Header data={data} page={pageIdx} total={totalPages} />
 
       <Text style={s.sectionTitle}>Condiciones comerciales</Text>
 
@@ -552,6 +585,31 @@ function PageCondiciones({ data }: { data: CotizacionData }) {
 // ──────────────────────────────────────────────────────────────────────────
 
 export function CotizacionPDF({ data }: { data: CotizacionData }) {
+  // Construye la lista de items: usa data.items si vienen del carrito multi-ítem,
+  // si no hace fallback al producto/specs/cantidad legacy
+  const items: LineItem[] =
+    data.items && data.items.length > 0
+      ? data.items
+      : data.producto
+        ? [{
+            tipo: 'producto',
+            modelo: data.producto.modelo || '—',
+            marca: data.producto.marca || null,
+            categoria: data.producto.categoria || null,
+            cantidad: data.cantidad,
+            precio_unitario: Number(data.producto.precio || 0),
+            precio_total: Number(data.producto.precio || 0) * data.cantidad,
+            imagen: data.producto.imagen,
+            specs: data.specs,
+          }]
+        : [];
+
+  // Sólo renderizamos página de equipo individual para items tipo 'producto'
+  // (los repuestos van directo al resumen). Si no hay productos, saltamos las
+  // páginas de equipo y vamos directo al resumen.
+  const equipos = items.filter(i => i.tipo !== 'repuesto');
+  const totalPages = equipos.length + 2; // N equipos + resumen + condiciones
+
   return (
     <Document
       title={`Cotización ${data.numero} — PARMONCA`}
@@ -559,9 +617,27 @@ export function CotizacionPDF({ data }: { data: CotizacionData }) {
       subject={`Cotización ${data.numero}`}
       keywords="cotización montacargas parmonca"
     >
-      <PageEquipo data={data} />
-      <PageResumen data={data} />
-      <PageCondiciones data={data} />
+      {equipos.map((it, i) => (
+        <PageEquipo
+          key={`equipo-${i}`}
+          data={data}
+          item={it}
+          pageIdx={i + 1}
+          totalPages={totalPages}
+          isMaquinaria={it.tipo !== 'repuesto'}
+        />
+      ))}
+      <PageResumen
+        data={data}
+        items={items}
+        pageIdx={equipos.length + 1}
+        totalPages={totalPages}
+      />
+      <PageCondiciones
+        data={data}
+        pageIdx={equipos.length + 2}
+        totalPages={totalPages}
+      />
     </Document>
   );
 }
