@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { FileText, Users, Receipt, TrendingUp, AlertTriangle, Clock, CheckCircle2, ArrowUpRight, Trophy } from 'lucide-react';
+import { FileText, Users, Receipt, TrendingUp, AlertTriangle, CheckCircle2, ArrowUpRight, Trophy } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { useCRM } from '@/context/CRMContext';
 import { createClient } from '@/lib/supabase/client';
@@ -240,28 +240,22 @@ export default function DashboardPage() {
 
         {userIsAdmin && (
         <div className="glass rounded-xl p-4">
-          <h3 className="text-[13px] font-semibold text-[var(--color-text-secondary)] mb-4">Alertas Activas</h3>
-          <div className="space-y-2">
-            <Link href="/facturas" className="flex items-center gap-3 p-3 rounded-lg bg-red-500/[0.06] border border-red-500/10 hover:bg-red-500/[0.1] transition-colors group">
-              <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center"><AlertTriangle size={15} className="text-red-400" /></div>
-              <div className="flex-1"><p className="text-[13px] font-medium text-red-300">2 facturas vencidas</p><p className="text-[11px] text-red-400/60">TransCarga Guatemala — <span className="font-num">$7,200</span></p></div>
-              <ArrowUpRight size={14} className="text-red-400/40 group-hover:text-red-400 transition-colors" />
-            </Link>
-            <Link href="/clientes/8" className="flex items-center gap-3 p-3 rounded-lg bg-amber-500/[0.06] border border-amber-500/10 hover:bg-amber-500/[0.1] transition-colors group">
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center"><Clock size={15} className="text-amber-400" /></div>
-              <div className="flex-1"><p className="text-[13px] font-medium text-amber-300">Lead sin atender</p><p className="text-[11px] text-amber-400/60">AgroExport Haiti — 9 dias</p></div>
-              <ArrowUpRight size={14} className="text-amber-400/40 group-hover:text-amber-400 transition-colors" />
-            </Link>
-            <Link href="/cotizaciones/5" className="flex items-center gap-3 p-3 rounded-lg bg-blue-500/[0.06] border border-blue-500/10 hover:bg-blue-500/[0.1] transition-colors group">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center"><FileText size={15} className="text-blue-400" /></div>
-              <div className="flex-1"><p className="text-[13px] font-medium text-blue-300">En estudio</p><p className="text-[11px] text-blue-400/60">Industrias del Caribe — <span className="font-num">$80,250</span></p></div>
-              <ArrowUpRight size={14} className="text-blue-400/40 group-hover:text-blue-400 transition-colors" />
-            </Link>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/[0.06] border border-emerald-500/10">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center"><CheckCircle2 size={15} className="text-emerald-400" /></div>
-              <div className="flex-1"><p className="text-[13px] font-medium text-emerald-300">Pago recibido</p><p className="text-[11px] text-emerald-400/60">Distribuidora Central — <span className="font-num">$24,743.75</span></p></div>
+          <h3 className="text-[13px] font-semibold text-[var(--color-text-secondary)] mb-4">Alertas activas</h3>
+          {totalCotizaciones === 0 ? (
+            <div className="text-center py-8">
+              <CheckCircle2 size={28} className="text-emerald-400/60 mx-auto mb-2" />
+              <p className="text-[13px] text-[var(--color-text-secondary)]">Sin alertas pendientes</p>
+              <p className="text-[11px] text-[var(--color-text-muted)] mt-1">
+                Aquí aparecerán cotizaciones sin atender, leads inactivos y cobros vencidos cuando los haya.
+              </p>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-[12px] text-[var(--color-text-muted)] text-center py-4">
+                Las alertas en tiempo real se generarán automáticamente conforme entren cotizaciones, se asignen leads y se emitan facturas.
+              </p>
+            </div>
+          )}
         </div>
         )}
       </div>
