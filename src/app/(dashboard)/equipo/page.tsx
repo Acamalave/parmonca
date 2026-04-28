@@ -225,6 +225,7 @@ function NuevoVendedorModal({
   const [email, setEmail] = useState('');
   const [telefono, setTelefono] = useState('');
   const [meta, setMeta] = useState('');
+  const [rol, setRol] = useState<'super-admin' | 'gerente' | 'asesor'>('asesor');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ email: string; token: string } | null>(null);
@@ -238,8 +239,9 @@ function NuevoVendedorModal({
       p_email: email.trim().toLowerCase(),
       p_nombre: nombre.trim(),
       p_telefono: telefono.trim() || null,
-      p_rol: 'asesor',
-      p_meta_mensual: meta ? Number(meta) : null,
+      p_rol: rol,
+      // La meta sólo aplica para asesores (vendedores en pipeline)
+      p_meta_mensual: rol === 'asesor' && meta ? Number(meta) : null,
     });
     if (error) {
       setError(error.message);
@@ -280,16 +282,48 @@ function NuevoVendedorModal({
       <div className="w-full max-w-md glass-strong rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
         {!created ? (
           <>
-            <h2 className="font-display text-xl font-bold text-[var(--color-text-primary)] mb-1">Nuevo vendedor</h2>
+            <h2 className="font-display text-xl font-bold text-[var(--color-text-primary)] mb-1">Nuevo miembro del equipo</h2>
             <p className="text-[12px] text-[var(--color-text-muted)] mb-5">
-              Al crear la cuenta obtendrás un link único para que el vendedor configure su propio PIN de acceso.
+              Al crear la cuenta obtendrás un link único para que la persona configure su propio PIN de acceso.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-3">
-              <Field icon={UserPlus} label="Nombre completo*" value={nombre} onChange={setNombre} placeholder="Juan Pérez" />
-              <Field icon={Mail} label="Email*" type="email" value={email} onChange={setEmail} placeholder="juan@parmonca.com" />
+              {/* Selector de rol — define qué ve y qué puede hacer */}
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-2">
+                  Rol *
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {([
+                    { v: 'asesor' as const,      label: 'Asesor',      hint: 'Sólo sus leads' },
+                    { v: 'gerente' as const,     label: 'Gerente',     hint: 'Vista global' },
+                    { v: 'super-admin' as const, label: 'Super Admin', hint: 'Todo + equipo' },
+                  ]).map(opt => (
+                    <button
+                      key={opt.v}
+                      type="button"
+                      onClick={() => setRol(opt.v)}
+                      className={`flex flex-col items-start gap-0.5 p-2.5 rounded-lg border text-left transition-all ${
+                        rol === opt.v
+                          ? 'border-[#E8821C] bg-[#E8821C]/[0.08]'
+                          : 'border-[var(--color-border)] bg-[var(--color-surface-glass)] hover:border-[#E8821C]/30'
+                      }`}
+                    >
+                      <span className={`text-[12px] font-bold ${rol === opt.v ? 'text-[#E8821C]' : 'text-[var(--color-text-primary)]'}`}>
+                        {opt.label}
+                      </span>
+                      <span className="text-[10px] text-[var(--color-text-muted)]">{opt.hint}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <Field icon={UserPlus} label="Nombre completo *" value={nombre} onChange={setNombre} placeholder="Juan Pérez" />
+              <Field icon={Mail} label="Email *" type="email" value={email} onChange={setEmail} placeholder="juan@parmonca.com" />
               <Field icon={Phone} label="Teléfono (sin +)" value={telefono} onChange={setTelefono} placeholder="50760000000" />
-              <Field icon={Target} label="Meta mensual (USD)" type="number" value={meta} onChange={setMeta} placeholder="Ej: 25000" />
+              {rol === 'asesor' && (
+                <Field icon={Target} label="Meta mensual (USD)" type="number" value={meta} onChange={setMeta} placeholder="Ej: 25000" />
+              )}
 
               {error && (
                 <div className="flex items-start gap-2 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[12px]">
