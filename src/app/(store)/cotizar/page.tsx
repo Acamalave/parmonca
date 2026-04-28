@@ -12,15 +12,14 @@ import {
   Zap, CalendarDays, CalendarClock, Telescope,
   Sparkles, Layers3, Building2,
   DollarSign, Wallet, CreditCard,
-  ShieldCheck, Wrench, Cpu, Hash, MapPin, Phone, Mail, User, FileText, MessageSquare, Box,
+  Hash, MapPin, Phone, Mail, User, FileText, MessageSquare,
 } from 'lucide-react';
 import {
-  storeProducts, accesorios as allAccesorios, accesoriosParaCategoria, periodoLabels,
+  storeProducts, periodoLabels,
   type Modalidad, type PeriodoAlquiler,
 } from '@/lib/store-data';
-import { formatCurrency, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { track, getDeviceId } from '@/lib/visitor';
-import { PageView } from '@/components/PageView';
 import { fetchProducto } from '@/lib/productos-live';
 import { createClient } from '@/lib/supabase/client';
 import type { StoreProduct } from '@/lib/store-data';
@@ -37,14 +36,15 @@ type StepId =
   | 'flota'
   | 'presupuesto'
   | 'financiamiento'
-  | 'accesorios'
   | 'contacto'
   | 'confirmar';
 
+// Los accesorios y opciones de seguridad no se muestran al cliente:
+// los explica un asesor durante el seguimiento de la cotización.
 const STEP_ORDER: StepId[] = [
   'industria', 'operacion', 'frecuencia', 'plazo',
   'flota', 'presupuesto', 'financiamiento',
-  'accesorios', 'contacto', 'confirmar',
+  'contacto', 'confirmar',
 ];
 
 type OptionCard = {
@@ -102,13 +102,6 @@ const FINANCIAMIENTOS: OptionCard[] = [
   { value: 'no', title: 'Pago contado', icon: Wallet },
   { value: 'si', title: 'Financiamiento', icon: CreditCard },
 ];
-
-const CATEGORIA_ACC_ICON: Record<string, React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>> = {
-  seguridad: ShieldCheck,
-  productividad: Wrench,
-  proteccion: HardHat,
-  tecnologia: Cpu,
-};
 
 // ────────────────────────────────────────────────────────────────────────────
 // UI primitives
@@ -213,7 +206,6 @@ function StepHeader({
 function CotizarContent() {
   const searchParams = useSearchParams();
   const productoSlug = searchParams.get('producto');
-  const accIdsFromUrl = searchParams.get('accesorios')?.split(',').filter(Boolean) || [];
   const cantidadParam = parseInt(searchParams.get('cantidad') || '1');
   const modalidadParam = (searchParams.get('modalidad') as Modalidad) || 'venta';
   const periodoParam = (searchParams.get('periodo') as PeriodoAlquiler) || '1_ano';
@@ -258,8 +250,6 @@ function CotizarContent() {
   const [tamanoFlota, setTamanoFlota] = useState<string | null>(null);
   const [presupuesto, setPresupuesto] = useState<string | null>(null);
   const [financiamiento, setFinanciamiento] = useState<string | null>(null);
-  const [accesoriosIds, setAccesoriosIds] = useState<string[]>(accIdsFromUrl);
-  const [accCategoria, setAccCategoria] = useState<string>('todas');
 
   // Construye dinámicamente el orden de pasos saltando los ya respondidos
   const dynamicSteps = useMemo<StepId[]>(() => {
@@ -290,15 +280,13 @@ function CotizarContent() {
 
   const currentStep = dynamicSteps[stepIndex];
 
-  // ── Precios calculados ──
-  const selectedAccesorios = allAccesorios.filter(a => accesoriosIds.includes(a.id));
-  // Precios se cotizan con asesor — no se calculan localmente.
+  // ── Precios ──
+  // Los precios y accesorios los maneja el asesor durante el seguimiento.
+  // El form sólo captura la intención y los datos del cliente.
   const precioBase = 0;
   const subtotal = 0;
   const impuesto = 0;
   const total = 0;
-  // Solo los accesorios aplicables a la categoría del producto seleccionado
-  const accesoriosDisponibles = product ? accesoriosParaCategoria(product.categoriaLabel) : allAccesorios;
 
   // ── Step navigation ──
   const goNext = () => setStepIndex(i => Math.min(i + 1, dynamicSteps.length - 1));
@@ -320,7 +308,6 @@ function CotizarContent() {
       case 'flota': return !!tamanoFlota;
       case 'presupuesto': return !!presupuesto;
       case 'financiamiento': return !!financiamiento;
-      case 'accesorios': return true; // optional
       case 'contacto': return !!nombre && !!email && !!telefono && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
       default: return true;
     }
@@ -355,7 +342,8 @@ function CotizarContent() {
             precio: precioBase,
             imagen: product.imagen,
           } : null,
-          accesorios: selectedAccesorios.map(a => ({ nombre: a.nombre, precio: a.precio })),
+          // Accesorios se manejan por el asesor en el seguimiento, no en el form público.
+          accesorios: [],
           cantidad, subtotal, impuesto, total,
           device_id,
         }),
@@ -365,7 +353,6 @@ function CotizarContent() {
       track('quote_submitted', {
         producto_slug: product?.slug,
         modalidad: modalidadParam,
-        accesorios_count: selectedAccesorios.length,
       }, { email, telefono, nombre, empresa });
 
       setSent(true);
@@ -402,7 +389,7 @@ function CotizarContent() {
               <p className="text-[10px] text-[#E8821C] font-bold uppercase tracking-wider">{product.marca}</p>
               <p className="text-[14px] font-semibold text-[var(--color-text-primary)]">{product.modelo}</p>
               <p className="text-[11px] text-[var(--color-text-secondary)]">
-                {modalidadParam === 'alquiler' ? `Alquiler / ${periodoLabels[periodoParam]}` : 'Compra'} · {cantidad} und. · {selectedAccesorios.length} accesorios
+                {modalidadParam === 'alquiler' ? `Alquiler / ${periodoLabels[periodoParam]}` : 'Compra'} · {cantidad} und.
               </p>
             </div>
             <span className="px-3 py-1 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20 text-[10px] font-semibold text-[#E8821C] uppercase tracking-wider whitespace-nowrap">
@@ -432,14 +419,6 @@ function CotizarContent() {
     );
   }
 
-  // ────────── Accesorios filtering ──────────
-  const accFiltered = accCategoria === 'todas'
-    ? accesoriosDisponibles
-    : accesoriosDisponibles.filter(a => a.categoria === accCategoria);
-
-  const toggleAccesorio = (id: string) => {
-    setAccesoriosIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
 
   // ────────── Confirmation summary rows ──────────
   const labelOf = (list: OptionCard[], val: string | null) => list.find(o => o.value === val)?.title || '—';
@@ -547,92 +526,6 @@ function CotizarContent() {
           </>
         )}
 
-        {currentStep === 'accesorios' && (
-          <>
-            <StepHeader
-              title={product ? `Accesorios para ${product.modelo}` : 'Accesorios'}
-              subtitle="Opcional. Selecciona los que necesites."
-            />
-
-            {/* Category filter chips */}
-            <div className="flex flex-wrap gap-1.5 mb-5">
-              <button
-                onClick={() => setAccCategoria('todas')}
-                className={cn(
-                  'h-7 px-3 rounded-full text-[12px] font-medium transition-colors',
-                  accCategoria === 'todas'
-                    ? 'bg-[#E8821C] text-white'
-                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-                )}
-              >
-                Todas
-              </button>
-              {(['seguridad', 'productividad', 'proteccion', 'tecnologia'] as const).map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setAccCategoria(cat)}
-                  className={cn(
-                    'h-7 px-3 rounded-full text-[12px] font-medium capitalize transition-colors',
-                    accCategoria === cat
-                      ? 'bg-[#E8821C] text-white'
-                      : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-                  )}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-6">
-              {accFiltered.map(acc => {
-                const selected = accesoriosIds.includes(acc.id);
-                const Icon = CATEGORIA_ACC_ICON[acc.categoria] || Package;
-                return (
-                  <button
-                    key={acc.id}
-                    onClick={() => toggleAccesorio(acc.id)}
-                    className={cn(
-                      'flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-colors',
-                      selected
-                        ? 'border-[#E8821C] bg-[#E8821C]/[0.06]'
-                        : 'border-[var(--color-border)] bg-[var(--color-surface-glass)] hover:border-[var(--color-text-muted)]'
-                    )}
-                  >
-                    <Icon
-                      size={17}
-                      strokeWidth={1.75}
-                      className={cn(
-                        'flex-shrink-0',
-                        selected ? 'text-[#E8821C]' : 'text-[var(--color-text-secondary)]'
-                      )}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className={cn(
-                        'text-[13px] font-medium leading-tight',
-                        selected ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'
-                      )}>
-                        {acc.nombre}
-                      </p>
-                    </div>
-                    <span className={cn(
-                      'text-[10px] uppercase tracking-wider whitespace-nowrap',
-                      selected ? 'text-[#E8821C]' : 'text-[var(--color-text-muted)]'
-                    )}>
-                      {selected ? 'Agregado' : 'Agregar'}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {accesoriosIds.length > 0 && (
-              <p className="text-[12px] text-[var(--color-text-secondary)] mb-4">
-                {accesoriosIds.length} {accesoriosIds.length === 1 ? 'accesorio seleccionado' : 'accesorios seleccionados'}
-              </p>
-            )}
-          </>
-        )}
-
         {currentStep === 'contacto' && (
           <>
             <StepHeader
@@ -719,14 +612,6 @@ function CotizarContent() {
                     <span className="font-medium text-[var(--color-text-primary)]">{row.value}</span>
                   </div>
                 ))}
-                {selectedAccesorios.length > 0 && (
-                  <div className="flex items-start justify-between text-[13px] pt-2 border-t border-[var(--color-border)]">
-                    <span className="text-[var(--color-text-secondary)]">Accesorios</span>
-                    <span className="font-medium text-[var(--color-text-primary)] text-right max-w-[60%]">
-                      {selectedAccesorios.map(a => a.nombre).join(', ')}
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -782,35 +667,18 @@ function CotizarContent() {
             Atrás
           </button>
 
-          {currentStep === 'accesorios' ? (
-            <div className="flex gap-2">
-              <button
-                onClick={goNext}
-                className="h-10 px-4 rounded-full text-[13px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
-              >
-                Omitir
-              </button>
-              <button
-                onClick={goNext}
-                className="h-10 px-6 rounded-full bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold transition-all active:scale-[0.98]"
-              >
-                Siguiente
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={goNext}
-              disabled={!canAdvance}
-              className={cn(
-                'h-10 px-6 rounded-full text-[13px] font-semibold transition-all active:scale-[0.98]',
-                canAdvance
-                  ? 'bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white'
-                  : 'bg-[var(--color-surface-glass)] text-[var(--color-text-muted)] cursor-not-allowed'
-              )}
-            >
-              Siguiente
-            </button>
-          )}
+          <button
+            onClick={goNext}
+            disabled={!canAdvance}
+            className={cn(
+              'h-10 px-6 rounded-full text-[13px] font-semibold transition-all active:scale-[0.98]',
+              canAdvance
+                ? 'bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white'
+                : 'bg-[var(--color-surface-glass)] text-[var(--color-text-muted)] cursor-not-allowed'
+            )}
+          >
+            Siguiente
+          </button>
         </div>
       )}
 
