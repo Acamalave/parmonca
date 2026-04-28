@@ -10,25 +10,56 @@ import { isAdmin } from '@/lib/supabase/roles';
 import { formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
 
-const ventasMensuales = [
-  { mes: 'Oct', monto: 35000 },
-  { mes: 'Nov', monto: 42000 },
-  { mes: 'Dic', monto: 28000 },
-  { mes: 'Ene', monto: 49487 },
-  { mes: 'Feb', monto: 81970 },
-  { mes: 'Mar', monto: 130000 },
-];
-
-const conversionData = [
-  { mes: 'Oct', tasa: 18 },
-  { mes: 'Nov', tasa: 22 },
-  { mes: 'Dic', tasa: 15 },
-  { mes: 'Ene', tasa: 25 },
-  { mes: 'Feb', tasa: 28 },
-  { mes: 'Mar', tasa: 32 },
-];
-
 type RankingRow = { id: string; nombre: string | null; email: string; monto_cerrado_mes: number | string; ganadas_mes: number; pipeline_abiertas: number; };
+
+type CotChartRow = { total: number | string; estado: string; created_at: string; cerrado_at: string | null };
+
+const MES_CORTO: Record<number, string> = {
+  0: 'Ene', 1: 'Feb', 2: 'Mar', 3: 'Abr', 4: 'May', 5: 'Jun',
+  6: 'Jul', 7: 'Ago', 8: 'Sep', 9: 'Oct', 10: 'Nov', 11: 'Dic',
+};
+
+/**
+ * Construye los buckets de los últimos 6 meses (incluyendo el actual)
+ * con conteos de cotizaciones creadas, ganadas y monto cerrado.
+ */
+function buildChartData(rows: CotChartRow[]) {
+  const buckets: Array<{ mes: string; ts: number; creadas: number; ganadas: number; monto: number }> = [];
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    buckets.push({
+      mes: MES_CORTO[d.getMonth()],
+      ts: d.getTime(),
+      creadas: 0, ganadas: 0, monto: 0,
+    });
+  }
+  for (const r of rows) {
+    const created = new Date(r.created_at);
+    const idxCreated = buckets.findIndex((b, i) => {
+      const next = buckets[i + 1]?.ts ?? Number.POSITIVE_INFINITY;
+      return created.getTime() >= b.ts && created.getTime() < next;
+    });
+    if (idxCreated >= 0) buckets[idxCreated].creadas += 1;
+
+    if (r.estado === 'ganada' && r.cerrado_at) {
+      const closed = new Date(r.cerrado_at);
+      const idxClosed = buckets.findIndex((b, i) => {
+        const next = buckets[i + 1]?.ts ?? Number.POSITIVE_INFINITY;
+        return closed.getTime() >= b.ts && closed.getTime() < next;
+      });
+      if (idxClosed >= 0) {
+        buckets[idxClosed].ganadas += 1;
+        buckets[idxClosed].monto += Number(r.total) || 0;
+      }
+    }
+  }
+  return buckets.map(b => ({
+    mes: b.mes,
+    monto: b.monto,
+    tasa: b.creadas > 0 ? Math.round((b.ganadas / b.creadas) * 100) : 0,
+  }));
+}
 
 export default function DashboardPage() {
   const { facturas } = useCRM(); // facturas still demo — shown only to admin for now
@@ -44,11 +75,12 @@ export default function DashboardPage() {
     leads: 0,
   });
   const [ranking, setRanking] = useState<RankingRow[]>([]);
+  const [chartData, setChartData] = useState<{ mes: string; monto: number; tasa: number }[]>([]);
 
   useEffect(() => {
     const load = async () => {
       const [{ data: cots }, { data: cls }] = await Promise.all([
-        supabase.from('parmonca_cotizaciones').select('total, estado, etapa_pipeline, asignado_a'),
+        supabase.from('parmonca_cotizaciones').select('total, estado, etapa_pipeline, asignado_a, created_at, cerrado_at'),
         supabase.from('parmonca_clientes').select('tipo'),
       ]);
 
@@ -61,6 +93,7 @@ export default function DashboardPage() {
       const leads = cls?.filter(c => c.tipo === 'lead').length || 0;
 
       setStats({ totalCotizaciones, ganadas, montoEnPipeline, totalClientes, leads });
+      setChartData(buildChartData((cots || []) as CotChartRow[]));
 
       if (userIsAdmin) {
         const { data: rk } = await supabase
@@ -147,45 +180,79 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* Charts — solo admin. Los datos son aún de ejemplo hasta que exista
-          tabla de ingresos; al asesor no le mostramos agregados globales. */}
-      {userIsAdmin && (
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
-        <div className="lg:col-span-3 glass rounded-xl p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[13px] font-semibold text-[var(--color-text-secondary)]">Ingresos Mensuales</h3>
-            <span className="text-[10px] text-[var(--color-text-muted)] bg-[var(--color-surface-glass)] px-2 py-0.5 rounded">USD</span>
+      {/* Charts — sólo admin. Datos calculados en vivo desde parmonca_cotizaciones
+          (últimos 6 meses, agrupados por created_at e cerrado_at). */}
+      {userIsAdmin && (() => {
+        const totalIngresos6m = chartData.reduce((a, m) => a + m.monto, 0);
+        const tieneIngresos = totalIngresos6m > 0;
+        return (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+          <div className="lg:col-span-3 glass rounded-xl p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-[13px] font-semibold text-[var(--color-text-secondary)]">Ingresos Mensuales</h3>
+                <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">Últimos 6 meses · cotizaciones ganadas</p>
+              </div>
+              <span className="text-[10px] text-[var(--color-text-muted)] bg-[var(--color-surface-glass)] px-2 py-0.5 rounded">USD</span>
+            </div>
+            {tieneIngresos ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={chartData} barSize={28}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff06" vertical={false} />
+                  <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#52525b' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#52525b' }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v/1000).toFixed(0)}K`} />
+                  <Tooltip formatter={(value) => [formatCurrency(Number(value)), 'Monto']} contentStyle={{ background: '#16161A', border: '1px solid #ffffff10', borderRadius: 10, fontSize: 12, color: '#e4e4e7' }} cursor={{ fill: '#ffffff06' }} />
+                  <defs><linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E8821C" /><stop offset="100%" stopColor="#C96A10" /></linearGradient></defs>
+                  <Bar dataKey="monto" fill="url(#barGrad)" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[220px] flex flex-col items-center justify-center gap-2">
+                <div className="w-12 h-12 rounded-xl bg-[#E8821C]/10 border border-[#E8821C]/20 flex items-center justify-center">
+                  <TrendingUp size={20} className="text-[#E8821C]/70" />
+                </div>
+                <p className="text-[12px] text-[var(--color-text-secondary)]">Aún no hay ventas cerradas</p>
+                <p className="text-[10px] text-[var(--color-text-muted)] text-center max-w-[260px]">
+                  El gráfico se llena automáticamente con cada cotización marcada como <span className="text-emerald-400 font-medium">ganada</span>.
+                </p>
+              </div>
+            )}
           </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={ventasMensuales} barSize={28}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff06" vertical={false} />
-              <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#52525b' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#52525b' }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v/1000).toFixed(0)}K`} />
-              <Tooltip formatter={(value) => [formatCurrency(Number(value)), 'Monto']} contentStyle={{ background: '#16161A', border: '1px solid #ffffff10', borderRadius: 10, fontSize: 12, color: '#e4e4e7' }} cursor={{ fill: '#ffffff06' }} />
-              <defs><linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E8821C" /><stop offset="100%" stopColor="#C96A10" /></linearGradient></defs>
-              <Bar dataKey="monto" fill="url(#barGrad)" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
 
-        <div className="lg:col-span-2 glass rounded-xl p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[13px] font-semibold text-[var(--color-text-secondary)]">Tasa de Conversion</h3>
-            <span className="text-lg font-num font-bold text-[#E8821C]">{tasaConversion}%</span>
+          <div className="lg:col-span-2 glass rounded-xl p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-[13px] font-semibold text-[var(--color-text-secondary)]">Tasa de Conversión</h3>
+                <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">Histórica acumulada</p>
+              </div>
+              <span className="text-lg font-num font-bold text-[#E8821C]">{tasaConversion}%</span>
+            </div>
+            {totalCotizaciones > 0 ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff06" vertical={false} />
+                  <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#52525b' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#52525b' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} domain={[0, 100]} />
+                  <Tooltip formatter={(value) => [`${value}%`, 'Conversión']} contentStyle={{ background: '#16161A', border: '1px solid #ffffff10', borderRadius: 10, fontSize: 12, color: '#e4e4e7' }} />
+                  <defs><linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E8821C" stopOpacity={0.3} /><stop offset="100%" stopColor="#E8821C" stopOpacity={0} /></linearGradient></defs>
+                  <Area type="monotone" dataKey="tasa" stroke="#E8821C" strokeWidth={2} fill="url(#areaGrad)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[220px] flex flex-col items-center justify-center gap-2">
+                <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                  <FileText size={20} className="text-blue-400/70" />
+                </div>
+                <p className="text-[12px] text-[var(--color-text-secondary)]">Sin cotizaciones</p>
+                <p className="text-[10px] text-[var(--color-text-muted)] text-center max-w-[220px]">
+                  Cuando entren cotizaciones la tasa se calcula como ganadas / total.
+                </p>
+              </div>
+            )}
           </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={conversionData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff06" vertical={false} />
-              <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#52525b' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#52525b' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
-              <Tooltip contentStyle={{ background: '#16161A', border: '1px solid #ffffff10', borderRadius: 10, fontSize: 12, color: '#e4e4e7' }} />
-              <defs><linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E8821C" stopOpacity={0.3} /><stop offset="100%" stopColor="#E8821C" stopOpacity={0} /></linearGradient></defs>
-              <Area type="monotone" dataKey="tasa" stroke="#E8821C" strokeWidth={2} fill="url(#areaGrad)" />
-            </AreaChart>
-          </ResponsiveContainer>
         </div>
-      </div>
-      )}
+        );
+      })()}
 
       {/* Bottom */}
       <div className={userIsAdmin ? 'grid grid-cols-1 lg:grid-cols-2 gap-3' : 'grid grid-cols-1 gap-3'}>
