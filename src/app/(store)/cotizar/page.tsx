@@ -13,6 +13,7 @@ import {
   Sparkles, Layers3, Building2,
   DollarSign, Wallet, CreditCard,
   Hash, MapPin, Phone, Mail, User, FileText, MessageSquare,
+  Info, Trash2, Minus, Plus,
 } from 'lucide-react';
 import {
   storeProducts, periodoLabels,
@@ -23,6 +24,7 @@ import { track, getDeviceId } from '@/lib/visitor';
 import { fetchProducto } from '@/lib/productos-live';
 import { createClient } from '@/lib/supabase/client';
 import type { StoreProduct } from '@/lib/store-data';
+import { useCotizacionCart } from '@/lib/cotizacion-cart';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Wizard configuration
@@ -210,6 +212,13 @@ function CotizarContent() {
   const modalidadParam = (searchParams.get('modalidad') as Modalidad) || 'venta';
   const periodoParam = (searchParams.get('periodo') as PeriodoAlquiler) || '1_ano';
 
+  // ── Carrito multi-equipo (visitantes anónimos del landing) ──
+  // Si hay items en el carrito, esta página se comporta como "checkout de
+  // solicitud de cotización" (multi-producto). Si está vacío, mantiene el
+  // flow legacy ?producto=slug.
+  const cart = useCotizacionCart();
+  const useCart = cart.items.length > 0;
+
   // Producto en vivo desde Supabase; fallback a catálogo estático si
   // todavía no cargó o el slug no existe en la BD.
   const [liveProduct, setLiveProduct] = useState<StoreProduct | null>(null);
@@ -277,16 +286,22 @@ function CotizarContent() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+  // Snapshot del carrito antes de limpiarlo, para mostrar el resumen
+  // multi-ítem en la pantalla de "¡Cotización enviada!".
+  const [enviados, setEnviados] = useState<typeof cart.items>([]);
 
   const currentStep = dynamicSteps[stepIndex];
 
   // ── Precios ──
-  // Los precios y accesorios los maneja el asesor durante el seguimiento.
-  // El form sólo captura la intención y los datos del cliente.
+  // En modo carrito, sumamos los precios guardados al momento de agregar
+  // (pueden ser 0 si el equipo es "a cotizar"). El asesor confirma los
+  // valores finales en la cotización formal — esto es sólo un estimado.
   const precioBase = 0;
-  const subtotal = 0;
-  const impuesto = 0;
-  const total = 0;
+  const subtotal = useCart
+    ? cart.items.reduce((a, i) => a + (i.precio || 0) * i.cantidad, 0)
+    : 0;
+  const impuesto = 0; // ITBMS lo aplica el asesor en la cotización formal
+  const total = subtotal;
 
   // ── Step navigation ──
   const goNext = () => setStepIndex(i => Math.min(i + 1, dynamicSteps.length - 1));
@@ -323,6 +338,46 @@ function CotizarContent() {
       // Mark visitor as identified before submitting (asynchronously, fire-and-forget)
       track('identified', { source: 'wizard_cotizar' }, { email, telefono, nombre, empresa });
 
+      // En modo carrito mandamos cada equipo como line item (mismo formato
+      // que /cotizaciones/nueva del admin) — el PDF y el email iteran sobre
+      // este array para mostrar todos los productos.
+      const lineItems = useCart
+        ? cart.items.map(i => ({
+            tipo: i.tipo,
+            modelo: i.modelo,
+            marca: i.marca,
+            categoria: i.categoria,
+            cantidad: i.cantidad,
+            precio_unitario: i.precio || 0,
+            precio_total: (i.precio || 0) * i.cantidad,
+            imagen: i.imagen,
+          }))
+        : [];
+
+      // El campo `producto` se mantiene por compatibilidad con vistas
+      // legacy del admin que aún esperan un único producto principal.
+      const productoPayload = useCart
+        ? (cart.items[0]
+            ? {
+                modelo: cart.items[0].modelo,
+                marca: cart.items[0].marca || '',
+                categoria: cart.items[0].categoria || '',
+                precio: cart.items[0].precio || 0,
+                imagen: cart.items[0].imagen || '',
+              }
+            : null)
+        : (product ? {
+            modelo: product.modelo,
+            marca: product.marca,
+            categoria: product.categoriaLabel,
+            precio: precioBase,
+            imagen: product.imagen,
+          } : null);
+
+      const cantidadPayload = useCart
+        ? cart.items.reduce((a, i) => a + i.cantidad, 0)
+        : cantidad;
+
       const res = await fetch('/api/cotizacion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -335,16 +390,12 @@ function CotizarContent() {
           plazo,
           modalidad: modalidadParam,
           periodo: modalidadParam === 'alquiler' ? periodoParam : null,
-          producto: product ? {
-            modelo: product.modelo,
-            marca: product.marca,
-            categoria: product.categoriaLabel,
-            precio: precioBase,
-            imagen: product.imagen,
-          } : null,
-          // Accesorios se manejan por el asesor en el seguimiento, no en el form público.
-          accesorios: [],
-          cantidad, subtotal, impuesto, total,
+          producto: productoPayload,
+          accesorios: lineItems,
+          cantidad: cantidadPayload,
+          subtotal,
+          impuesto,
+          total,
           device_id,
         }),
       });
@@ -352,8 +403,17 @@ function CotizarContent() {
 
       track('quote_submitted', {
         producto_slug: product?.slug,
+        items_count: useCart ? cart.items.length : 1,
         modalidad: modalidadParam,
       }, { email, telefono, nombre, empresa });
+
+      // Limpiar el carrito tras enviar — la solicitud ya está en marcha.
+      // Guardamos un snapshot antes para que la pantalla de éxito siga
+      // pudiendo mostrar el resumen de equipos enviados.
+      if (useCart) {
+        setEnviados(cart.items);
+        cart.clear();
+      }
 
       setSent(true);
     } catch {
@@ -364,25 +424,60 @@ function CotizarContent() {
   };
 
   const whatsappNum = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '50760000000').replace(/\D/g, '');
+  const equipoLabel = enviados.length > 0
+    ? `${enviados.length} ${enviados.length === 1 ? 'equipo' : 'equipos'}`
+    : (useCart
+        ? `${cart.items.length} ${cart.items.length === 1 ? 'equipo' : 'equipos'}`
+        : (product ? `${product.marca} ${product.modelo}` : 'un equipo'));
   const whatsappMsg = encodeURIComponent(
-    `Hola PARMONCA, acabo de enviar una cotización por ${product ? `${product.marca} ${product.modelo}` : 'un equipo'} (${modalidadParam === 'alquiler' ? 'alquiler' : 'compra'}). Me gustaría más información.`
+    `Hola PARMONCA, acabo de enviar una solicitud de cotización por ${equipoLabel}. Me gustaría más información.`
   );
 
   // ────────── Success screen ──────────
   if (sent) {
+    const itemsEnviados = enviados.length > 0 ? enviados : (useCart ? cart.items : []);
     return (
       <div className="max-w-2xl mx-auto py-12 px-4">
         <div className="text-center mb-10">
           <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-5">
             <Check size={32} className="text-emerald-400" />
           </div>
-          <h1 className="font-display text-2xl font-bold text-[var(--color-text-primary)]">¡Cotización enviada!</h1>
-          <p className="text-[var(--color-text-secondary)] text-[14px] mt-2">
-            Recibimos tu solicitud. Un asesor te contactará en las próximas horas.
+          <h1 className="font-display text-2xl font-bold text-[var(--color-text-primary)]">¡Solicitud de cotización enviada!</h1>
+          <p className="text-[var(--color-text-secondary)] text-[14px] mt-2 max-w-md mx-auto">
+            Recibimos tu solicitud por {equipoLabel}. Un asesor PARMONCA te contactará en menos de 2 horas hábiles con la cotización formal.
+          </p>
+          <p className="text-[var(--color-text-muted)] text-[12px] mt-2">
+            Te enviamos también un PDF con el detalle a <strong className="text-[var(--color-text-secondary)]">{email}</strong>.
           </p>
         </div>
 
-        {product && (
+        {itemsEnviados.length > 0 ? (
+          <div className="glass rounded-2xl p-4 mb-8">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-muted)] mb-3">
+              Equipos solicitados ({itemsEnviados.length})
+            </p>
+            <div className="space-y-2">
+              {itemsEnviados.map(it => (
+                <div key={it.key} className="flex items-center gap-3 p-2 rounded-lg bg-[var(--color-surface-glass)]">
+                  <div className="w-12 h-12 rounded-lg bg-[var(--color-surface-elevated)] flex items-center justify-center overflow-hidden shrink-0">
+                    {it.imagen ? (
+                      <Image src={it.imagen} alt={it.modelo} width={48} height={48} className="object-contain w-full h-full" unoptimized />
+                    ) : (
+                      <Package size={20} className="text-[var(--color-text-muted)]/40" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {it.marca && (
+                      <p className="text-[9px] text-[#E8821C] font-bold uppercase tracking-wider">{it.marca}</p>
+                    )}
+                    <p className="text-[13px] font-semibold text-[var(--color-text-primary)] truncate">{it.modelo}</p>
+                    <p className="text-[11px] text-[var(--color-text-muted)]">{it.tipo === 'repuesto' ? 'Repuesto' : 'Equipo'} · {it.cantidad} und.</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : product && (
           <div className="glass rounded-xl p-4 mb-8 flex items-center gap-4">
             <Image src={product.imagenNoBg} alt={product.modelo} width={60} height={60} className="object-contain" />
             <div className="flex-1">
@@ -440,13 +535,18 @@ function CotizarContent() {
       {/* Top bar */}
       <div className="flex items-center justify-between mb-6">
         <Link
-          href={product ? `/productos/${product.slug}` : '/productos'}
+          href={useCart ? '/productos' : (product ? `/productos/${product.slug}` : '/productos')}
           className="inline-flex items-center gap-1.5 text-[13px] text-[var(--color-text-secondary)] hover:text-[#E8821C] transition-colors"
         >
           <ArrowLeft size={14} />
-          {product ? 'Volver al producto' : 'Volver al catálogo'}
+          {useCart ? 'Seguir agregando equipos' : (product ? 'Volver al producto' : 'Volver al catálogo')}
         </Link>
-        {product && (
+        {useCart ? (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20 text-[11px] font-semibold text-[#E8821C] uppercase tracking-wider">
+            <Package size={11} />
+            {cart.items.length} {cart.items.length === 1 ? 'equipo' : 'equipos'}
+          </span>
+        ) : product && (
           <div className="flex items-center gap-2">
             <Image src={product.imagenNoBg} alt={product.modelo} width={32} height={32} className="object-contain" />
             <div className="text-right">
@@ -456,6 +556,88 @@ function CotizarContent() {
           </div>
         )}
       </div>
+
+      {/* Cart panel — visible siempre que haya items: deja claro qué se va a
+          enviar al asesor y permite editar cantidades sin abandonar el wizard. */}
+      {useCart && (
+        <div className="mb-6 rounded-2xl border border-[#E8821C]/25 bg-[#E8821C]/[0.04] overflow-hidden">
+          <div className="flex items-start gap-2.5 px-4 py-3 border-b border-[#E8821C]/15 bg-[#E8821C]/[0.06]">
+            <Info size={15} className="text-[#E8821C] mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="text-[12px] font-semibold text-[var(--color-text-primary)] leading-snug">
+                Esto no es una compra — es una solicitud de cotización formal.
+              </p>
+              <p className="text-[11px] text-[var(--color-text-secondary)] mt-0.5 leading-snug">
+                Un asesor PARMONCA revisará los equipos seleccionados y te enviará la cotización formal con precios vigentes, condiciones y disponibilidad.
+              </p>
+            </div>
+          </div>
+
+          <div className="divide-y divide-[var(--color-border)]">
+            {cart.items.map(it => (
+              <div key={it.key} className="flex items-center gap-3 p-3">
+                <Link href={it.tipo === 'repuesto' ? `/repuestos/${it.ref}` : `/productos/${it.ref}`} className="shrink-0">
+                  <div className="w-14 h-14 rounded-lg bg-[var(--color-surface-elevated)] border border-[var(--color-border)] flex items-center justify-center overflow-hidden">
+                    {it.imagen ? (
+                      <Image src={it.imagen} alt={it.modelo} width={56} height={56} className="object-contain w-full h-full" unoptimized />
+                    ) : (
+                      <Package size={22} className="text-[var(--color-text-muted)]/40" />
+                    )}
+                  </div>
+                </Link>
+                <div className="flex-1 min-w-0">
+                  {it.marca && (
+                    <p className="text-[9px] text-[#E8821C] font-bold uppercase tracking-wider">{it.marca}</p>
+                  )}
+                  <Link
+                    href={it.tipo === 'repuesto' ? `/repuestos/${it.ref}` : `/productos/${it.ref}`}
+                    className="block text-[13px] font-semibold text-[var(--color-text-primary)] hover:text-[#E8821C] truncate transition-colors"
+                  >
+                    {it.modelo}
+                  </Link>
+                  <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">
+                    {it.tipo === 'repuesto' ? 'Repuesto' : 'Equipo'}{it.categoria ? ` · ${it.categoria}` : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => cart.setCantidad(it.key, it.cantidad - 1)}
+                    className="w-7 h-7 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"
+                    aria-label="Restar"
+                  >
+                    <Minus size={12} />
+                  </button>
+                  <span className="font-mono text-[12px] font-bold text-[var(--color-text-primary)] min-w-[24px] text-center">{it.cantidad}</span>
+                  <button
+                    type="button"
+                    onClick={() => cart.setCantidad(it.key, it.cantidad + 1)}
+                    className="w-7 h-7 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"
+                    aria-label="Sumar"
+                  >
+                    <Plus size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => cart.removeItem(it.key)}
+                    className="ml-1 w-7 h-7 rounded-md border border-rose-500/20 bg-rose-500/[0.06] text-rose-300 hover:bg-rose-500/15 flex items-center justify-center"
+                    aria-label="Quitar"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {subtotal > 0 && (
+            <div className="px-4 py-2.5 border-t border-[var(--color-border)] bg-[var(--color-surface-glass)] flex items-center justify-between">
+              <span className="text-[11px] text-[var(--color-text-muted)]">Estimado preliminar (sujeto a cotización formal)</span>
+              <span className="font-mono text-[14px] font-bold text-[var(--color-text-primary)]">${subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mb-8">
         <ProgressBar current={stepIndex} total={dynamicSteps.length} />
@@ -583,10 +765,48 @@ function CotizarContent() {
           <>
             <StepHeader
               title="Revisa y confirma"
+              subtitle="Esta es una solicitud de cotización formal — no se ejecuta ninguna compra. Un asesor te confirmará precios y disponibilidad."
             />
 
-            {/* Producto */}
-            {product && (
+            {/* Equipos solicitados (cart mode) o producto único (legacy) */}
+            {useCart ? (
+              <div className="glass rounded-2xl p-4 mb-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-3">
+                  Equipos solicitados ({cart.items.length})
+                </p>
+                <div className="space-y-2">
+                  {cart.items.map(it => (
+                    <div key={it.key} className="flex items-center gap-3 p-2 rounded-lg bg-[var(--color-surface-glass)]">
+                      <div className="w-12 h-12 rounded-lg bg-[var(--color-surface-elevated)] flex items-center justify-center overflow-hidden shrink-0">
+                        {it.imagen ? (
+                          <Image src={it.imagen} alt={it.modelo} width={48} height={48} className="object-contain w-full h-full" unoptimized />
+                        ) : (
+                          <Package size={20} className="text-[var(--color-text-muted)]/40" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        {it.marca && (
+                          <p className="text-[9px] text-[#E8821C] font-bold uppercase tracking-wider">{it.marca}</p>
+                        )}
+                        <p className="text-[13px] font-semibold text-[var(--color-text-primary)] truncate">{it.modelo}</p>
+                        <p className="text-[11px] text-[var(--color-text-muted)]">{it.tipo === 'repuesto' ? 'Repuesto' : 'Equipo'} · {it.cantidad} und.</p>
+                      </div>
+                      {(it.precio || 0) > 0 && (
+                        <span className="font-mono text-[12px] font-semibold text-[var(--color-text-primary)] whitespace-nowrap">
+                          ${((it.precio || 0) * it.cantidad).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {subtotal > 0 && (
+                  <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex items-center justify-between">
+                    <span className="text-[11px] text-[var(--color-text-muted)]">Estimado preliminar</span>
+                    <span className="font-mono text-[14px] font-bold text-[var(--color-text-primary)]">${subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                )}
+              </div>
+            ) : product && (
               <div className="glass rounded-2xl p-4 mb-4 flex items-center gap-4">
                 <Image src={product.imagenNoBg} alt={product.modelo} width={64} height={64} className="object-contain" />
                 <div className="flex-1 min-w-0">
@@ -644,12 +864,12 @@ function CotizarContent() {
               ) : (
                 <>
                   <Send size={15} />
-                  Enviar cotización
+                  {useCart ? `Solicitar cotización (${cart.items.length} ${cart.items.length === 1 ? 'equipo' : 'equipos'})` : 'Enviar cotización'}
                 </>
               )}
             </button>
             <p className="text-center text-[11px] text-[var(--color-text-muted)] mt-3">
-              Al enviar aceptas ser contactado por un asesor de PARMONCA.
+              No se ejecuta ninguna compra. Al enviar aceptas ser contactado por un asesor de PARMONCA con la cotización formal.
             </p>
           </>
         )}

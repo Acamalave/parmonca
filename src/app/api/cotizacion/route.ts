@@ -165,10 +165,25 @@ interface CotizacionRequest {
     precio: number;
     imagen: string;
   } | null;
-  accesorios: {
-    nombre: string;
-    precio: number;
-  }[];
+  // Acepta dos formas (compat hacia atrás):
+  //   1) Legacy "accesorios" del wizard antiguo: {nombre, precio}
+  //   2) Line items multi-producto del nuevo flow de carrito:
+  //      {tipo, modelo, marca, categoria, cantidad, precio_unitario,
+  //       precio_total, imagen}
+  // El handler de PDF (buildCotizacionPDF) ya detecta automáticamente
+  // cuál es cuál usando `a.modelo || a.tipo`.
+  accesorios: Array<{
+    nombre?: string;
+    precio?: number;
+    tipo?: 'producto' | 'repuesto';
+    modelo?: string;
+    marca?: string | null;
+    categoria?: string | null;
+    cantidad?: number;
+    precio_unitario?: number;
+    precio_total?: number;
+    imagen?: string | null;
+  }>;
   cantidad: number;
   subtotal: number;
   impuesto: number;
@@ -200,14 +215,43 @@ export async function POST(request: NextRequest) {
       ? `Alquiler${body.periodo ? ` (${body.periodo})` : ''}`
       : 'Compra';
 
-    const accesoriosHTML = body.accesorios.length > 0
+    // Detectamos si es un array de line items (carrito multi-equipo) o
+    // del legacy {nombre, precio}. Los line items tienen `modelo` o `tipo`.
+    const esLineItems = body.accesorios.some(a => !!a.modelo || !!a.tipo);
+
+    const accesoriosHTML = (!esLineItems && body.accesorios.length > 0)
       ? body.accesorios.map(a => `
         <tr>
-          <td style="padding:8px 16px;border-bottom:1px solid #1a1a1d;color:#a1a1aa;font-size:13px;">${a.nombre}</td>
-          <td style="padding:8px 16px;border-bottom:1px solid #1a1a1d;color:#e4e4e7;font-size:13px;text-align:right;font-family:'JetBrains Mono',monospace;">$${a.precio.toLocaleString()}</td>
+          <td style="padding:8px 16px;border-bottom:1px solid #1a1a1d;color:#a1a1aa;font-size:13px;">${a.nombre || ''}</td>
+          <td style="padding:8px 16px;border-bottom:1px solid #1a1a1d;color:#e4e4e7;font-size:13px;text-align:right;font-family:'JetBrains Mono',monospace;">$${(a.precio || 0).toLocaleString()}</td>
         </tr>
       `).join('')
       : '';
+
+    // Tabla multi-equipo cuando viene del carrito del landing.
+    const lineItemsHTML = esLineItems ? `
+      <tr>
+        <td style="padding:0 32px 24px;background:#0e0e11;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06);">
+          <p style="margin:0 0 12px;font-size:11px;color:#71717a;text-transform:uppercase;letter-spacing:0.1em;font-weight:600;">Equipos solicitados (${body.accesorios.length})</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#16161a;border:1px solid rgba(255,255,255,0.06);border-radius:12px;">
+            ${body.accesorios.map(it => `
+              <tr>
+                <td style="padding:12px 16px;border-bottom:1px solid #1a1a1d;color:#e4e4e7;font-size:13px;">
+                  ${it.marca ? `<span style="display:block;font-size:9px;color:#E8821C;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;">${it.marca}</span>` : ''}
+                  <span style="font-weight:600;color:#fff;">${it.modelo || ''}</span>
+                  <span style="display:block;font-size:11px;color:#71717a;margin-top:2px;">${it.tipo === 'repuesto' ? 'Repuesto' : 'Equipo'}${it.categoria ? ` &middot; ${it.categoria}` : ''}</span>
+                </td>
+                <td style="padding:12px 16px;border-bottom:1px solid #1a1a1d;color:#a1a1aa;font-size:12px;text-align:center;width:60px;font-family:'JetBrains Mono',monospace;">${it.cantidad || 1}</td>
+                <td style="padding:12px 16px;border-bottom:1px solid #1a1a1d;color:#e4e4e7;font-size:13px;text-align:right;font-family:'JetBrains Mono',monospace;width:110px;">${(it.precio_total || 0) > 0 ? `$${(it.precio_total || 0).toLocaleString()}` : '<span style="color:#71717a;font-family:Outfit,sans-serif;font-size:11px;">A cotizar</span>'}</td>
+              </tr>
+            `).join('')}
+          </table>
+          <p style="margin:10px 0 0;font-size:11px;color:#71717a;line-height:1.5;">
+            Esta es una <strong style="color:#E8821C;">solicitud de cotización</strong>, no una compra. Un asesor confirmará precios vigentes, disponibilidad y condiciones.
+          </p>
+        </td>
+      </tr>
+    ` : '';
 
     const contextRows = [
       body.industria && { label: 'Industria', value: body.industria },
@@ -290,8 +334,8 @@ export async function POST(request: NextRequest) {
             </td>
           </tr>
 
-          ${body.producto ? `
-          <!-- Product -->
+          ${body.producto && !esLineItems ? `
+          <!-- Product (legacy single-equipo) -->
           <tr>
             <td style="padding:0 32px 24px;background:#0e0e11;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06);">
               <table width="100%" cellpadding="0" cellspacing="0" style="background:#16161a;border:1px solid rgba(255,255,255,0.06);border-radius:12px;">
@@ -320,7 +364,9 @@ export async function POST(request: NextRequest) {
           </tr>
           ` : ''}
 
-          ${body.accesorios.length > 0 ? `
+          ${lineItemsHTML}
+
+          ${(!esLineItems && body.accesorios.length > 0) ? `
           <!-- Accessories -->
           <tr>
             <td style="padding:0 32px 24px;background:#0e0e11;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06);">

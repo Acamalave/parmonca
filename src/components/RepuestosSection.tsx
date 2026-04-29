@@ -7,6 +7,7 @@ import { Package, ArrowRight, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchRepuestos, stockBadge, formatPrecio, CATEGORIAS_REPUESTOS, type Repuesto, type CategoriaRepuesto } from '@/lib/repuestos-live';
 import { createClient } from '@/lib/supabase/client';
+import { useCotizacionCart } from '@/lib/cotizacion-cart';
 
 const BADGE_COLORS: Record<string, string> = {
   emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
@@ -18,6 +19,7 @@ const BADGE_COLORS: Record<string, string> = {
 const PAGE_SIZE = 10;
 
 export function RepuestosSection() {
+  const cart = useCotizacionCart();
   const [items, setItems] = useState<Repuesto[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<CategoriaRepuesto | 'todos'>('todos');
@@ -160,34 +162,44 @@ export function RepuestosSection() {
                     <p className="text-[11px] text-[var(--color-text-secondary)] mt-1.5 line-clamp-2 leading-snug">{r.descripcion}</p>
                   )}
 
-                  {/* Precio o CTA según disponibilidad en Odoo */}
-                  {precio ? (
-                    <div className="mt-3 pt-2.5 border-t border-[var(--color-border)] flex items-end justify-between gap-2">
-                      <div className="leading-tight">
-                        <p className="text-[9px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Precio</p>
-                        <p className="font-mono text-[15px] font-bold text-[var(--color-text-primary)]">{precio}</p>
-                      </div>
-                      <Link
-                        href={`/cotizar?repuesto=${r.sku || r.id}&nombre=${encodeURIComponent(r.nombre)}`}
-                        className="flex items-center justify-center gap-1 h-8 px-3 rounded-lg bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[11px] font-semibold whitespace-nowrap"
-                      >
-                        Cotizar
-                        <ArrowRight size={11} />
-                      </Link>
-                    </div>
-                  ) : (
+                  {/* Precio (si hay) */}
+                  {precio && (
                     <div className="mt-3 pt-2.5 border-t border-[var(--color-border)]">
-                      <Link
-                        href={`/cotizar?repuesto=${r.sku || r.id}&nombre=${encodeURIComponent(r.nombre)}`}
-                        className="w-full flex items-center justify-center gap-1 h-8 rounded-lg bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[11px] font-semibold"
-                      >
-                        Cotizar precio
-                        <ArrowRight size={11} />
-                      </Link>
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Precio</p>
+                      <p className="font-mono text-[15px] font-bold text-[var(--color-text-primary)]">{precio}</p>
                     </div>
                   )}
 
-                  {/* Enlace secundario al detalle (refuerza CTA) */}
+                  {/* Botón agregar a la cotización */}
+                  {(() => {
+                    const enCarrito = cart.items.find(i => i.key === `repuesto-${r.id}`);
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => cart.addItem({
+                          key: `repuesto-${r.id}`,
+                          tipo: 'repuesto',
+                          ref: r.id,
+                          modelo: r.nombre,
+                          marca: r.marca,
+                          categoria: `Repuesto · ${r.categoria.replace(/_/g, ' ')}`,
+                          imagen: r.imagen_url,
+                          precio: r.precio_venta || 0,
+                        })}
+                        className={cn(
+                          !precio && 'mt-3 pt-2.5 border-t border-[var(--color-border)]',
+                          'w-full mt-2 h-8 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition-all',
+                          enCarrito
+                            ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
+                            : 'bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white'
+                        )}
+                      >
+                        {enCarrito ? <>✓ Agregado ({enCarrito.cantidad})</> : <>+ Agregar a cotización</>}
+                      </button>
+                    );
+                  })()}
+
+                  {/* Enlace secundario al detalle */}
                   <Link
                     href={`/repuestos/${r.id}`}
                     className="mt-2 text-[10px] text-[var(--color-text-muted)] hover:text-[#E8821C] text-center transition-colors"

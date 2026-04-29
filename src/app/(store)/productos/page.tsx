@@ -7,6 +7,7 @@ import { ArrowRight, Zap, Shield, Truck, Battery, ChevronRight, Factory, MapPin,
 import { storeProducts, industriaOptions, ambienteOptions, frecuenciaOptions, plazoOptions, getRecommendation, periodoLabels, type Modalidad, type PeriodoAlquiler, type StoreProduct } from '@/lib/store-data';
 import { fetchActivos } from '@/lib/productos-live';
 import { createClient } from '@/lib/supabase/client';
+import { useCotizacionCart } from '@/lib/cotizacion-cart';
 import { recomendar } from '@/lib/recomendador';
 import { formatCurrency, cn } from '@/lib/utils';
 import { track } from '@/lib/visitor';
@@ -14,6 +15,7 @@ import { PageView } from '@/components/PageView';
 import { RepuestosSection } from '@/components/RepuestosSection';
 
 export default function ProductosPage() {
+  const cart = useCotizacionCart();
   const [modalidad, setModalidad] = useState<Modalidad>('venta');
   const [periodo, setPeriodo] = useState<PeriodoAlquiler>('1_ano');
 
@@ -644,11 +646,25 @@ export default function ProductosPage() {
               {filteredLive.slice(0, visibleCount).map((product) => {
                 const hasPrice = getDisplayPrice(product) > 0;
                 const hasImage = product.imagen && !product.imagen.includes('placeholder');
+                const enCarrito = cart.items.find(i => i.key === `producto-${product.slug}`);
+                const handleAdd = (e: React.MouseEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  cart.addItem({
+                    key: `producto-${product.slug}`,
+                    tipo: 'producto',
+                    ref: product.slug,
+                    modelo: product.modelo,
+                    marca: product.marca,
+                    categoria: product.categoriaLabel || null,
+                    imagen: product.imagen || null,
+                    precio: getDisplayPrice(product),
+                  });
+                };
                 return (
-                  <Link
+                  <div
                     key={product.slug}
-                    href={`/productos/${product.slug}?modalidad=${modalidad}${modalidad === 'alquiler' ? `&periodo=${periodo}` : ''}`}
-                    className="group relative rounded-2xl overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[#E8821C]/40 hover:shadow-lg transition-all duration-300"
+                    className="group relative rounded-2xl overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[#E8821C]/40 hover:shadow-lg transition-all duration-300 flex flex-col"
                   >
                     {product.badge && (
                       <div className="absolute top-2.5 left-2.5 z-10">
@@ -657,24 +673,42 @@ export default function ProductosPage() {
                         </span>
                       </div>
                     )}
-                    <div className="relative aspect-square bg-[var(--color-surface-elevated)] flex items-center justify-center p-3 overflow-hidden">
-                      {hasImage ? (
-                        <Image
-                          src={product.imagen}
-                          alt={`${product.marca} ${product.modelo}`}
-                          width={280}
-                          height={280}
-                          className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-500"
-                          unoptimized
-                        />
-                      ) : (
-                        <Package size={40} className="text-[var(--color-text-muted)]/40" strokeWidth={1.5} />
-                      )}
-                    </div>
-                    <div className="p-3.5">
-                      <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#E8821C]">{product.marca}</p>
-                      <h3 className="font-display text-[15px] font-bold text-[var(--color-text-primary)] mt-0.5 leading-tight truncate">{product.modelo}</h3>
-                      <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5 truncate">{product.categoriaLabel}</p>
+                    {enCarrito && (
+                      <div className="absolute top-2.5 right-2.5 z-10">
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[9px] font-bold shadow-md">
+                          ✓ {enCarrito.cantidad}
+                        </span>
+                      </div>
+                    )}
+                    {/* Imagen + título → al detalle */}
+                    <Link
+                      href={`/productos/${product.slug}?modalidad=${modalidad}${modalidad === 'alquiler' ? `&periodo=${periodo}` : ''}`}
+                      className="block"
+                    >
+                      <div className="relative aspect-square bg-[var(--color-surface-elevated)] flex items-center justify-center p-3 overflow-hidden">
+                        {hasImage ? (
+                          <Image
+                            src={product.imagen}
+                            alt={`${product.marca} ${product.modelo}`}
+                            width={280}
+                            height={280}
+                            className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-500"
+                            unoptimized
+                          />
+                        ) : (
+                          <Package size={40} className="text-[var(--color-text-muted)]/40" strokeWidth={1.5} />
+                        )}
+                      </div>
+                    </Link>
+                    <div className="p-3.5 flex flex-col flex-1">
+                      <Link
+                        href={`/productos/${product.slug}?modalidad=${modalidad}${modalidad === 'alquiler' ? `&periodo=${periodo}` : ''}`}
+                        className="block"
+                      >
+                        <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#E8821C]">{product.marca}</p>
+                        <h3 className="font-display text-[15px] font-bold text-[var(--color-text-primary)] mt-0.5 leading-tight truncate group-hover:text-[#E8821C] transition-colors">{product.modelo}</h3>
+                        <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5 truncate">{product.categoriaLabel}</p>
+                      </Link>
 
                       {hasPrice ? (
                         <div className="mt-2 pt-2 border-t border-[var(--color-border)] flex items-end justify-between gap-2">
@@ -691,14 +725,26 @@ export default function ProductosPage() {
                         </div>
                       ) : (
                         <div className="mt-2.5 flex items-center justify-between gap-2">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#E8821C]/10 border border-[#E8821C]/20 text-[10px] font-semibold text-[#E8821C]">
-                            Pedir cotización
-                          </span>
+                          <span className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider">Cotizable</span>
                           <span className="text-[10px] text-[var(--color-text-muted)]">{product.capacidad}</span>
                         </div>
                       )}
+
+                      {/* Botón "Agregar a la cotización" */}
+                      <button
+                        type="button"
+                        onClick={handleAdd}
+                        className={cn(
+                          'mt-3 w-full h-9 rounded-lg text-[12px] font-semibold flex items-center justify-center gap-1.5 transition-all',
+                          enCarrito
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20'
+                            : 'bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white hover:from-[#FF9F43] hover:to-[#E8821C]'
+                        )}
+                      >
+                        {enCarrito ? <>✓ Agregar otro</> : <>+ Agregar a cotización</>}
+                      </button>
                     </div>
-                  </Link>
+                  </div>
                 );
               })}
             </div>

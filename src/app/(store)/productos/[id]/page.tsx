@@ -10,10 +10,12 @@ import { fetchProducto } from '@/lib/productos-live';
 import { cn, formatCurrency } from '@/lib/utils';
 import { ProductView } from '@/components/PageView';
 import { createClient } from '@/lib/supabase/client';
+import { useCotizacionCart } from '@/lib/cotizacion-cart';
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const searchParams = useSearchParams();
+  const cart = useCotizacionCart();
   const [product, setProduct] = useState<StoreProduct | null | undefined>(undefined); // undefined = loading
   const [selectedAccesorios, setSelectedAccesorios] = useState<string[]>([]);
   const [specsOpen, setSpecsOpen] = useState(false);
@@ -177,13 +179,40 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                       </>
                     )}
                   </div>
-                  <Link
-                    href={`/cotizar?producto=${product.slug}&modalidad=${modalidad}${modalidad === 'alquiler' ? `&periodo=${periodo}` : ''}`}
-                    className="inline-flex items-center gap-1.5 h-10 px-5 rounded-full bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold hover:shadow-[0_0_20px_rgba(232,130,28,0.35)] transition-all"
-                  >
-                    {tienePrecio ? 'Cotizar ahora' : 'Pedir cotización'}
-                    <ArrowRight size={13} />
-                  </Link>
+                  {(() => {
+                    const enCarrito = cart.items.find(i => i.key === `producto-${product.slug}`);
+                    return (
+                      <div className="flex flex-col items-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => cart.addItem({
+                            key: `producto-${product.slug}`,
+                            tipo: 'producto',
+                            ref: product.slug,
+                            modelo: product.modelo,
+                            marca: product.marca,
+                            categoria: product.categoriaLabel,
+                            imagen: product.imagen || null,
+                            precio,
+                          }, cantidad)}
+                          className={cn(
+                            'inline-flex items-center gap-1.5 h-10 px-5 rounded-full text-[13px] font-semibold transition-all',
+                            enCarrito
+                              ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                              : 'bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white hover:shadow-[0_0_20px_rgba(232,130,28,0.35)]'
+                          )}
+                        >
+                          {enCarrito ? <><Check size={13} />Ya lo agregaste ({enCarrito.cantidad}) — sumar más</> : <><Plus size={13} />Agregar a la cotización</>}
+                        </button>
+                        <Link
+                          href={`/cotizar?producto=${product.slug}&modalidad=${modalidad}${modalidad === 'alquiler' ? `&periodo=${periodo}` : ''}`}
+                          className="text-[11px] text-[var(--color-text-muted)] hover:text-[#E8821C] transition-colors"
+                        >
+                          o pedir cotización sólo de este equipo →
+                        </Link>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })()}

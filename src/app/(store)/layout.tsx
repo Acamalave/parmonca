@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { Menu, X, Zap, Sun, Moon } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
+import { CotizacionCart } from '@/components/CotizacionCart';
 
 export default function StoreLayout({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -62,6 +63,9 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
       <main className="pt-16">
         {children}
       </main>
+
+      {/* Carrito flotante de solicitud de cotización (todo el landing) */}
+      <CotizacionCart />
 
       {/* Floating WhatsApp Button */}
       <a

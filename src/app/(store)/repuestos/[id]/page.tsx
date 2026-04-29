@@ -7,6 +7,8 @@ import { ArrowLeft, ArrowRight, Package, Zap, CheckCircle2, Truck, ShieldCheck, 
 import { fetchRepuesto, stockBadge, formatPrecio, CATEGORIAS_REPUESTOS, type Repuesto } from '@/lib/repuestos-live';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
+import { useCotizacionCart } from '@/lib/cotizacion-cart';
+import { Plus, Check } from 'lucide-react';
 
 const BADGE_COLORS: Record<string, string> = {
   emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
@@ -17,6 +19,7 @@ const BADGE_COLORS: Record<string, string> = {
 
 export default function RepuestoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const cart = useCotizacionCart();
   const [r, setR] = useState<Repuesto | null | undefined>(undefined);
 
   useEffect(() => {
@@ -123,45 +126,53 @@ export default function RepuestoDetailPage({ params }: { params: Promise<{ id: s
 
           {/* Precio + CTA */}
           <div className="mt-5 p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-glass)]">
-            {precio ? (
-              <div className="flex items-end justify-between flex-wrap gap-3">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">Precio</p>
-                  <p className="font-mono text-[28px] font-bold text-[var(--color-text-primary)] leading-tight">
-                    {precio}
-                  </p>
-                  <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
-                    Precio por {r.unidad || 'unidad'} · ITBMS no incluido
-                  </p>
+            {(() => {
+              const enCarrito = cart.items.find(i => i.key === `repuesto-${r.id}`);
+              const handleAdd = () => cart.addItem({
+                key: `repuesto-${r.id}`,
+                tipo: 'repuesto',
+                ref: r.id,
+                modelo: r.nombre,
+                marca: r.marca,
+                categoria: `Repuesto · ${r.categoria.replace(/_/g, ' ')}`,
+                imagen: r.imagen_url,
+                precio: r.precio_venta || 0,
+              });
+              return (
+                <div className="flex items-end justify-between flex-wrap gap-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">
+                      {precio ? 'Precio' : 'Precio'}
+                    </p>
+                    {precio ? (
+                      <>
+                        <p className="font-mono text-[28px] font-bold text-[var(--color-text-primary)] leading-tight">{precio}</p>
+                        <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
+                          Precio por {r.unidad || 'unidad'} · ITBMS no incluido
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-[15px] font-semibold text-[var(--color-text-primary)] mt-0.5">Cotiza con un asesor</p>
+                        <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">Un ejecutivo te contacta con el precio vigente.</p>
+                      </>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAdd}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 h-11 px-5 rounded-xl text-[13px] font-semibold transition-all',
+                      enCarrito
+                        ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                        : 'bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white hover:shadow-[0_0_20px_rgba(232,130,28,0.35)]'
+                    )}
+                  >
+                    {enCarrito ? <><Check size={13} />Agregar otra (tienes {enCarrito.cantidad})</> : <><Plus size={13} />Agregar a la cotización</>}
+                  </button>
                 </div>
-                <Link
-                  href={`/cotizar?repuesto=${r.sku || r.id}&nombre=${encodeURIComponent(r.nombre)}`}
-                  className="inline-flex items-center gap-1.5 h-11 px-5 rounded-xl bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold hover:shadow-[0_0_20px_rgba(232,130,28,0.35)] transition-all"
-                >
-                  Cotizar ahora
-                  <ArrowRight size={13} />
-                </Link>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">Precio</p>
-                  <p className="text-[15px] font-semibold text-[var(--color-text-primary)] mt-0.5">
-                    Cotiza con un asesor
-                  </p>
-                  <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
-                    Un ejecutivo te contacta con el precio vigente.
-                  </p>
-                </div>
-                <Link
-                  href={`/cotizar?repuesto=${r.sku || r.id}&nombre=${encodeURIComponent(r.nombre)}`}
-                  className="inline-flex items-center gap-1.5 h-11 px-5 rounded-xl bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold hover:shadow-[0_0_20px_rgba(232,130,28,0.35)] transition-all"
-                >
-                  Solicitar cotización
-                  <ArrowRight size={13} />
-                </Link>
-              </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* Descripcion */}
