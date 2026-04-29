@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeft, Check, Plus, Minus, Zap, ArrowRight, ChevronDown } from 'lucide-react';
-import { storeProducts, accesoriosParaCategoria, periodoLabels, type Modalidad, type PeriodoAlquiler, type StoreProduct, type Accesorio } from '@/lib/store-data';
+import { storeProducts, accesoriosParaCategoria, periodoLabels, parseModalidad, parsePeriodoAlquiler, type Modalidad, type PeriodoAlquiler, type StoreProduct, type Accesorio } from '@/lib/store-data';
 import { fetchProducto } from '@/lib/productos-live';
 import { cn, formatCurrency } from '@/lib/utils';
 import { ProductView } from '@/components/PageView';
@@ -44,9 +44,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     return () => { supabase.removeChannel(channel); };
   }, [id]);
 
-  // Modalidad from URL or default
-  const initialModalidad = (searchParams.get('modalidad') as Modalidad) || 'venta';
-  const initialPeriodo = (searchParams.get('periodo') as PeriodoAlquiler) || '1_ano';
+  // Modalidad from URL — usamos parsers que validan runtime (no sólo cast).
+  // Con `as Modalidad` un `?modalidad=hola` se colaba al state silenciosamente.
+  const initialModalidad = parseModalidad(searchParams.get('modalidad'));
+  const initialPeriodo = parsePeriodoAlquiler(searchParams.get('periodo'));
   const [modalidad, setModalidad] = useState<Modalidad>(initialModalidad);
   const [periodo, setPeriodo] = useState<PeriodoAlquiler>(initialPeriodo);
 

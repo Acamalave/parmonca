@@ -13,10 +13,11 @@ import {
   Sparkles, Layers3, Building2,
   DollarSign, Wallet, CreditCard,
   Hash, MapPin, Phone, Mail, User, FileText, MessageSquare,
-  Info, Trash2, Minus, Plus,
+  Info, Trash2, Minus, Plus, ArrowRight,
 } from 'lucide-react';
 import {
   storeProducts, periodoLabels,
+  parseModalidad, parsePeriodoAlquiler,
   type Modalidad, type PeriodoAlquiler,
 } from '@/lib/store-data';
 import { cn } from '@/lib/utils';
@@ -209,8 +210,10 @@ function CotizarContent() {
   const searchParams = useSearchParams();
   const productoSlug = searchParams.get('producto');
   const cantidadParam = parseInt(searchParams.get('cantidad') || '1');
-  const modalidadParam = (searchParams.get('modalidad') as Modalidad) || 'venta';
-  const periodoParam = (searchParams.get('periodo') as PeriodoAlquiler) || '1_ano';
+  // Validamos runtime (no sólo cast) para que un URL malicioso/typeado mal
+  // no nos meta strings basura al state.
+  const modalidadParam = parseModalidad(searchParams.get('modalidad'));
+  const periodoParam = parsePeriodoAlquiler(searchParams.get('periodo'));
 
   // ── Carrito multi-equipo (visitantes anónimos del landing) ──
   // Si hay items en el carrito, esta página se comporta como "checkout de
@@ -218,6 +221,14 @@ function CotizarContent() {
   // flow legacy ?producto=slug.
   const cart = useCotizacionCart();
   const useCart = cart.items.length > 0;
+
+  // Detección de "vine del carrito pero el carrito está vacío":
+  // pasa cuando alguien guarda el link `/cotizar?desde=carrito` o cuando
+  // el carrito se vacía en otra pestaña. En ese caso no tiene sentido el
+  // wizard — mostramos un fallback que invita a volver al catálogo.
+  const desdeCarrito = searchParams.get('desde') === 'carrito';
+  const carritoVacioInesperado =
+    cart.hydrated && desdeCarrito && !useCart && !productoSlug;
 
   // Producto en vivo desde Supabase; fallback a catálogo estático si
   // todavía no cargó o el slug no existe en la BD.
@@ -408,10 +419,11 @@ function CotizarContent() {
       }, { email, telefono, nombre, empresa });
 
       // Limpiar el carrito tras enviar — la solicitud ya está en marcha.
-      // Guardamos un snapshot antes para que la pantalla de éxito siga
-      // pudiendo mostrar el resumen de equipos enviados.
+      // Guardamos un snapshot DEEP-COPY antes para que la pantalla de éxito
+      // siga pudiendo mostrar el resumen de equipos enviados (si pasamos
+      // la referencia, el clear inmediato vaciaría también el snapshot).
       if (useCart) {
-        setEnviados(cart.items);
+        setEnviados([...cart.items]);
         cart.clear();
       }
 
@@ -432,6 +444,37 @@ function CotizarContent() {
   const whatsappMsg = encodeURIComponent(
     `Hola PARMONCA, acabo de enviar una solicitud de cotización por ${equipoLabel}. Me gustaría más información.`
   );
+
+  // ────────── Carrito vacío inesperado ──────────
+  if (carritoVacioInesperado) {
+    return (
+      <div className="max-w-md mx-auto py-16 px-4 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] flex items-center justify-center mx-auto mb-5">
+          <Package size={28} className="text-[var(--color-text-muted)]" />
+        </div>
+        <h1 className="font-display text-xl font-bold text-[var(--color-text-primary)] mb-1.5">Tu solicitud está vacía</h1>
+        <p className="text-[13px] text-[var(--color-text-secondary)] mb-6 leading-relaxed">
+          Para pedir cotización formal necesitas agregar al menos un equipo o repuesto.
+          Si vaciaste el carrito en otra pestaña, vuelve al catálogo y selecciona los equipos que te interesan.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2 justify-center">
+          <Link
+            href="/productos"
+            className="inline-flex items-center justify-center gap-1.5 h-11 px-5 rounded-full bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white font-semibold text-[13px] active:scale-[0.97] transition-all"
+          >
+            Ver maquinaria
+            <ArrowRight size={14} />
+          </Link>
+          <Link
+            href="/productos#repuestos"
+            className="inline-flex items-center justify-center gap-1.5 h-11 px-5 rounded-full border border-[var(--color-border)] text-[var(--color-text-secondary)] font-semibold text-[13px] hover:bg-[var(--color-surface-hover)] transition-all"
+          >
+            Ver repuestos
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // ────────── Success screen ──────────
   if (sent) {

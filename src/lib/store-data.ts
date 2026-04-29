@@ -74,6 +74,21 @@ export const periodoLabels: Record<PeriodoAlquiler, string> = {
 /** Periodos disponibles en el orden que se muestran en los pickers. */
 export const periodosAlquiler: PeriodoAlquiler[] = ['1_ano', '2_anos', '3_anos', '5_anos'];
 
+/**
+ * Parsers seguros para los enums que llegan vía URL params.
+ * Hacer `searchParams.get('modalidad') as Modalidad` es sólo un cast a
+ * nivel de tipos: si alguien abre `?modalidad=hola`, ese string corrupto
+ * se mete al state sin que TypeScript lo detecte. Estos helpers validan
+ * en runtime y caen al default cuando el valor no está en el union.
+ */
+export function parseModalidad(v: string | null | undefined, fallback: Modalidad = 'venta'): Modalidad {
+  return v === 'venta' || v === 'alquiler' ? v : fallback;
+}
+
+export function parsePeriodoAlquiler(v: string | null | undefined, fallback: PeriodoAlquiler = '1_ano'): PeriodoAlquiler {
+  return periodosAlquiler.includes(v as PeriodoAlquiler) ? (v as PeriodoAlquiler) : fallback;
+}
+
 export const storeProducts: StoreProduct[] = [
   {
     id: '1',

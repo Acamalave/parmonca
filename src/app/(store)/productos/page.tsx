@@ -88,7 +88,8 @@ export default function ProductosPage() {
     return liveProducts.filter(p => {
       if (!productoEnGrupo(p, filterGrupo)) return false;
       if (filterMarca !== 'todas' && p.marca !== filterMarca) return false;
-      if (q && !p.modelo.toLowerCase().includes(q) && !p.marca.toLowerCase().includes(q)) return false;
+      // marca puede ser null (productos sin marca asignada) — evita crash en buscador
+      if (q && !p.modelo.toLowerCase().includes(q) && !(p.marca?.toLowerCase().includes(q))) return false;
       return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

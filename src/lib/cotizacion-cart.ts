@@ -107,25 +107,30 @@ export function useCotizacionCart() {
   const items = hydrated ? state.items : [];
 
   const addItem = useCallback((item: Omit<CartItem, 'cantidad'>, cantidad = 1) => {
+    // Sanitización: cantidad mínima 1 entero, precio no-negativo y finito.
+    const safeCantidad = Math.max(1, Math.floor(Number.isFinite(cantidad) ? cantidad : 1));
+    const safePrecio = Number.isFinite(item.precio) && item.precio >= 0 ? item.precio : 0;
+    const safeItem = { ...item, precio: safePrecio };
     setState(prev => {
-      const existing = prev.items.find(i => i.key === item.key);
+      const existing = prev.items.find(i => i.key === safeItem.key);
       if (existing) {
         return {
           items: prev.items.map(i =>
-            i.key === item.key ? { ...i, cantidad: i.cantidad + cantidad } : i
+            i.key === safeItem.key ? { ...i, cantidad: i.cantidad + safeCantidad } : i
           ),
         };
       }
-      return { items: [...prev.items, { ...item, cantidad }] };
+      return { items: [...prev.items, { ...safeItem, cantidad: safeCantidad }] };
     });
   }, []);
 
   const setCantidad = useCallback((key: string, cantidad: number) => {
-    if (cantidad <= 0) {
+    const safe = Math.floor(Number.isFinite(cantidad) ? cantidad : 0);
+    if (safe <= 0) {
       setState(prev => ({ items: prev.items.filter(i => i.key !== key) }));
     } else {
       setState(prev => ({
-        items: prev.items.map(i => i.key === key ? { ...i, cantidad } : i),
+        items: prev.items.map(i => i.key === key ? { ...i, cantidad: safe } : i),
       }));
     }
   }, []);
@@ -149,5 +154,8 @@ export function useCotizacionCart() {
     setCantidad,
     removeItem,
     clear,
+    /** false en SSR + primer render del cliente; true tras montar.
+     *  Útil para distinguir "carrito todavía no se sabe" de "carrito vacío". */
+    hydrated,
   };
 }

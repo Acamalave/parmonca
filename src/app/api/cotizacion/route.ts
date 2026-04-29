@@ -211,6 +211,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Sanitización numérica defensiva: evitamos persistir totales
+    // negativos, NaN o cantidades absurdas que distorsionen reportes.
+    const safeNum = (v: unknown, min = 0) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n >= min ? n : min;
+    };
+    body.subtotal = safeNum(body.subtotal);
+    body.impuesto = safeNum(body.impuesto);
+    body.total = safeNum(body.total);
+    body.cantidad = Math.max(1, Math.floor(safeNum(body.cantidad, 1)));
+
+    // Sanitiza cada line item (precios y cantidades) para que la BD
+    // y el PDF no se ensucien con valores raros.
+    if (Array.isArray(body.accesorios)) {
+      body.accesorios = body.accesorios.map(a => ({
+        ...a,
+        cantidad: a.cantidad !== undefined ? Math.max(1, Math.floor(safeNum(a.cantidad, 1))) : a.cantidad,
+        precio: a.precio !== undefined ? safeNum(a.precio) : a.precio,
+        precio_unitario: a.precio_unitario !== undefined ? safeNum(a.precio_unitario) : a.precio_unitario,
+        precio_total: a.precio_total !== undefined ? safeNum(a.precio_total) : a.precio_total,
+      }));
+    }
+
     const modalidadLabel = body.modalidad === 'alquiler'
       ? `Alquiler${body.periodo ? ` (${body.periodo})` : ''}`
       : 'Compra';
