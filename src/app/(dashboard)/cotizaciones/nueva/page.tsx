@@ -11,6 +11,7 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency, cn } from '@/lib/utils';
 import { periodoLabels, type PeriodoAlquiler } from '@/lib/store-data';
+import { useProfile } from '@/lib/supabase/use-profile';
 
 // ────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -143,6 +144,10 @@ const precioActivo = (item: ItemCatalogo, modalidad: 'venta' | 'alquiler', perio
 
 export default function NuevaCotizacionPage() {
   const supabase = useMemo(() => createClient(), []);
+  // Identidad del admin que crea la cotización: la auto-asignamos a él
+  // mismo (puede reasignar después desde el detalle si era para otro
+  // vendedor). Antes la cotización quedaba sin dueño y caía al pool.
+  const { profile } = useProfile();
   const router = useRouter();
 
   const [clientes, setClientes] = useState<ClienteRow[]>([]);
@@ -331,6 +336,9 @@ export default function NuevaCotizacionPage() {
       p_impuesto: impuesto,
       p_total: total,
       p_origen: 'manual',
+      // Auto-asignar al admin que crea la cotización. Si era para otro
+      // vendedor, se cambia con el dropdown de asignación en el detalle.
+      p_asignado_a: profile?.id || null,
     });
 
     if (rpcErr) {

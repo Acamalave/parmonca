@@ -3,10 +3,12 @@
 import { use, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Calendar, User, Building2, Mail, Phone, MapPin, Package, Factory, Wallet, StickyNote, MessageSquare, Activity, Eye, Filter, HelpCircle, Zap, FileText, Receipt } from 'lucide-react';
+import { ArrowLeft, Calendar, User, Building2, Mail, Phone, MapPin, Package, Factory, Wallet, StickyNote, MessageSquare, Activity, Eye, Filter, HelpCircle, Zap, FileText, Receipt, UserCheck, Flame } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils';
 import { periodoLabels, type PeriodoAlquiler } from '@/lib/store-data';
+import { useProfile } from '@/lib/supabase/use-profile';
+import { isAdmin } from '@/lib/supabase/roles';
 
 const AMBIENTE_LABELS: Record<string, string> = {
   interior: 'Interior (almacén, nave)',
@@ -73,11 +75,14 @@ type CotizacionDetail = {
   estado: 'nueva' | 'contactado' | 'cotizado' | 'negociacion' | 'ganada' | 'perdida';
   etapa_pipeline: string;
   origen: string;
+  asignado_a: string | null;
   notas: string | null;
   device_id: string | null;
   created_at: string;
   updated_at: string;
 };
+
+type AsignableProfile = { id: string; nombre: string | null; email: string; rol: string };
 
 type Visitante = {
   device_id: string;
@@ -129,6 +134,9 @@ export default function CotizacionDetailPage({ params }: { params: Promise<{ id:
   const [error, setError] = useState<string | null>(null);
   const [visitante, setVisitante] = useState<Visitante | null>(null);
   const [eventos, setEventos] = useState<Evento[]>([]);
+  const [asignables, setAsignables] = useState<AsignableProfile[]>([]);
+  const { profile: currentProfile } = useProfile();
+  const userIsAdmin = isAdmin(currentProfile?.rol);
 
   const loadAll = async () => {
     const { data, error } = await supabase.from('parmonca_cotizaciones').select('*').eq('id', id).single();
@@ -147,6 +155,44 @@ export default function CotizacionDetailPage({ params }: { params: Promise<{ id:
     }
     const { data: nd } = await supabase.from('parmonca_cotizacion_notas').select('*').eq('cotizacion_id', id).order('created_at', { ascending: false });
     if (nd) setNotas(nd);
+  };
+
+  // Carga la lista de asignables sólo si el usuario es admin (para el
+  // dropdown de asignación). Asesores ven sólo el chip de quién está
+  // asignado, no el selector.
+  useEffect(() => {
+    if (!userIsAdmin) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('parmonca_profiles')
+        .select('id, nombre, email, rol')
+        .in('rol', ['asesor', 'gerente', 'super-admin'])
+        .eq('activo', true);
+      if (!cancelled && data) {
+        const order: Record<string, number> = { asesor: 0, gerente: 1, 'super-admin': 2 };
+        const sorted = (data as AsignableProfile[]).sort(
+          (a, b) => (order[a.rol] ?? 99) - (order[b.rol] ?? 99)
+        );
+        setAsignables(sorted);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userIsAdmin, supabase]);
+
+  // Asignar / reasignar / desasignar (sólo admin). El check de rol también
+  // vive dentro de la RPC parmonca_asignar_lead — esto es UX.
+  const asignarA = async (vendedorId: string | null) => {
+    if (!cot) return;
+    setSaving(true);
+    setError(null);
+    const { error } = await supabase.rpc('parmonca_asignar_lead', {
+      p_cotizacion_id: cot.id,
+      p_vendedor_id: vendedorId,
+    });
+    if (error) setError(error.message);
+    else setCot({ ...cot, asignado_a: vendedorId });
+    setSaving(false);
   };
 
   useEffect(() => {
@@ -454,8 +500,55 @@ export default function CotizacionDetailPage({ params }: { params: Promise<{ id:
           </div>
         </div>
 
-        {/* Right: Precios + producto */}
+        {/* Right: Asignación + Precios + producto */}
         <div className="space-y-5">
+          {/* Asignación — admins editan, vendedores solo ven el chip */}
+          <div className="glass rounded-xl p-5">
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)] mb-3 flex items-center gap-1.5">
+              <UserCheck size={11} className="text-[#E8821C]" />
+              Asignación
+            </h2>
+            {userIsAdmin ? (
+              <>
+                <select
+                  value={cot.asignado_a || ''}
+                  onChange={(e) => asignarA(e.target.value || null)}
+                  disabled={saving}
+                  className={`w-full h-10 px-3 rounded-lg border text-[13px] focus:outline-none focus:border-[#E8821C]/40 transition-all disabled:opacity-50 cursor-pointer ${
+                    cot.asignado_a
+                      ? 'bg-[var(--color-surface-glass)] border-[var(--color-border)] text-[var(--color-text-primary)]'
+                      : 'bg-[#E8821C]/[0.06] border-[#E8821C]/30 text-[#E8821C]'
+                  }`}
+                >
+                  <option value="">— Sin asignar (devolver al pool) —</option>
+                  {asignables.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre || p.email.split('@')[0]}
+                      {p.rol !== 'asesor' ? ` · ${p.rol === 'super-admin' ? 'admin' : p.rol}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-[var(--color-text-muted)] mt-2 leading-snug">
+                  {cot.asignado_a
+                    ? 'Esta cotización aparece en "Mis cotizaciones" del vendedor seleccionado.'
+                    : 'Sin asignar: cualquier vendedor puede tomarlo desde "Leads disponibles".'}
+                </p>
+              </>
+            ) : (
+              cot.asignado_a ? (
+                <span className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] w-full">
+                  <User size={13} className="text-[var(--color-text-muted)]" />
+                  Asignado{cot.asignado_a === currentProfile?.id ? ' a ti' : ''}
+                </span>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#E8821C]/[0.06] border border-[#E8821C]/25 text-[13px] text-[#E8821C]">
+                  <Flame size={13} />
+                  Lead disponible — tómalo desde la lista
+                </div>
+              )
+            )}
+          </div>
+
           <div className="glass rounded-xl p-5">
             {(() => {
               // Detecta el formato: cotizaciones nuevas vienen con line items

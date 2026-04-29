@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Search, Download, Sparkles, RefreshCw, Flame, User, Hand, Check } from 'lucide-react';
+import { Search, Download, Sparkles, RefreshCw, Flame, User, Hand, Check, Clock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useProfile } from '@/lib/supabase/use-profile';
 import { isAdmin } from '@/lib/supabase/roles';
@@ -33,7 +33,7 @@ type CotizacionRow = {
   created_at: string;
 };
 
-type ProfileRow = { id: string; nombre: string | null; email: string };
+type ProfileRow = { id: string; nombre: string | null; email: string; rol: string };
 
 const ESTADO_STYLES: Record<CotizacionRow['estado'], string> = {
   nueva: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
@@ -56,6 +56,23 @@ const ESTADO_LABEL: Record<CotizacionRow['estado'], string> = {
 function formatDate(iso: string) {
   const d = new Date(iso);
   return d.toLocaleDateString('es-PA', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+/**
+ * Tiempo transcurrido en formato compacto, pensado para badges de SLA
+ * tipo "lleva 12 min sin tomar". Devuelve también el "nivel" (verde /
+ * amarillo / rojo) según umbrales de urgencia.
+ */
+function tiempoSinTomar(iso: string): { label: string; nivel: 'fresh' | 'warm' | 'hot' } {
+  const minutos = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
+  let label: string;
+  if (minutos < 1) label = 'recién';
+  else if (minutos < 60) label = `${minutos} min`;
+  else if (minutos < 60 * 24) label = `${Math.floor(minutos / 60)} h`;
+  else label = `${Math.floor(minutos / (60 * 24))} d`;
+  // Umbrales: <30 min OK, 30-120 min llama la atención, >2h urgente.
+  const nivel = minutos < 30 ? 'fresh' : minutos < 120 ? 'warm' : 'hot';
+  return { label, nivel };
 }
 
 function exportCSV(rows: CotizacionRow[]) {
@@ -134,12 +151,23 @@ function CotizacionesContent() {
     }
   };
 
+  // Incluimos también gerentes y super-admins porque pueden recibir leads
+  // (la RPC parmonca_asignar_lead lo permite). Los asesores aparecen primero
+  // porque son los destinatarios más comunes.
   const fetchProfiles = async () => {
     const { data } = await supabase
       .from('parmonca_profiles')
-      .select('id, nombre, email')
-      .eq('rol', 'asesor');
-    if (data) setProfiles(data as ProfileRow[]);
+      .select('id, nombre, email, rol')
+      .in('rol', ['asesor', 'gerente', 'super-admin'])
+      .eq('activo', true);
+    if (data) {
+      const sorted = (data as ProfileRow[]).sort((a, b) => {
+        // Asesores primero, luego gerentes, luego super-admins
+        const order: Record<string, number> = { 'asesor': 0, 'gerente': 1, 'super-admin': 2 };
+        return (order[a.rol] ?? 99) - (order[b.rol] ?? 99);
+      });
+      setProfiles(sorted);
+    }
   };
 
   const handleTomarLead = async (id: string) => {
@@ -150,6 +178,18 @@ function CotizacionesContent() {
     } else if (data === 0) {
       setError('Este lead ya fue tomado por otro vendedor.');
     }
+    await fetchRows();
+    setClaiming(null);
+  };
+
+  // Asignación manual por admin: pasa null para devolver al pool.
+  const handleAsignar = async (cotizacionId: string, vendedorId: string | null) => {
+    setClaiming(cotizacionId);
+    const { error } = await supabase.rpc('parmonca_asignar_lead', {
+      p_cotizacion_id: cotizacionId,
+      p_vendedor_id: vendedorId,
+    });
+    if (error) setError(error.message);
     await fetchRows();
     setClaiming(null);
   };
@@ -341,6 +381,7 @@ function CotizacionesContent() {
               {filtered.map((r) => {
                 const assignedName = profileName(r.asignado_a);
                 const isUnassigned = !r.asignado_a;
+                const sla = isUnassigned ? tiempoSinTomar(r.created_at) : null;
                 return (
                 <tr key={r.id} className={`border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-glass)] transition-colors ${isUnassigned && !userIsAdmin ? 'bg-[#E8821C]/[0.03]' : ''}`}>
                   <td className="px-4 py-3">
@@ -350,6 +391,20 @@ function CotizacionesContent() {
                     {isUnassigned && (
                       <span className="ml-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[#E8821C]/10 border border-[#E8821C]/20 text-[9px] font-semibold text-[#E8821C]">
                         <Flame size={9} /> Lead
+                      </span>
+                    )}
+                    {sla && (
+                      <span
+                        className={`ml-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold border ${
+                          sla.nivel === 'hot'
+                            ? 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+                            : sla.nivel === 'warm'
+                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/25'
+                              : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        }`}
+                        title={`Sin asignar desde hace ${sla.label}`}
+                      >
+                        <Clock size={9} /> {sla.label}
                       </span>
                     )}
                   </td>
@@ -368,15 +423,24 @@ function CotizacionesContent() {
                   <td className="px-4 py-3 text-[13px] font-semibold text-[var(--color-text-primary)] text-right">{formatCurrency(r.total)}</td>
                   {userIsAdmin && (
                     <td className="px-4 py-3 text-[12px]">
-                      {assignedName ? (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[var(--color-text-secondary)]">
-                          <User size={10} />{assignedName}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[var(--color-text-muted)] italic">
-                          <Flame size={10} className="text-[#E8821C]" /> sin asignar
-                        </span>
-                      )}
+                      <select
+                        value={r.asignado_a || ''}
+                        onChange={(e) => handleAsignar(r.id, e.target.value || null)}
+                        disabled={claiming === r.id}
+                        className={`h-7 max-w-[150px] px-2 rounded-md border text-[11px] focus:outline-none focus:border-[#E8821C]/40 transition-all disabled:opacity-50 cursor-pointer ${
+                          r.asignado_a
+                            ? 'bg-[var(--color-surface-glass)] border-[var(--color-border)] text-[var(--color-text-secondary)]'
+                            : 'bg-[#E8821C]/[0.06] border-[#E8821C]/25 text-[#E8821C] italic'
+                        }`}
+                        title={assignedName ? `Asignado a ${assignedName}` : 'Sin asignar — elegir vendedor'}
+                      >
+                        <option value="">— sin asignar —</option>
+                        {profiles.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.nombre || p.email.split('@')[0]}{p.rol !== 'asesor' ? ` (${p.rol === 'super-admin' ? 'admin' : p.rol})` : ''}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                   )}
                   <td className="px-4 py-3 text-[13px] text-[var(--color-text-muted)] hidden lg:table-cell">{formatDate(r.created_at)}</td>
