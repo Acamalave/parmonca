@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { UserPlus, Phone, Mail, Target, AlertCircle, Check, Trophy, Eye, EyeOff, Link as LinkIcon, RotateCcw, Copy } from 'lucide-react';
+import { UserPlus, Phone, Mail, Target, AlertCircle, Check, Trophy, Eye, EyeOff, Link as LinkIcon, RotateCcw, Copy, Shield, Crown } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils';
 
@@ -24,6 +24,19 @@ type RankingRow = {
   clientes_asignados: number;
 };
 
+// Perfiles con rol administrativo — no entran al ranking de ventas, pero
+// queremos verlos arriba para gestionar accesos (PIN, link de activación).
+type AdminRow = {
+  id: string;
+  nombre: string | null;
+  email: string;
+  telefono: string | null;
+  rol: 'super-admin' | 'gerente';
+  activo: boolean;
+  avatar_url: string | null;
+  created_at: string;
+};
+
 const SITE_URL =
   typeof window !== 'undefined'
     ? window.location.origin
@@ -37,6 +50,7 @@ function getInitials(nombre: string | null, email: string) {
 export default function EquipoPage() {
   const supabase = useMemo(() => createClient(), []);
   const [rows, setRows] = useState<RankingRow[]>([]);
+  const [admins, setAdmins] = useState<AdminRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -50,8 +64,25 @@ export default function EquipoPage() {
     else setRows((data || []) as RankingRow[]);
   };
 
+  // Lista de super-admins y gerentes (no aparecen en el ranking de ventas).
+  // RLS profiles_read permite a cualquier usuario autenticado leerlos.
+  const fetchAdmins = async () => {
+    const { data, error } = await supabase
+      .from('parmonca_profiles')
+      .select('id, nombre, email, telefono, rol, activo, avatar_url, created_at')
+      .in('rol', ['super-admin', 'gerente'])
+      .eq('activo', true)
+      .order('created_at', { ascending: true });
+    if (error) setError(error.message);
+    else setAdmins((data || []) as AdminRow[]);
+  };
+
+  const refreshAll = async () => {
+    await Promise.all([fetchRanking(), fetchAdmins()]);
+  };
+
   useEffect(() => {
-    fetchRanking().finally(() => setLoading(false));
+    refreshAll().finally(() => setLoading(false));
   }, []); // eslint-disable-line
 
   const maxMontoCerrado = Math.max(1, ...rows.map(r => Number(r.monto_cerrado_mes) || 0));
@@ -65,7 +96,14 @@ export default function EquipoPage() {
         <div>
           <h1 className="font-display text-2xl font-bold text-[var(--color-text-primary)] tracking-tight">Mi Equipo</h1>
           <p className="text-sm text-[var(--color-text-muted)] mt-0.5">
-            {loading ? 'Cargando…' : `${rows.length} ${rows.length === 1 ? 'vendedor' : 'vendedores'} activos`}
+            {loading ? 'Cargando…' : (
+              <>
+                {rows.length} {rows.length === 1 ? 'vendedor' : 'vendedores'}
+                {admins.length > 0 && (
+                  <> · {admins.length} {admins.length === 1 ? 'cuenta administrativa' : 'cuentas administrativas'}</>
+                )}
+              </>
+            )}
           </p>
         </div>
         <button
@@ -103,12 +141,40 @@ export default function EquipoPage() {
         </div>
       )}
 
+      {/* Administración — super-admins y gerentes (no entran al ranking de
+          ventas porque no son vendedores, pero los listamos aparte para
+          gestionar accesos y dejar claro quién más tiene permisos). */}
+      {!loading && admins.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-2.5">
+            <Shield size={14} className="text-[#E8821C]" />
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-muted)]">
+              Administración
+            </h2>
+            <span className="text-[10px] text-[var(--color-text-muted)]">·</span>
+            <span className="text-[10px] text-[var(--color-text-muted)]">
+              Acceso completo al CRM, no entran al ranking de ventas
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            {admins.map(a => (
+              <AdminCard key={a.id} admin={a} onRefresh={refreshAll} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Ranking list */}
       {loading ? (
         <div className="glass rounded-xl p-10 text-center text-[var(--color-text-muted)] text-sm">Cargando…</div>
       ) : rows.length === 0 ? (
         <div className="glass rounded-xl p-10 text-center">
-          <p className="text-[var(--color-text-secondary)] text-sm mb-3">Aún no has agregado vendedores.</p>
+          <p className="text-[var(--color-text-secondary)] text-sm mb-1">
+            {admins.length > 0 ? 'Aún no has agregado vendedores (rol asesor).' : 'Aún no has agregado vendedores.'}
+          </p>
+          <p className="text-[var(--color-text-muted)] text-[12px] mb-3">
+            Los asesores son los que aparecen en el ranking — tienen meta mensual y pipeline.
+          </p>
           <button
             onClick={() => setShowForm(true)}
             className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold"
@@ -189,9 +255,121 @@ export default function EquipoPage() {
       {showForm && (
         <NuevoVendedorModal
           onClose={() => setShowForm(false)}
-          onSuccess={() => { setShowForm(false); fetchRanking(); }}
+          onSuccess={() => { setShowForm(false); refreshAll(); }}
         />
       )}
+    </div>
+  );
+}
+
+// Tarjeta compacta para super-admins / gerentes — sin métricas de venta.
+// Reutiliza los mismos RPCs (parmonca_ver_pin, parmonca_regenerar_token)
+// porque trabajan sobre cualquier perfil, no sólo asesores.
+function AdminCard({ admin, onRefresh }: { admin: AdminRow; onRefresh: () => void }) {
+  const supabase = useMemo(() => createClient(), []);
+  const [pin, setPin] = useState<string | null>(null);
+  const [showPin, setShowPin] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [newLink, setNewLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const isSuperAdmin = admin.rol === 'super-admin';
+  const RoleIcon = isSuperAdmin ? Crown : Shield;
+  const roleLabel = isSuperAdmin ? 'Super Admin' : 'Gerente';
+
+  const fetchPin = async () => {
+    if (pin !== null) { setShowPin(s => !s); return; }
+    setLoading(true);
+    const { data, error } = await supabase.rpc('parmonca_ver_pin', { p_vendedor_id: admin.id });
+    setLoading(false);
+    if (error) { alert('Error al obtener PIN: ' + error.message); return; }
+    setPin(data || 'sin configurar aún');
+    setShowPin(true);
+  };
+
+  const regenerar = async () => {
+    if (!confirm(`Esto invalida el PIN actual de ${admin.nombre || admin.email} y genera un nuevo link. ¿Continuar?`)) return;
+    setLoading(true);
+    const { data, error } = await supabase.rpc('parmonca_regenerar_token', { p_vendedor_id: admin.id });
+    setLoading(false);
+    if (error) { alert('Error: ' + error.message); return; }
+    setNewLink(`${SITE_URL}/activar?token=${data}`);
+    setPin(null);
+    onRefresh();
+  };
+
+  const handleCopyLink = async () => {
+    if (!newLink) return;
+    await navigator.clipboard.writeText(newLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="glass rounded-xl p-4">
+      <div className="flex items-center gap-3">
+        <div className={`relative w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-[13px] ${
+          isSuperAdmin
+            ? 'bg-gradient-to-br from-amber-500 to-amber-600'
+            : 'bg-gradient-to-br from-violet-500 to-violet-700'
+        }`}>
+          {getInitials(admin.nombre, admin.email)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <p className="font-display text-[14px] font-bold text-[var(--color-text-primary)] truncate">
+              {admin.nombre || admin.email.split('@')[0]}
+            </p>
+            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider ${
+              isSuperAdmin
+                ? 'bg-amber-500/10 border border-amber-500/25 text-amber-400'
+                : 'bg-violet-500/10 border border-violet-500/25 text-violet-300'
+            }`}>
+              <RoleIcon size={9} />
+              {roleLabel}
+            </span>
+          </div>
+          <p className="text-[11px] text-[var(--color-text-muted)] truncate">{admin.email}</p>
+          {admin.telefono && (
+            <p className="text-[10px] text-[var(--color-text-muted)] truncate">{admin.telefono}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex flex-wrap items-center gap-2">
+        <button
+          onClick={fetchPin}
+          disabled={loading}
+          className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-[11px] font-medium text-[var(--color-text-secondary)] hover:text-[#E8821C] hover:bg-[var(--color-surface-hover)] transition-colors disabled:opacity-50"
+        >
+          {showPin ? <EyeOff size={12} /> : <Eye size={12} />}
+          {pin === null ? 'Ver PIN' : showPin ? 'Ocultar PIN' : 'Mostrar PIN'}
+        </button>
+        {showPin && pin !== null && (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#E8821C]/10 border border-[#E8821C]/20 font-mono text-[13px] font-bold tracking-widest text-[#E8821C]">
+            {pin || '—'}
+          </span>
+        )}
+        <button
+          onClick={regenerar}
+          disabled={loading}
+          className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-[11px] font-medium text-[var(--color-text-secondary)] hover:text-rose-400 hover:bg-rose-500/10 transition-colors disabled:opacity-50 ml-auto"
+        >
+          <RotateCcw size={12} /> Regenerar link
+        </button>
+        {newLink && (
+          <div className="w-full flex items-center gap-2 mt-1">
+            <p className="text-[10px] font-mono text-[var(--color-text-muted)] break-all flex-1">{newLink}</p>
+            <button
+              onClick={handleCopyLink}
+              className="flex items-center gap-1 h-7 px-2.5 rounded-md bg-[#E8821C]/10 text-[#E8821C] text-[11px] font-semibold"
+            >
+              {copied ? <Check size={11} /> : <Copy size={11} />}
+              {copied ? 'Copiado' : 'Copiar'}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
