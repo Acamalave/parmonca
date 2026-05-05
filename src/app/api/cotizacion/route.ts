@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import React from 'react';
-import { Resend } from 'resend';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { createAnonClient, createAdminClient } from '@/lib/supabase/server';
 import { CotizacionPDF, type CotizacionData, type LineItem } from '@/lib/pdf/CotizacionPDF';
+import { sendMail } from '@/lib/mailer';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
  * Build the PDF buffer for an already-inserted cotización. Looks up the
@@ -532,13 +530,14 @@ export async function POST(request: NextRequest) {
     displayNumero = cotizacionNumero || 'pendiente';
 
     // 2) Generar PDF de la cotización (sólo si la cotización se guardó OK)
-    let pdfAttachment: { filename: string; content: string } | null = null;
+    // Nodemailer acepta Buffer directo — más eficiente que pasar por base64.
+    let pdfAttachment: { filename: string; content: Buffer } | null = null;
     if (cotizacionId) {
       const pdf = await buildCotizacionPDF(cotizacionId);
       if (pdf) {
         pdfAttachment = {
           filename: `${pdf.numero}-PARMONCA.pdf`,
-          content: pdf.buffer.toString('base64'),
+          content: pdf.buffer,
         };
       }
     }
@@ -549,23 +548,42 @@ export async function POST(request: NextRequest) {
     // Reemplaza el placeholder con el número real de la cotización
     const emailHTMLFinal = emailHTML.replaceAll('___NUMERO___', displayNumero);
 
-    // 3) Send email to the customer (using Resend test sender while custom domain is pending)
-    const customerEmail = await resend.emails.send({
-      from: 'PARMONCA <onboarding@resend.dev>',
-      to: ['malave.acacio@gmail.com'], // TODO: change to [body.email] after adding custom domain in Resend
-      subject: `Cotización ${displayNumero}${productoLabel} — PARMONCA`,
-      html: emailHTMLFinal,
-      attachments,
-    });
+    // 3) Enviar correos por Microsoft 365 SMTP. Los envolvemos en try/catch
+    //    individual para que un fallo de email NO bloquee la respuesta al
+    //    cliente — la cotización ya está persistida en BD y el admin la verá
+    //    en /cotizaciones aunque el correo no salga.
+    let customerMessageId: string | null = null;
+    try {
+      const r = await sendMail({
+        to: body.email,
+        subject: `Cotización ${displayNumero}${productoLabel} — PARMONCA`,
+        html: emailHTMLFinal,
+        attachments,
+      });
+      customerMessageId = r.messageId;
+    } catch (mailErr) {
+      console.error('SMTP send to customer failed:', mailErr);
+    }
 
-    // 4) Notify admin
-    await resend.emails.send({
-      from: 'PARMONCA CRM <onboarding@resend.dev>',
-      to: ['malave.acacio@gmail.com'],
-      subject: `[${modalidadLabel}] ${displayNumero} — ${body.nombre}${productoLabel} ($${body.total.toLocaleString()})`,
-      html: emailHTMLFinal,
-      attachments,
-    });
+    // Copia interna para el equipo comercial. Configurable vía env var
+    // MAIL_INTERNAL_COPY (CSV permitido). Si no está, no se manda copia.
+    const internalRecipients = (process.env.MAIL_INTERNAL_COPY || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+    if (internalRecipients.length > 0) {
+      try {
+        await sendMail({
+          fromName: 'PARMONCA CRM',
+          to: internalRecipients,
+          subject: `[${modalidadLabel}] ${displayNumero} — ${body.nombre}${productoLabel} ($${body.total.toLocaleString()})`,
+          html: emailHTMLFinal,
+          attachments,
+        });
+      } catch (mailErr) {
+        console.error('SMTP send internal copy failed:', mailErr);
+      }
+    }
 
     // 4) Notify Slack (if configured) — non-blocking
     if (cotizacionNumero) {
@@ -574,7 +592,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      id: customerEmail.data?.id,
+      id: customerMessageId,
       cotizacionId,
       numero: cotizacionNumero,
     });
