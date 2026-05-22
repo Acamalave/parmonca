@@ -15,6 +15,19 @@ import { track } from '@/lib/visitor';
 import { PageView } from '@/components/PageView';
 import { RepuestosSection } from '@/components/RepuestosSection';
 
+/**
+ * Montacargas destacables en el hero. Sólo equipos con imagen transparente
+ * (-nobg) de calidad, para que el hero nunca se vea vacío. En cada visita se
+ * elige uno al azar (ver heroIdx más abajo). Agregar aquí nuevos equipos con
+ * su PNG sin fondo en /public/images/products los suma a la rotación.
+ */
+const HERO_PRODUCTS = [
+  { marca: 'ANDINO', modelo: 'AEC35', imagen: '/images/products/aec35-hero-nobg.png', precioDesde: 24500 },
+  { marca: 'ANDINO', modelo: 'TAN35D', imagen: '/images/products/tan35d-hero-nobg.png', precioDesde: 22000 },
+  { marca: 'UNILIFT', modelo: 'U20W3Li', imagen: '/images/products/u20w3li-nobg.png', precioDesde: 19800 },
+  { marca: 'UNILIFT', modelo: 'UPRR15Li', imagen: '/images/products/uprr15li-nobg.png', precioDesde: 8500 },
+] as const;
+
 export default function ProductosPage() {
   const cart = useCotizacionCart();
   const [modalidad, setModalidad] = useState<Modalidad>('venta');
@@ -28,6 +41,14 @@ export default function ProductosPage() {
   const [operadores, setOperadores] = useState<'si' | 'no' | ''>('');
   // Wizard step (0-3 for the 4 questions, 4 = recommendation done)
   const [asesorStep, setAsesorStep] = useState(0);
+
+  // Hero: un montacarga distinto en cada visita. Arranca en 0 (igual en SSR
+  // y cliente para no romper la hidratación) y al montar salta a uno al azar.
+  const [heroIdx, setHeroIdx] = useState(0);
+  useEffect(() => {
+    setHeroIdx(Math.floor(Math.random() * HERO_PRODUCTS.length));
+  }, []);
+  const hero = HERO_PRODUCTS[heroIdx];
 
   const recommendation = getRecommendation(industria, ambiente, frecuencia);
   const hasContext = ambiente && industria && frecuencia && plazo;
@@ -174,8 +195,9 @@ export default function ProductosPage() {
               <div className="absolute inset-0 bg-gradient-to-br from-[#E8821C]/[0.06] to-transparent rounded-3xl blur-[60px]" />
               <div className="relative">
                 <Image
-                  src="/images/products/aec35-hero-nobg.png"
-                  alt="Montacarga Eléctrico ANDINO AEC35"
+                  key={hero.imagen}
+                  src={hero.imagen}
+                  alt={`Montacarga ${hero.marca} ${hero.modelo}`}
                   width={600}
                   height={600}
                   className="relative z-10 object-contain w-full h-auto drop-shadow-[0_20px_60px_rgba(232,130,28,0.15)]"
@@ -184,12 +206,12 @@ export default function ProductosPage() {
                 <div className="absolute bottom-4 left-4 right-4 glass rounded-xl p-4 z-20">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-[10px] text-[#E8821C] font-semibold uppercase tracking-wider">ANDINO</p>
-                      <p className="text-[var(--color-text-primary)] font-display font-bold text-lg">AEC35</p>
+                      <p className="text-[10px] text-[#E8821C] font-semibold uppercase tracking-wider">{hero.marca}</p>
+                      <p className="text-[var(--color-text-primary)] font-display font-bold text-lg">{hero.modelo}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-[10px] text-[var(--color-text-muted)]">Desde</p>
-                      <p className="text-[var(--color-text-primary)] font-num font-bold text-lg">$24,500</p>
+                      <p className="text-[var(--color-text-primary)] font-num font-bold text-lg">${hero.precioDesde.toLocaleString('en-US')}</p>
                     </div>
                   </div>
                 </div>
