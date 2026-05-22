@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, ArrowRight, Package, Zap, CheckCircle2, Truck, ShieldCheck, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Zap, CheckCircle2, Truck, ShieldCheck, RefreshCw } from 'lucide-react';
 import { fetchRepuesto, stockBadge, formatPrecio, CATEGORIAS_REPUESTOS, type Repuesto } from '@/lib/repuestos-live';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -76,23 +76,19 @@ export default function RepuestoDetailPage({ params }: { params: Promise<{ id: s
       </Link>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 lg:gap-8">
-        {/* Imagen + badges. Oculta tras el flag SHOW_CATALOG_IMAGES mientras
-            el catálogo no tiene todas las fotos. */}
-        {SHOW_CATALOG_IMAGES && (
+        {/* Imagen + badges. Se muestra sólo si el repuesto tiene foto (y el
+            master switch está activo); si no, la info ocupa todo el ancho. */}
+        {SHOW_CATALOG_IMAGES && r.imagen_url && (
           <div className="lg:col-span-2">
             <div className="relative aspect-square rounded-2xl bg-[var(--color-surface-elevated)] border border-[var(--color-border)] flex items-center justify-center p-8 overflow-hidden">
-              {r.imagen_url ? (
-                <Image
-                  src={r.imagen_url}
-                  alt={r.nombre}
-                  width={480}
-                  height={480}
-                  className="object-contain w-full h-full"
-                  unoptimized
-                />
-              ) : (
-                <Package size={120} className="text-[var(--color-text-muted)]/30" strokeWidth={1} />
-              )}
+              <Image
+                src={r.imagen_url}
+                alt={r.nombre}
+                width={480}
+                height={480}
+                className="object-contain w-full h-full"
+                unoptimized
+              />
               <span className={cn(
                 'absolute top-3 right-3 px-2.5 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wider',
                 BADGE_COLORS[badge.color]
@@ -110,9 +106,9 @@ export default function RepuestoDetailPage({ params }: { params: Promise<{ id: s
         )}
 
         {/* Info principal */}
-        <div className={cn('flex flex-col', SHOW_CATALOG_IMAGES ? 'lg:col-span-3' : 'lg:col-span-5')}>
+        <div className={cn('flex flex-col', SHOW_CATALOG_IMAGES && r.imagen_url ? 'lg:col-span-3' : 'lg:col-span-5')}>
           {/* Sin imagen: fila de chips para no perder marca + stock */}
-          {!SHOW_CATALOG_IMAGES && (
+          {!(SHOW_CATALOG_IMAGES && r.imagen_url) && (
             <div className="flex items-center gap-2 mb-3 flex-wrap">
               {r.marca && (
                 <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20">

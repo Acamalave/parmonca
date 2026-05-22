@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Package, ArrowRight, Zap } from 'lucide-react';
+import { ArrowRight, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchRepuestos, stockBadge, formatPrecio, CATEGORIAS_REPUESTOS, type Repuesto, type CategoriaRepuesto } from '@/lib/repuestos-live';
 import { createClient } from '@/lib/supabase/client';
@@ -130,16 +130,12 @@ export function RepuestosSection() {
                 className="group rounded-2xl overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[#E8821C]/40 hover:shadow-lg transition-all flex flex-col"
               >
                 {/* Imagen + título clickeables — navegan al detalle.
-                    Oculta tras el flag SHOW_CATALOG_IMAGES mientras el
-                    catálogo no tiene todas las fotos. */}
-                {SHOW_CATALOG_IMAGES && (
+                    Se muestra sólo si el producto tiene foto (y el master
+                    switch está activo); si no, la tarjeta va a texto. */}
+                {SHOW_CATALOG_IMAGES && r.imagen_url && (
                   <Link href={`/repuestos/${r.id}`} className="block">
                     <div className="aspect-square bg-[var(--color-surface-elevated)] flex items-center justify-center p-3 relative overflow-hidden">
-                      {r.imagen_url ? (
-                        <Image src={r.imagen_url} alt={r.nombre} width={240} height={240} className="object-contain w-full h-full group-hover:scale-[1.03] transition-transform" unoptimized />
-                      ) : (
-                        <Package size={40} className="text-[var(--color-text-muted)]/40" strokeWidth={1.5} />
-                      )}
+                      <Image src={r.imagen_url} alt={r.nombre} width={240} height={240} className="object-contain w-full h-full group-hover:scale-[1.03] transition-transform" unoptimized />
                       <span className={cn(
                         'absolute top-2 right-2 px-2 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-wider',
                         BADGE_COLORS[badge.color]
@@ -158,7 +154,7 @@ export function RepuestosSection() {
 
                 <div className="p-3.5 flex flex-col flex-1">
                   {/* Sin imagen: fila de chips para no perder marca + stock */}
-                  {!SHOW_CATALOG_IMAGES && (
+                  {!(SHOW_CATALOG_IMAGES && r.imagen_url) && (
                     <div className="flex items-center gap-1.5 mb-2 flex-wrap">
                       {r.marca && (
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[#E8821C]/10 border border-[#E8821C]/20">

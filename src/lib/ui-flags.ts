@@ -3,15 +3,15 @@
  */
 
 /**
- * Mostrar la zona de imagen en las tarjetas/detalle del catálogo público
+ * Master switch para la zona de imagen en el catálogo público
  * (RepuestosSection, /productos, /repuestos/[id]).
  *
- * Lo dejamos en `false` mientras el catálogo no tiene todas las fotos
- * sincronizadas desde Odoo — así las tarjetas se ven limpias y enfocadas en
- * texto en vez de mostrar un placeholder gris vacío.
+ * Con `true`, cada tarjeta decide por sí misma: muestra la imagen SÓLO si el
+ * producto tiene `imagen_url`/`imagen`; si no la tiene, no renderiza la zona
+ * de imagen (no se ve el campo vacío). Así, a medida que el backfill de Odoo
+ * va cargando fotos, van apareciendo solas.
  *
- * El backfill de imágenes corre por cron (ver /api/odoo/sync). Cuando la
- * mayoría de los productos ya tenga `imagen_url`, cambiar esto a `true` para
- * volver a mostrar las imágenes — no requiere ningún otro cambio.
+ * Con `false`, se oculta la zona de imagen en TODO el catálogo (kill-switch
+ * global, p. ej. si las fotos se ven mal y se quiere volver a texto puro).
  */
-export const SHOW_CATALOG_IMAGES = false;
+export const SHOW_CATALOG_IMAGES = true;

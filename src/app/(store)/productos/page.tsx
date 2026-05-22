@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Zap, Shield, Truck, Battery, ChevronRight, Factory, MapPin, Clock, Users, Lightbulb, TrendingDown, Calculator, Search, Package, Boxes, MoveVertical, Grid3x3, Check } from 'lucide-react';
+import { ArrowRight, Zap, Shield, Truck, Battery, ChevronRight, Factory, MapPin, Clock, Users, Lightbulb, TrendingDown, Calculator, Search, Boxes, MoveVertical, Grid3x3, Check } from 'lucide-react';
 import { storeProducts, industriaOptions, ambienteOptions, frecuenciaOptions, plazoOptions, getRecommendation, periodoLabels, type Modalidad, type PeriodoAlquiler, type StoreProduct } from '@/lib/store-data';
 import { fetchActivos } from '@/lib/productos-live';
 import { createClient } from '@/lib/supabase/client';
@@ -690,7 +690,7 @@ export default function ProductosPage() {
                     key={product.slug}
                     className="group relative rounded-2xl overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[#E8821C]/40 hover:shadow-lg transition-all duration-300 flex flex-col"
                   >
-                    {SHOW_CATALOG_IMAGES && product.badge && (
+                    {SHOW_CATALOG_IMAGES && hasImage && product.badge && (
                       <div className="absolute top-2.5 left-2.5 z-10">
                         <span className="px-2 py-0.5 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20 text-[9px] font-bold text-[#E8821C] uppercase tracking-wider">
                           {product.badge}
@@ -705,32 +705,28 @@ export default function ProductosPage() {
                       </div>
                     )}
                     {/* Imagen + título → al detalle.
-                        Oculta tras el flag SHOW_CATALOG_IMAGES mientras el
-                        catálogo no tiene todas las fotos. */}
-                    {SHOW_CATALOG_IMAGES && (
+                        Se muestra sólo si el equipo tiene foto (y el master
+                        switch está activo); si no, la tarjeta va a texto. */}
+                    {SHOW_CATALOG_IMAGES && hasImage && (
                       <Link
                         href={`/productos/${product.slug}?modalidad=${modalidad}${modalidad === 'alquiler' ? `&periodo=${periodo}` : ''}`}
                         className="block"
                       >
                         <div className="relative aspect-square bg-[var(--color-surface-elevated)] flex items-center justify-center p-3 overflow-hidden">
-                          {hasImage ? (
-                            <Image
-                              src={product.imagen}
-                              alt={`${product.marca} ${product.modelo}`}
-                              width={280}
-                              height={280}
-                              className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-500"
-                              unoptimized
-                            />
-                          ) : (
-                            <Package size={40} className="text-[var(--color-text-muted)]/40" strokeWidth={1.5} />
-                          )}
+                          <Image
+                            src={product.imagen}
+                            alt={`${product.marca} ${product.modelo}`}
+                            width={280}
+                            height={280}
+                            className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-500"
+                            unoptimized
+                          />
                         </div>
                       </Link>
                     )}
                     <div className="p-3.5 flex flex-col flex-1">
                       {/* Sin imagen: chip del badge dentro del cuerpo */}
-                      {!SHOW_CATALOG_IMAGES && product.badge && (
+                      {!(SHOW_CATALOG_IMAGES && hasImage) && product.badge && (
                         <span className="self-start mb-2 px-2 py-0.5 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20 text-[9px] font-bold text-[#E8821C] uppercase tracking-wider">
                           {product.badge}
                         </span>
