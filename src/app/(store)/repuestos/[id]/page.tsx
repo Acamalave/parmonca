@@ -8,6 +8,7 @@ import { fetchRepuesto, stockBadge, formatPrecio, CATEGORIAS_REPUESTOS, type Rep
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useCotizacionCart } from '@/lib/cotizacion-cart';
+import { SHOW_CATALOG_IMAGES } from '@/lib/ui-flags';
 import { Plus, Check } from 'lucide-react';
 
 const BADGE_COLORS: Record<string, string> = {
@@ -75,38 +76,58 @@ export default function RepuestoDetailPage({ params }: { params: Promise<{ id: s
       </Link>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 lg:gap-8">
-        {/* Imagen + badges */}
-        <div className="lg:col-span-2">
-          <div className="relative aspect-square rounded-2xl bg-[var(--color-surface-elevated)] border border-[var(--color-border)] flex items-center justify-center p-8 overflow-hidden">
-            {r.imagen_url ? (
-              <Image
-                src={r.imagen_url}
-                alt={r.nombre}
-                width={480}
-                height={480}
-                className="object-contain w-full h-full"
-                unoptimized
-              />
-            ) : (
-              <Package size={120} className="text-[var(--color-text-muted)]/30" strokeWidth={1} />
-            )}
-            <span className={cn(
-              'absolute top-3 right-3 px-2.5 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wider',
-              BADGE_COLORS[badge.color]
-            )}>
-              {badge.label}
-            </span>
-            {r.marca && (
-              <span className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20">
-                <Zap size={10} className="text-[#E8821C]" />
-                <span className="text-[10px] font-bold text-[#E8821C] uppercase tracking-wider">{r.marca}</span>
+        {/* Imagen + badges. Oculta tras el flag SHOW_CATALOG_IMAGES mientras
+            el catálogo no tiene todas las fotos. */}
+        {SHOW_CATALOG_IMAGES && (
+          <div className="lg:col-span-2">
+            <div className="relative aspect-square rounded-2xl bg-[var(--color-surface-elevated)] border border-[var(--color-border)] flex items-center justify-center p-8 overflow-hidden">
+              {r.imagen_url ? (
+                <Image
+                  src={r.imagen_url}
+                  alt={r.nombre}
+                  width={480}
+                  height={480}
+                  className="object-contain w-full h-full"
+                  unoptimized
+                />
+              ) : (
+                <Package size={120} className="text-[var(--color-text-muted)]/30" strokeWidth={1} />
+              )}
+              <span className={cn(
+                'absolute top-3 right-3 px-2.5 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wider',
+                BADGE_COLORS[badge.color]
+              )}>
+                {badge.label}
               </span>
-            )}
+              {r.marca && (
+                <span className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20">
+                  <Zap size={10} className="text-[#E8821C]" />
+                  <span className="text-[10px] font-bold text-[#E8821C] uppercase tracking-wider">{r.marca}</span>
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Info principal */}
-        <div className="lg:col-span-3 flex flex-col">
+        <div className={cn('flex flex-col', SHOW_CATALOG_IMAGES ? 'lg:col-span-3' : 'lg:col-span-5')}>
+          {/* Sin imagen: fila de chips para no perder marca + stock */}
+          {!SHOW_CATALOG_IMAGES && (
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+              {r.marca && (
+                <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20">
+                  <Zap size={10} className="text-[#E8821C]" />
+                  <span className="text-[10px] font-bold text-[#E8821C] uppercase tracking-wider">{r.marca}</span>
+                </span>
+              )}
+              <span className={cn(
+                'px-2.5 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wider',
+                BADGE_COLORS[badge.color]
+              )}>
+                {badge.label}
+              </span>
+            </div>
+          )}
           {categoria && (
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#E8821C] mb-2 flex items-center gap-1.5">
               <span>{categoria.emoji}</span>

@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useCotizacionCart } from '@/lib/cotizacion-cart';
 import { recomendar } from '@/lib/recomendador';
 import { formatCurrency, cn } from '@/lib/utils';
+import { SHOW_CATALOG_IMAGES } from '@/lib/ui-flags';
 import { track } from '@/lib/visitor';
 import { PageView } from '@/components/PageView';
 import { RepuestosSection } from '@/components/RepuestosSection';
@@ -667,7 +668,7 @@ export default function ProductosPage() {
                     key={product.slug}
                     className="group relative rounded-2xl overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[#E8821C]/40 hover:shadow-lg transition-all duration-300 flex flex-col"
                   >
-                    {product.badge && (
+                    {SHOW_CATALOG_IMAGES && product.badge && (
                       <div className="absolute top-2.5 left-2.5 z-10">
                         <span className="px-2 py-0.5 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20 text-[9px] font-bold text-[#E8821C] uppercase tracking-wider">
                           {product.badge}
@@ -681,27 +682,37 @@ export default function ProductosPage() {
                         </span>
                       </div>
                     )}
-                    {/* Imagen + título → al detalle */}
-                    <Link
-                      href={`/productos/${product.slug}?modalidad=${modalidad}${modalidad === 'alquiler' ? `&periodo=${periodo}` : ''}`}
-                      className="block"
-                    >
-                      <div className="relative aspect-square bg-[var(--color-surface-elevated)] flex items-center justify-center p-3 overflow-hidden">
-                        {hasImage ? (
-                          <Image
-                            src={product.imagen}
-                            alt={`${product.marca} ${product.modelo}`}
-                            width={280}
-                            height={280}
-                            className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-500"
-                            unoptimized
-                          />
-                        ) : (
-                          <Package size={40} className="text-[var(--color-text-muted)]/40" strokeWidth={1.5} />
-                        )}
-                      </div>
-                    </Link>
+                    {/* Imagen + título → al detalle.
+                        Oculta tras el flag SHOW_CATALOG_IMAGES mientras el
+                        catálogo no tiene todas las fotos. */}
+                    {SHOW_CATALOG_IMAGES && (
+                      <Link
+                        href={`/productos/${product.slug}?modalidad=${modalidad}${modalidad === 'alquiler' ? `&periodo=${periodo}` : ''}`}
+                        className="block"
+                      >
+                        <div className="relative aspect-square bg-[var(--color-surface-elevated)] flex items-center justify-center p-3 overflow-hidden">
+                          {hasImage ? (
+                            <Image
+                              src={product.imagen}
+                              alt={`${product.marca} ${product.modelo}`}
+                              width={280}
+                              height={280}
+                              className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-500"
+                              unoptimized
+                            />
+                          ) : (
+                            <Package size={40} className="text-[var(--color-text-muted)]/40" strokeWidth={1.5} />
+                          )}
+                        </div>
+                      </Link>
+                    )}
                     <div className="p-3.5 flex flex-col flex-1">
+                      {/* Sin imagen: chip del badge dentro del cuerpo */}
+                      {!SHOW_CATALOG_IMAGES && product.badge && (
+                        <span className="self-start mb-2 px-2 py-0.5 rounded-full bg-[#E8821C]/10 border border-[#E8821C]/20 text-[9px] font-bold text-[#E8821C] uppercase tracking-wider">
+                          {product.badge}
+                        </span>
+                      )}
                       <Link
                         href={`/productos/${product.slug}?modalidad=${modalidad}${modalidad === 'alquiler' ? `&periodo=${periodo}` : ''}`}
                         className="block"

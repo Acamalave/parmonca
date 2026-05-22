@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { fetchRepuestos, stockBadge, formatPrecio, CATEGORIAS_REPUESTOS, type Repuesto, type CategoriaRepuesto } from '@/lib/repuestos-live';
 import { createClient } from '@/lib/supabase/client';
 import { useCotizacionCart } from '@/lib/cotizacion-cart';
+import { SHOW_CATALOG_IMAGES } from '@/lib/ui-flags';
 
 const BADGE_COLORS: Record<string, string> = {
   emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
@@ -128,30 +129,52 @@ export function RepuestosSection() {
                 key={r.id}
                 className="group rounded-2xl overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[#E8821C]/40 hover:shadow-lg transition-all flex flex-col"
               >
-                {/* Imagen + título clickeables — navegan al detalle */}
-                <Link href={`/repuestos/${r.id}`} className="block">
-                  <div className="aspect-square bg-[var(--color-surface-elevated)] flex items-center justify-center p-3 relative overflow-hidden">
-                    {r.imagen_url ? (
-                      <Image src={r.imagen_url} alt={r.nombre} width={240} height={240} className="object-contain w-full h-full group-hover:scale-[1.03] transition-transform" unoptimized />
-                    ) : (
-                      <Package size={40} className="text-[var(--color-text-muted)]/40" strokeWidth={1.5} />
-                    )}
-                    <span className={cn(
-                      'absolute top-2 right-2 px-2 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-wider',
-                      BADGE_COLORS[badge.color]
-                    )}>
-                      {badge.label}
-                    </span>
-                    {r.marca && (
-                      <span className="absolute top-2 left-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[#E8821C]/10 border border-[#E8821C]/20">
-                        <Zap size={8} className="text-[#E8821C]" />
-                        <span className="text-[9px] font-bold text-[#E8821C] uppercase tracking-wider">{r.marca}</span>
+                {/* Imagen + título clickeables — navegan al detalle.
+                    Oculta tras el flag SHOW_CATALOG_IMAGES mientras el
+                    catálogo no tiene todas las fotos. */}
+                {SHOW_CATALOG_IMAGES && (
+                  <Link href={`/repuestos/${r.id}`} className="block">
+                    <div className="aspect-square bg-[var(--color-surface-elevated)] flex items-center justify-center p-3 relative overflow-hidden">
+                      {r.imagen_url ? (
+                        <Image src={r.imagen_url} alt={r.nombre} width={240} height={240} className="object-contain w-full h-full group-hover:scale-[1.03] transition-transform" unoptimized />
+                      ) : (
+                        <Package size={40} className="text-[var(--color-text-muted)]/40" strokeWidth={1.5} />
+                      )}
+                      <span className={cn(
+                        'absolute top-2 right-2 px-2 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-wider',
+                        BADGE_COLORS[badge.color]
+                      )}>
+                        {badge.label}
                       </span>
-                    )}
-                  </div>
-                </Link>
+                      {r.marca && (
+                        <span className="absolute top-2 left-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[#E8821C]/10 border border-[#E8821C]/20">
+                          <Zap size={8} className="text-[#E8821C]" />
+                          <span className="text-[9px] font-bold text-[#E8821C] uppercase tracking-wider">{r.marca}</span>
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                )}
 
                 <div className="p-3.5 flex flex-col flex-1">
+                  {/* Sin imagen: fila de chips para no perder marca + stock */}
+                  {!SHOW_CATALOG_IMAGES && (
+                    <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                      {r.marca && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[#E8821C]/10 border border-[#E8821C]/20">
+                          <Zap size={8} className="text-[#E8821C]" />
+                          <span className="text-[9px] font-bold text-[#E8821C] uppercase tracking-wider">{r.marca}</span>
+                        </span>
+                      )}
+                      <span className={cn(
+                        'px-2 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-wider',
+                        BADGE_COLORS[badge.color]
+                      )}>
+                        {badge.label}
+                      </span>
+                    </div>
+                  )}
+
                   <Link href={`/repuestos/${r.id}`} className="block group-hover:text-[#E8821C] transition-colors">
                     <h3 className="font-display text-[14px] font-bold text-[var(--color-text-primary)] group-hover:text-[#E8821C] leading-tight truncate transition-colors">{r.nombre}</h3>
                   </Link>
