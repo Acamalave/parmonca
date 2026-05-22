@@ -20,14 +20,19 @@ import { OdooClient, ODOO_CATEG_MAP, ODOO_CATEG_IDS } from '@/lib/odoo';
  * Notes:
  *   - We filter by company_id=4 (PARMONCA CORP). Products with company_id=false
  *     (shared across companies) are also included.
- *   - We don't sync images in this MVP — imagen_url is left untouched on update,
- *     and set to a default Odoo URL on first insert (may require auth to load).
+ *   - Images are backfilled lazily: after the metadata upsert, up to
+ *     IMAGE_BACKFILL_BATCH products with NULL imagen_url get their image_512
+ *     fetched individually from Odoo, uploaded to Supabase Storage
+ *     (bucket `parmonca-productos`), and their imagen_url updated.
  */
 
 // Force Node.js runtime (Edge doesn't support the Supabase service-role client
 // pattern nor long-running Odoo RPC loops reliably).
 export const runtime = 'nodejs';
 export const maxDuration = 60;
+
+const IMAGE_BUCKET = 'parmonca-productos';
+const IMAGE_BACKFILL_BATCH = 30;
 
 type OdooProduct = {
   id: number;
@@ -37,10 +42,24 @@ type OdooProduct = {
   qty_available: number;
   description_sale: string | false;
   categ_id: [number, string] | false;
-  image_128: string | false;
   active: boolean;
   company_id: [number, string] | false;
 };
+
+type OdooProductImage = {
+  id: number;
+  image_512: string | false;
+};
+
+// Detect image mime + extension from base64 magic bytes.
+// Odoo serves image_512 as base64 of whatever was uploaded (typically PNG or JPEG).
+function detectImageFormat(b64: string): { mime: string; ext: string } | null {
+  if (b64.startsWith('iVBORw0KGgo')) return { mime: 'image/png', ext: 'png' };
+  if (b64.startsWith('/9j/')) return { mime: 'image/jpeg', ext: 'jpg' };
+  if (b64.startsWith('R0lGOD')) return { mime: 'image/gif', ext: 'gif' };
+  if (b64.startsWith('UklGR')) return { mime: 'image/webp', ext: 'webp' };
+  return null;
+}
 
 async function isAdminCaller(): Promise<boolean> {
   try {
@@ -61,6 +80,105 @@ function isCronCaller(req: NextRequest): boolean {
   if (!secret) return false;
   const auth = req.headers.get('authorization') || '';
   return auth === `Bearer ${secret}`;
+}
+
+/**
+ * Backfill `imagen_url` for up to IMAGE_BACKFILL_BATCH products that don't have
+ * an image yet. Fetches each one's `image_512` from Odoo, uploads to Supabase
+ * Storage, and updates the row. Returns { synced, skipped, errors }.
+ *
+ * Designed to be incremental: each cron run grabs the next batch, so a full
+ * backfill of N products takes ~ceil(N / IMAGE_BACKFILL_BATCH) cron cycles.
+ */
+async function backfillImages(
+  admin: SupabaseClient,
+  client: OdooClient,
+): Promise<{ synced: number; skipped: number; errors: number }> {
+  const result = { synced: 0, skipped: 0, errors: 0 };
+
+  const { data: pending, error: pendingErr } = await admin
+    .from('parmonca_repuestos')
+    .select('odoo_id')
+    .is('imagen_url', null)
+    .not('odoo_id', 'is', null)
+    .limit(IMAGE_BACKFILL_BATCH);
+
+  if (pendingErr) {
+    console.error('Image backfill: cannot list pending rows:', pendingErr);
+    return result;
+  }
+  if (!pending || pending.length === 0) return result;
+
+  const ids = pending.map(r => r.odoo_id as number);
+  let images: OdooProductImage[];
+  try {
+    images = await client.executeKw<OdooProductImage[]>(
+      'product.template',
+      'read',
+      [ids, ['id', 'image_512']],
+    );
+  } catch (err) {
+    console.error('Image backfill: Odoo read failed:', err);
+    result.errors = ids.length;
+    return result;
+  }
+
+  for (const img of images) {
+    if (!img.image_512 || typeof img.image_512 !== 'string') {
+      // No image in Odoo for this product. Skip — leave imagen_url as NULL so
+      // the catalog keeps showing the placeholder, and we don't retry next run.
+      // To re-attempt, an admin can clear the row's last_sync or we can extend
+      // this with a "no_image" sentinel later.
+      result.skipped += 1;
+      continue;
+    }
+    const fmt = detectImageFormat(img.image_512);
+    if (!fmt) {
+      console.warn(`Image backfill: unknown format for odoo_id=${img.id}`);
+      result.skipped += 1;
+      continue;
+    }
+
+    const buffer = Buffer.from(img.image_512, 'base64');
+    const path = `repuestos/${img.id}.${fmt.ext}`;
+
+    const { error: uploadErr } = await admin.storage
+      .from(IMAGE_BUCKET)
+      .upload(path, buffer, {
+        contentType: fmt.mime,
+        upsert: true,
+        cacheControl: '3600',
+      });
+    if (uploadErr) {
+      console.error(`Image backfill: upload failed for odoo_id=${img.id}:`, uploadErr);
+      result.errors += 1;
+      continue;
+    }
+
+    const { data: publicUrlData } = admin.storage
+      .from(IMAGE_BUCKET)
+      .getPublicUrl(path);
+    const publicUrl = publicUrlData?.publicUrl;
+    if (!publicUrl) {
+      console.error(`Image backfill: no public URL for odoo_id=${img.id}`);
+      result.errors += 1;
+      continue;
+    }
+
+    const { error: updateErr } = await admin
+      .from('parmonca_repuestos')
+      .update({ imagen_url: publicUrl })
+      .eq('odoo_id', img.id);
+    if (updateErr) {
+      console.error(`Image backfill: row update failed for odoo_id=${img.id}:`, updateErr);
+      result.errors += 1;
+      continue;
+    }
+
+    result.synced += 1;
+  }
+
+  return result;
 }
 
 async function runSync(byCron: boolean) {
@@ -209,6 +327,9 @@ async function runSync(byCron: boolean) {
       }
     }
 
+    // ── BACKFILL IMAGES (incremental, capped) ───────────────────────
+    const images = await backfillImages(admin, client);
+
     // ── CLOSE LOG ROW (success) ─────────────────────────────────────
     await admin
       .from('parmonca_odoo_sync_log')
@@ -219,11 +340,11 @@ async function runSync(byCron: boolean) {
         repuestos_actualizados: summary.updated,
         repuestos_desactivados: 0,
         error: errorMsg,
-        detalles: { fetched: summary.fetched, errors: summary.errors },
+        detalles: { fetched: summary.fetched, errors: summary.errors, images },
       })
       .eq('id', logId);
 
-    return NextResponse.json({ success: true, logId, ...summary });
+    return NextResponse.json({ success: true, logId, ...summary, images });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('Odoo sync failed:', message);
