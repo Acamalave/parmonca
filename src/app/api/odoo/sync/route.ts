@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient, createClient } from '@/lib/supabase/server';
 import { OdooClient, ODOO_CATEG_MAP, ODOO_CATEG_IDS } from '@/lib/odoo';
@@ -83,23 +84,37 @@ function isCronCaller(req: NextRequest): boolean {
 }
 
 /**
+ * Si el mismo hash aparece en >= GENERIC_HASH_THRESHOLD productos, lo
+ * tratamos como imagen genérica (p. ej. el logo del proveedor que ml.parts
+ * pone por defecto cuando un SKU no tiene foto). En ese caso limpiamos el
+ * imagen_url de todas las apariciones — la tarjeta vuelve a su versión de
+ * texto en vez de mostrar el logo del proveedor.
+ */
+const GENERIC_HASH_THRESHOLD = 3;
+
+/**
  * Backfill `imagen_url` for up to IMAGE_BACKFILL_BATCH products that don't have
- * an image yet. Fetches each one's `image_512` from Odoo, uploads to Supabase
- * Storage, and updates the row. Returns { synced, skipped, errors }.
+ * an image processed yet. Fetches each one's `image_512` from Odoo, hashes
+ * it (md5), uploads to Supabase Storage, updates the row. Auto-detects
+ * generic/placeholder images by tracking hash duplication: if a hash appears
+ * in 3+ products we mark them all as generic (clear imagen_url, keep hash).
  *
- * Designed to be incremental: each cron run grabs the next batch, so a full
- * backfill of N products takes ~ceil(N / IMAGE_BACKFILL_BATCH) cron cycles.
+ * Designed to be incremental: each cron run grabs the next batch.
  */
 async function backfillImages(
   admin: SupabaseClient,
   client: OdooClient,
-): Promise<{ synced: number; skipped: number; errors: number }> {
-  const result = { synced: 0, skipped: 0, errors: 0 };
+): Promise<{ synced: number; skipped: number; generic: number; errors: number }> {
+  const result = { synced: 0, skipped: 0, generic: 0, errors: 0 };
 
+  // "Pending" = nunca procesado: ni imagen_url ni imagen_hash. Los productos
+  // ya marcados como genéricos (imagen_hash set, imagen_url null) no entran
+  // de nuevo aunque cron corra cada 15 min.
   const { data: pending, error: pendingErr } = await admin
     .from('parmonca_repuestos')
     .select('odoo_id')
     .is('imagen_url', null)
+    .is('imagen_hash', null)
     .not('odoo_id', 'is', null)
     .limit(IMAGE_BACKFILL_BATCH);
 
@@ -125,23 +140,51 @@ async function backfillImages(
 
   for (const img of images) {
     if (!img.image_512 || typeof img.image_512 !== 'string') {
-      // No image in Odoo for this product. Skip — leave imagen_url as NULL so
-      // the catalog keeps showing the placeholder, and we don't retry next run.
-      // To re-attempt, an admin can clear the row's last_sync or we can extend
-      // this with a "no_image" sentinel later.
+      // No image in Odoo. Marca con hash vacío para no re-pedir cada cron.
+      const { error: markErr } = await admin
+        .from('parmonca_repuestos')
+        .update({ imagen_hash: 'no_image' })
+        .eq('odoo_id', img.id);
+      if (markErr) console.warn(`Image backfill: mark no_image failed for ${img.id}:`, markErr);
       result.skipped += 1;
       continue;
     }
     const fmt = detectImageFormat(img.image_512);
     if (!fmt) {
       console.warn(`Image backfill: unknown format for odoo_id=${img.id}`);
+      await admin.from('parmonca_repuestos').update({ imagen_hash: 'unknown_format' }).eq('odoo_id', img.id);
       result.skipped += 1;
       continue;
     }
 
     const buffer = Buffer.from(img.image_512, 'base64');
-    const path = `repuestos/${img.id}.${fmt.ext}`;
+    const hash = createHash('md5').update(buffer).digest('hex');
 
+    // ¿Cuántos productos OTRO ya tienen este hash? Si llegamos al umbral,
+    // es el logo del proveedor (o equivalente) → marcamos como genérico
+    // sin subir el archivo, y limpiamos los duplicados ya subidos.
+    const { count: dupCount } = await admin
+      .from('parmonca_repuestos')
+      .select('odoo_id', { count: 'exact', head: true })
+      .eq('imagen_hash', hash)
+      .neq('odoo_id', img.id);
+    const dups = dupCount ?? 0;
+
+    if (dups + 1 >= GENERIC_HASH_THRESHOLD) {
+      // Hash genérico — limpiar a TODOS los que lo comparten y marcar éste.
+      await admin
+        .from('parmonca_repuestos')
+        .update({ imagen_url: null, imagen_hash: hash })
+        .eq('imagen_hash', hash);
+      await admin
+        .from('parmonca_repuestos')
+        .update({ imagen_url: null, imagen_hash: hash })
+        .eq('odoo_id', img.id);
+      result.generic += 1;
+      continue;
+    }
+
+    const path = `repuestos/${img.id}.${fmt.ext}`;
     const { error: uploadErr } = await admin.storage
       .from(IMAGE_BUCKET)
       .upload(path, buffer, {
@@ -167,7 +210,7 @@ async function backfillImages(
 
     const { error: updateErr } = await admin
       .from('parmonca_repuestos')
-      .update({ imagen_url: publicUrl })
+      .update({ imagen_url: publicUrl, imagen_hash: hash })
       .eq('odoo_id', img.id);
     if (updateErr) {
       console.error(`Image backfill: row update failed for odoo_id=${img.id}:`, updateErr);
