@@ -100,6 +100,18 @@ const formatDate = (iso: string) => {
 const LOGO_URL = 'https://parmonca.com/images/logo-dark.png';
 const ISOTIPO_URL = 'https://parmonca.com/images/isotipo.png';
 
+// Origen para prefijar rutas relativas. @react-pdf/renderer intenta leer
+// rutas como "/images/..." desde el filesystem del lambda (donde public/ no
+// existe → ENOENT y la imagen no se incrusta). Convertimos a URL absoluta
+// para que las descargue por HTTP, igual que el logo.
+const SITE_ORIGIN = 'https://parmonca.com';
+function toAbsUrl(src: string | null | undefined): string | undefined {
+  if (!src) return undefined;
+  if (/^(https?:|data:)/i.test(src)) return src;
+  if (src.startsWith('/')) return `${SITE_ORIGIN}${src}`;
+  return src;
+}
+
 // ──────────────────────────────────────────────────────────────────────────
 // Estilos
 // ──────────────────────────────────────────────────────────────────────────
@@ -407,7 +419,10 @@ function PageEquipo({
 
       {/* Imagen + meta */}
       <View style={s.equipoImageWrap}>
-        {item.imagen ? <Image style={s.equipoImage} src={item.imagen} /> : <View style={s.equipoImage} />}
+        {(() => {
+          const imgSrc = toAbsUrl(item.imagen);
+          return imgSrc ? <Image style={s.equipoImage} src={imgSrc} /> : <View style={s.equipoImage} />;
+        })()}
         <View style={s.equipoMeta}>
           <Text style={s.equipoMarca}>{item.marca || ''}</Text>
           <Text style={s.equipoModelo}>{item.modelo}</Text>
