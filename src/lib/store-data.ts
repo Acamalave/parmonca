@@ -303,59 +303,6 @@ export const plazoOptions = [
   { value: 'planificando', label: 'Estoy planificando' },
 ];
 
-export function getRecommendation(
-  industria: string,
-  ambiente: string,
-  frecuencia: string,
-): { product: StoreProduct; modalidad: Modalidad; periodo?: PeriodoAlquiler; reason: string } | null {
-  if (!industria && !ambiente && !frecuencia) return null;
-
-  let bestProduct = storeProducts[0];
-  let bestModalidad: Modalidad = 'venta';
-  let bestPeriodo: PeriodoAlquiler | undefined;
-  let reason = '';
-
-  // Determine best product based on environment
-  if (ambiente === 'exterior') {
-    bestProduct = storeProducts.find(p => p.categoria === 'montacarga-combustion') || storeProducts[1];
-    reason = 'Para operaciones en exterior, el motor diesel ofrece la potencia y resistencia necesaria.';
-  } else if (ambiente === 'interior') {
-    if (frecuencia === '1_turno') {
-      bestProduct = storeProducts.find(p => p.categoria === 'apilador-electrico') || storeProducts[2];
-      reason = 'Para un turno en interior, el apilador eléctrico es compacto y eficiente.';
-    } else {
-      bestProduct = storeProducts.find(p => p.categoria === 'montacarga-electrico') || storeProducts[0];
-      reason = 'Para operaciones intensivas en interior, el montacarga eléctrico ofrece cero emisiones y máxima eficiencia.';
-    }
-  } else {
-    // Mixed
-    if (frecuencia === '3_turnos') {
-      bestProduct = storeProducts[1]; // Diesel for heavy use
-      reason = 'Para operación continua (3 turnos) en ambiente mixto, el diesel ofrece autonomía y potencia sin pausa.';
-    } else {
-      bestProduct = storeProducts[0]; // Electric for mixed moderate
-      reason = 'Para uso mixto de 1 a 2 turnos, el eléctrico Li-Ion es versátil y de bajo costo operativo.';
-    }
-  }
-
-  // Determine modality
-  if (frecuencia === '1_turno') {
-    bestModalidad = 'alquiler';
-    bestPeriodo = '1_ano';
-    reason += ' Con un turno diario, el alquiler optimiza tu inversión inicial.';
-  } else if (frecuencia === '3_turnos') {
-    bestModalidad = 'venta';
-    reason += ' Con 3 turnos (24h/día), la compra es más rentable a largo plazo.';
-  }
-
-  // Industry-specific tweaks
-  if (industria === 'construccion') {
-    bestProduct = storeProducts[1];
-    reason = 'Para construcción, el TAN35D diesel es el más resistente para terrenos irregulares y cargas pesadas.';
-  } else if (industria === 'farmaceutica') {
-    bestProduct = storeProducts[0];
-    reason = 'Para farmacéutica, el eléctrico es ideal: cero emisiones, operación silenciosa y limpia.';
-  }
-
-  return { product: bestProduct, modalidad: bestModalidad, periodo: bestPeriodo, reason };
-}
+// getRecommendation() vivía aquí — heurística vieja basada en 3 productos
+// estáticos. Hoy el wizard usa `recomendar()` en src/lib/recomendador.ts
+// contra el catálogo live de Supabase, así que esta función quedó muerta.

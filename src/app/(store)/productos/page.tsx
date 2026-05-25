@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, Zap, Shield, Truck, Battery, ChevronRight, Factory, MapPin, Clock, Users, Lightbulb, TrendingDown, Calculator, Search, Package, Boxes, MoveVertical, Grid3x3, Check } from 'lucide-react';
-import { storeProducts, industriaOptions, ambienteOptions, frecuenciaOptions, plazoOptions, getRecommendation, periodoLabels, type Modalidad, type PeriodoAlquiler, type StoreProduct } from '@/lib/store-data';
+import { storeProducts, industriaOptions, ambienteOptions, frecuenciaOptions, plazoOptions, periodoLabels, type Modalidad, type PeriodoAlquiler, type StoreProduct } from '@/lib/store-data';
 import { fetchActivos } from '@/lib/productos-live';
 import { createClient } from '@/lib/supabase/client';
 import { useCotizacionCart } from '@/lib/cotizacion-cart';
@@ -49,7 +49,6 @@ export default function ProductosPage() {
   }, []);
   const hero = HERO_PRODUCTS[heroIdx];
 
-  const recommendation = getRecommendation(industria, ambiente, frecuencia);
   const hasContext = ambiente && industria && frecuencia && plazo;
 
   // Live catalog (all active products from Supabase)
@@ -390,15 +389,27 @@ export default function ProductosPage() {
           })()}
 
           {/* Recomendaciones inteligentes — top 3 con razones */}
-          {hasContext && recomendaciones.length > 0 && (
+          {hasContext && recomendaciones.length > 0 && (() => {
+            // Si TODAS las recomendaciones son best-effort, mostramos un
+            // encabezado distinto ("opciones más cercanas") y dejamos en
+            // claro que un asesor puede refinar. Si alguna no es best-effort,
+            // tratamos el bloque como match fuerte normal.
+            const todasBestEffort = recomendaciones.every(r => r.bestEffort);
+            return (
             <div className="mt-10">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-lg bg-[#E8821C]/10 flex items-center justify-center">
                   <Lightbulb size={16} className="text-[#E8821C]" />
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#E8821C]">Lo que recomendamos para ti</p>
-                  <p className="text-[12px] text-[var(--color-text-muted)]">{recomendaciones.length} {recomendaciones.length === 1 ? 'opción' : 'opciones'} ajustadas a tu operación</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#E8821C]">
+                    {todasBestEffort ? 'Lo más cercano a tu operación' : 'Lo que recomendamos para ti'}
+                  </p>
+                  <p className="text-[12px] text-[var(--color-text-muted)]">
+                    {todasBestEffort
+                      ? 'Ningún equipo encaja perfecto — estas son las opciones más afines. Un asesor puede afinarlas.'
+                      : `${recomendaciones.length} ${recomendaciones.length === 1 ? 'opción' : 'opciones'} ajustadas a tu operación`}
+                  </p>
                 </div>
               </div>
 
@@ -479,9 +490,10 @@ export default function ProductosPage() {
                 Estas recomendaciones se basan en tu ambiente, industria y frecuencia de uso. Un asesor puede afinarlas con datos adicionales.
               </p>
             </div>
-          )}
+            );
+          })()}
 
-          {/* Sin recomendaciones (umbral no alcanzado) */}
+          {/* Sin recomendaciones (caso extremo: nada con score positivo) */}
           {hasContext && recomendaciones.length === 0 && liveProducts.length > 0 && (
             <div className="mt-8 rounded-2xl p-6 border border-[var(--color-border)] bg-[var(--color-surface-glass)] text-center">
               <p className="text-[14px] text-[var(--color-text-secondary)]">

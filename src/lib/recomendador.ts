@@ -31,6 +31,13 @@ export type Recomendacion = {
   reasons: string[];   // 2–3 frases cortas justificando
   badge: string;       // etiqueta visible
   marca_destacada: boolean;
+  /**
+   * true cuando ningún producto alcanzó el umbral de match fuerte y devolvemos
+   * los más cercanos como "mejor esfuerzo". El frontend usa esto para mostrar
+   * un mensaje suave ("Estas son las opciones más cercanas, confirma con un
+   * asesor") en lugar de las razones positivas habituales.
+   */
+  bestEffort?: boolean;
 };
 
 const ELECTRIC_HINTS = ['eléctric', 'electric', 'li-ion', 'litio'];
@@ -152,15 +159,17 @@ function scoreOne(p: StoreProduct, a: AsesorAnswers): { score: number; reasons: 
   }
 
   // ── BRAND PRIORITY ──
-  // UNILIFT es la marca propia de PARMONCA — siempre arriba
+  // UNILIFT es la marca propia de PARMONCA — sigue arriba en empates, pero
+  // sin aplastar el match real de ambiente/industria/frecuencia (antes era
+  // +60 y dominaba el ranking aunque el match fuera flojo).
   if (p.marca === 'UNILIFT') {
-    score += 60;
+    score += 25;
     reasons.unshift('UNILIFT: marca propia de PARMONCA, soporte y repuestos directos');
   } else if (p.marca === 'ANDINO' || p.marca === 'MEGALIFT') {
-    score += 28;
+    score += 15;
     reasons.push(`${p.marca}: distribución oficial PARMONCA con servicio postventa local`);
   } else if (['DOOSAN', 'TOYOTA', 'CROWN', 'CLARK'].includes(p.marca)) {
-    score += 8;
+    score += 6;
   }
 
   // ── Calidad de presentación: productos con imagen + capacidad ganan ──
@@ -189,8 +198,15 @@ function pickBadge(p: StoreProduct, a: AsesorAnswers): string {
 
 /**
  * Devuelve hasta `topN` recomendaciones ordenadas por score.
- * Solo incluye productos cuyo score es positivo (match real).
- * Si no hay respuestas suficientes, devuelve []
+ *
+ * Política:
+ * 1. Necesita al menos 2 respuestas (ambiente, industria o frecuencia).
+ * 2. Prioriza productos que superen el umbral de "match fuerte"
+ *    (score > 30 con ≥ 2 razones).
+ * 3. Si NADIE pasa el umbral, devuelve los Top-N por score igual y los
+ *    marca con bestEffort=true para que el frontend muestre un mensaje
+ *    suave ("opciones más cercanas") en lugar de pantalla vacía.
+ * 4. Diversidad: nunca repite slug.
  */
 export function recomendar(
   products: StoreProduct[],
@@ -200,28 +216,44 @@ export function recomendar(
   const respondidas = [answers.ambiente, answers.industria, answers.frecuencia].filter(Boolean).length;
   if (respondidas < 2) return [];
 
-  const scored = products
-    .map(p => {
-      const { score, reasons } = scoreOne(p, answers);
-      return {
-        product: p,
-        score,
-        reasons,
-        badge: pickBadge(p, answers),
-        marca_destacada: p.marca === 'UNILIFT',
-      } as Recomendacion;
-    })
-    .filter(r => r.score > 30 && r.reasons.length >= 2) // umbral mínimo de match real
-    .sort((a, b) => {
-      // UNILIFT siempre primero (si hay alguno en el top)
-      if (a.marca_destacada !== b.marca_destacada) return a.marca_destacada ? -1 : 1;
-      return b.score - a.score;
-    });
+  const allScored: Recomendacion[] = products.map(p => {
+    const { score, reasons } = scoreOne(p, answers);
+    return {
+      product: p,
+      score,
+      reasons,
+      badge: pickBadge(p, answers),
+      marca_destacada: p.marca === 'UNILIFT',
+    };
+  });
 
-  // Diversidad: si los 3 primeros son del mismo modelo/marca, mezcla un poco
+  const sortByMatch = (a: Recomendacion, b: Recomendacion) => {
+    // UNILIFT primero en empates fuertes
+    if (a.marca_destacada !== b.marca_destacada) return a.marca_destacada ? -1 : 1;
+    return b.score - a.score;
+  };
+
+  // Umbral de "match fuerte"
+  const fuertes = allScored
+    .filter(r => r.score > 30 && r.reasons.length >= 2)
+    .sort(sortByMatch);
+
+  // Fallback best-effort: si nadie llegó al umbral, devolvemos los mejores
+  // disponibles (con score positivo) marcados para que el UI lo comunique.
+  // No mezclamos fuertes con best-effort en el mismo resultado para no
+  // confundir al usuario.
+  const useBestEffort = fuertes.length === 0;
+  const pool = useBestEffort
+    ? allScored
+        .filter(r => r.score > 0) // descartamos los que activamente NO encajan
+        .sort(sortByMatch)
+        .map(r => ({ ...r, bestEffort: true }))
+    : fuertes;
+
+  // Diversidad: nunca repite el mismo slug
   const result: Recomendacion[] = [];
   const slugsVistos = new Set<string>();
-  for (const r of scored) {
+  for (const r of pool) {
     if (slugsVistos.has(r.product.slug)) continue;
     result.push(r);
     slugsVistos.add(r.product.slug);
