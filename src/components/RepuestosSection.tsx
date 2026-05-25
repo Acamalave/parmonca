@@ -120,14 +120,18 @@ export function RepuestosSection() {
           Sin repuestos en esta categoría por ahora.
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        // Masonry vía CSS columns: tarjetas con foto (más altas) y sin foto
+        // (más cortas) se empacan eficientemente sin huecos, dos cortas
+        // caben al lado de una larga. break-inside-avoid evita cortar una
+        // tarjeta entre columnas.
+        <div className="columns-2 md:columns-3 lg:columns-4 gap-3">
           {visible.map((r) => {
             const badge = stockBadge(r);
             const precio = formatPrecio(r);
             return (
               <div
                 key={r.id}
-                className="group rounded-2xl overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[#E8821C]/40 hover:shadow-lg transition-all flex flex-col"
+                className="break-inside-avoid mb-3 group rounded-2xl overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[#E8821C]/40 hover:shadow-lg transition-all flex flex-col"
               >
                 {/* Imagen + título clickeables — navegan al detalle.
                     Se muestra sólo si el producto tiene foto (y el master
