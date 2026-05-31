@@ -694,6 +694,7 @@ export default function ProductosPage() {
                     categoria: product.categoriaLabel || null,
                     imagen: product.imagen || null,
                     precio: getDisplayPrice(product),
+                    moneda: 'USD',
                   });
                 };
                 return (

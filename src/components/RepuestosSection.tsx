@@ -22,7 +22,7 @@ const PAGE_SIZE = 10;
 
 export function RepuestosSection() {
   const cart = useCotizacionCart();
-  const { pais } = usePais();
+  const { pais, info } = usePais();
   const [items, setItems] = useState<Repuesto[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<CategoriaRepuesto | 'todos'>('todos');
@@ -62,7 +62,40 @@ export function RepuestosSection() {
     setVisibleCount(PAGE_SIZE);
   };
 
-  if (!loading && items.length === 0) return null;
+  if (!loading && items.length === 0) {
+    // Panamá debería tener catálogo; si por alguna razón viene vacío, ocultamos
+    // la sección como antes. En otros países sin inventario cargado aún (p. ej.
+    // Costa Rica antes de conectar su instancia de Odoo) mostramos un mensaje
+    // claro en vez de dejar la sección en blanco o desaparecida.
+    if (pais === 'PA') return null;
+    return (
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-20">
+        <div className="mb-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#E8821C] mb-3">Repuestos y consumibles</p>
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-[var(--color-text-primary)] tracking-tight">
+            Repuestos originales con stock real
+          </h2>
+        </div>
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-glass)] p-10 text-center">
+          <div className="text-3xl mb-3">{info.bandera}</div>
+          <p className="text-[15px] font-semibold text-[var(--color-text-primary)]">
+            Catálogo de repuestos para {info.nombre}, muy pronto
+          </p>
+          <p className="text-[13px] text-[var(--color-text-secondary)] mt-2 max-w-md mx-auto">
+            Estamos conectando el inventario y los precios de {info.nombre}. Mientras tanto, escríbenos
+            y un asesor te ayuda con disponibilidad y cotización.
+          </p>
+          <Link
+            href="/cotizar"
+            className="inline-flex items-center gap-1.5 mt-5 h-10 px-5 rounded-full bg-gradient-to-r from-[#E8821C] to-[#C96A10] text-white text-[13px] font-semibold transition-all hover:shadow-[0_0_20px_#E8821C40] active:scale-[0.97]"
+          >
+            Solicitar cotización
+            <ArrowRight size={13} />
+          </Link>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 py-20">
@@ -210,6 +243,7 @@ export function RepuestosSection() {
                           categoria: `Repuesto · ${r.categoria.replace(/_/g, ' ')}`,
                           imagen: r.imagen_url,
                           precio: r.precio_venta || 0,
+                          moneda: r.moneda,
                         })}
                         className={cn(
                           !precio && 'mt-3 pt-2.5 border-t border-[var(--color-border)]',

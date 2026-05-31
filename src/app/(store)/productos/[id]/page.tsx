@@ -195,6 +195,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                             categoria: product.categoriaLabel,
                             imagen: product.imagen || null,
                             precio,
+                            moneda: 'USD',
                           }, cantidad)}
                           className={cn(
                             'inline-flex items-center gap-1.5 h-10 px-5 rounded-full text-[13px] font-semibold transition-all',
