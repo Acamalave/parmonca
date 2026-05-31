@@ -223,9 +223,24 @@ muestra catálogo, stock y precio según la ubicación del visitante.
    npx vercel env add ODOO_CR_CATEG_MAP production   # pegar el JSON, ej: {"31":"llantas","48":"asientos"}
    ```
 
-4. **Redesplegar** (`npx vercel --prod`) y disparar el sync manual desde el panel
+4. **Eliminar el índice único interino** (¡crítico!). Mientras el código nuevo no
+   estaba desplegado, se agregó un `UNIQUE(odoo_id)` global a `parmonca_repuestos`
+   para que el cron del código viejo no fallara. Los `odoo_id` de la instancia de
+   CR pueden chocar con los de PA, así que **antes del primer sync de CR** hay que
+   quitarlo (la unicidad correcta es `(odoo_id, pais)`, que ya existe):
+
+   ```sql
+   DROP INDEX IF EXISTS public.parmonca_repuestos_odoo_id_global_key;
+   ```
+
+5. **Redesplegar** (`npx vercel --prod`) y disparar el sync manual desde el panel
    admin o esperar la próxima corrida del cron. El catálogo de CR aparece solo.
 
 > Mientras `ODOO_CR_*` no esté definido, la web funciona con Panamá únicamente y,
 > al elegir Costa Rica, muestra un mensaje de "muy pronto" en vez de un catálogo
 > vacío.
+
+> **Orden importante al activar CR:** primero desplegar el código nuevo (PR de
+> precios multi-país), luego el `DROP INDEX` del paso 4, y recién después
+> configurar `ODOO_CR_*`. Si se dropea el índice global **antes** de desplegar el
+> código nuevo, el cron viejo volvería a fallar.
