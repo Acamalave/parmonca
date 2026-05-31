@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { fetchRepuestos, stockBadge, formatPrecio, CATEGORIAS_REPUESTOS, type Repuesto, type CategoriaRepuesto } from '@/lib/repuestos-live';
 import { createClient } from '@/lib/supabase/client';
 import { useCotizacionCart } from '@/lib/cotizacion-cart';
+import { usePais } from '@/context/PaisContext';
 import { SHOW_CATALOG_IMAGES } from '@/lib/ui-flags';
 
 const BADGE_COLORS: Record<string, string> = {
@@ -21,6 +22,7 @@ const PAGE_SIZE = 10;
 
 export function RepuestosSection() {
   const cart = useCotizacionCart();
+  const { pais } = usePais();
   const [items, setItems] = useState<Repuesto[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<CategoriaRepuesto | 'todos'>('todos');
@@ -28,20 +30,20 @@ export function RepuestosSection() {
 
   useEffect(() => {
     const supabase = createClient();
-    fetchRepuestos().then(setItems).finally(() => setLoading(false));
+    fetchRepuestos(undefined, pais).then(setItems).finally(() => setLoading(false));
 
-    // Realtime: cualquier cambio en parmonca_repuestos refresca el listado.
-    // El cron de Odoo + el admin editando disparan eventos aquí.
+    // Realtime: cualquier cambio en parmonca_repuestos refresca el listado del
+    // país actual. El cron de Odoo + el admin editando disparan eventos aquí.
     const channel = supabase
       .channel('repuestos_landing_feed')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'parmonca_repuestos' }, async () => {
-        const fresh = await fetchRepuestos();
+        const fresh = await fetchRepuestos(undefined, pais);
         setItems(fresh);
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [pais]);
 
   const conteos = useMemo(() => {
     const c: Record<string, number> = { todos: items.length };

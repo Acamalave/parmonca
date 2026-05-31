@@ -2,8 +2,11 @@ export function cn(...classes: (string | boolean | undefined | null)[]) {
   return classes.filter(Boolean).join(' ');
 }
 
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+export function formatCurrency(amount: number, currency = 'USD', locale?: string): string {
+  // El locale por defecto preserva el comportamiento histórico (USD en-US).
+  // Intl ajusta los decimales por moneda automáticamente (CRC → 0 decimales).
+  const loc = locale ?? (currency === 'CRC' ? 'es-CR' : 'en-US');
+  return new Intl.NumberFormat(loc, { style: 'currency', currency }).format(amount);
 }
 
 export function formatDate(date: string): string {

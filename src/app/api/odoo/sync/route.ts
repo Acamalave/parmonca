@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient, createClient } from '@/lib/supabase/server';
-import { OdooClient, ODOO_CATEG_MAP, ODOO_CATEG_IDS } from '@/lib/odoo';
+import { getOdooInstances, type OdooClient } from '@/lib/odoo';
 
 /**
  * POST /api/odoo/sync
@@ -104,15 +104,18 @@ const GENERIC_HASH_THRESHOLD = 3;
 async function backfillImages(
   admin: SupabaseClient,
   client: OdooClient,
+  pais: string,
 ): Promise<{ synced: number; skipped: number; generic: number; errors: number }> {
   const result = { synced: 0, skipped: 0, generic: 0, errors: 0 };
 
   // "Pending" = nunca procesado: ni imagen_url ni imagen_hash. Los productos
   // ya marcados como genéricos (imagen_hash set, imagen_url null) no entran
-  // de nuevo aunque cron corra cada 15 min.
+  // de nuevo aunque cron corra cada 15 min. Acotado al país de la instancia
+  // (odoo_id ya no es único entre instancias).
   const { data: pending, error: pendingErr } = await admin
     .from('parmonca_repuestos')
     .select('odoo_id')
+    .eq('pais', pais)
     .is('imagen_url', null)
     .is('imagen_hash', null)
     .not('odoo_id', 'is', null)
@@ -144,7 +147,8 @@ async function backfillImages(
       const { error: markErr } = await admin
         .from('parmonca_repuestos')
         .update({ imagen_hash: 'no_image' })
-        .eq('odoo_id', img.id);
+        .eq('odoo_id', img.id)
+        .eq('pais', pais);
       if (markErr) console.warn(`Image backfill: mark no_image failed for ${img.id}:`, markErr);
       result.skipped += 1;
       continue;
@@ -152,7 +156,7 @@ async function backfillImages(
     const fmt = detectImageFormat(img.image_512);
     if (!fmt) {
       console.warn(`Image backfill: unknown format for odoo_id=${img.id}`);
-      await admin.from('parmonca_repuestos').update({ imagen_hash: 'unknown_format' }).eq('odoo_id', img.id);
+      await admin.from('parmonca_repuestos').update({ imagen_hash: 'unknown_format' }).eq('odoo_id', img.id).eq('pais', pais);
       result.skipped += 1;
       continue;
     }
@@ -166,25 +170,30 @@ async function backfillImages(
     const { count: dupCount } = await admin
       .from('parmonca_repuestos')
       .select('odoo_id', { count: 'exact', head: true })
+      .eq('pais', pais)
       .eq('imagen_hash', hash)
       .neq('odoo_id', img.id);
     const dups = dupCount ?? 0;
 
     if (dups + 1 >= GENERIC_HASH_THRESHOLD) {
-      // Hash genérico — limpiar a TODOS los que lo comparten y marcar éste.
+      // Hash genérico — limpiar a TODOS los que lo comparten (en este país) y
+      // marcar éste.
       await admin
         .from('parmonca_repuestos')
         .update({ imagen_url: null, imagen_hash: hash })
+        .eq('pais', pais)
         .eq('imagen_hash', hash);
       await admin
         .from('parmonca_repuestos')
         .update({ imagen_url: null, imagen_hash: hash })
-        .eq('odoo_id', img.id);
+        .eq('odoo_id', img.id)
+        .eq('pais', pais);
       result.generic += 1;
       continue;
     }
 
-    const path = `repuestos/${img.id}.${fmt.ext}`;
+    // Namespaced por país: odoo_id ya no es único entre instancias.
+    const path = `repuestos/${pais.toLowerCase()}/${img.id}.${fmt.ext}`;
     const { error: uploadErr } = await admin.storage
       .from(IMAGE_BUCKET)
       .upload(path, buffer, {
@@ -211,7 +220,8 @@ async function backfillImages(
     const { error: updateErr } = await admin
       .from('parmonca_repuestos')
       .update({ imagen_url: publicUrl, imagen_hash: hash })
-      .eq('odoo_id', img.id);
+      .eq('odoo_id', img.id)
+      .eq('pais', pais);
     if (updateErr) {
       console.error(`Image backfill: row update failed for odoo_id=${img.id}:`, updateErr);
       result.errors += 1;
@@ -261,117 +271,150 @@ async function runSync(byCron: boolean) {
   const logId = logRow.id as number;
 
   const summary = { fetched: 0, created: 0, updated: 0, errors: 0 as number };
+  const images = { synced: 0, skipped: 0, generic: 0, errors: 0 };
+  const porPais: Record<string, { fetched: number; created: number; updated: number; errors: number }> = {};
   let errorMsg: string | null = null;
 
+  type RepuestoRow = {
+    odoo_id: number;
+    odoo_default_code: string | null;
+    sku: string | null;
+    nombre: string;
+    categoria: 'llantas' | 'asientos' | 'traspaletas_manuales' | 'tanques' | 'otros';
+    subcategoria: string | null;
+    descripcion: string | null;
+    precio_venta: number | null;
+    precio_publico: boolean;
+    stock: number;
+    stock_minimo: number;
+    unidad: string;
+    pais: string;
+    moneda: string;
+    activo: boolean;
+    fuente: 'odoo';
+    ultima_sync_at: string;
+    updated_at: string;
+  };
+
   try {
-    // ── FETCH FROM ODOO ─────────────────────────────────────────────
-    const client = OdooClient.fromEnv();
+    // PARMONCA tiene una instancia de Odoo por país (PA siempre; CR si está
+    // configurada). Sincronizamos cada una hacia su propio (pais, moneda).
+    const instances = getOdooInstances();
 
-    // We accept products belonging to PARMONCA CORP (company_id=4) OR shared
-    // (company_id=false). Using OR in Odoo domains needs the prefix '|'.
-    const domain: unknown[] = [
-      '&',
-      ['categ_id', 'in', ODOO_CATEG_IDS],
-      ['active', '=', true],
-    ];
-    const fields = [
-      'id', 'name', 'default_code', 'list_price', 'qty_available',
-      'description_sale', 'categ_id', 'active', 'company_id',
-    ];
+    for (const inst of instances) {
+      const stats = { fetched: 0, created: 0, updated: 0, errors: 0 };
+      porPais[inst.pais] = stats;
 
-    const rows = await client.searchRead<OdooProduct>(
-      'product.template',
-      domain,
-      fields,
-      { limit: 1000, order: 'name asc' },
-    );
-    summary.fetched = rows.length;
-
-    // ── MAP + UPSERT ────────────────────────────────────────────────
-    type RepuestoRow = {
-      odoo_id: number;
-      odoo_default_code: string | null;
-      sku: string | null;
-      nombre: string;
-      categoria: 'llantas' | 'asientos' | 'traspaletas_manuales' | 'tanques' | 'otros';
-      subcategoria: string | null;
-      descripcion: string | null;
-      precio_venta: number | null;
-      precio_publico: boolean;
-      stock: number;
-      stock_minimo: number;
-      unidad: string;
-      activo: boolean;
-      fuente: 'odoo';
-      ultima_sync_at: string;
-      updated_at: string;
-    };
-    const nowIso = new Date().toISOString();
-
-    const toUpsert: RepuestoRow[] = [];
-    for (const p of rows) {
-      const categId = Array.isArray(p.categ_id) ? p.categ_id[0] : 0;
-      // Domain filter guarantees categId is in ODOO_CATEG_MAP; fall back to 'otros' defensively.
-      const categoria: RepuestoRow['categoria'] = ODOO_CATEG_MAP[categId] ?? 'otros';
-
-      const subcategoria = Array.isArray(p.categ_id) ? p.categ_id[1] : null;
-      const descripcion = p.description_sale && typeof p.description_sale === 'string' ? p.description_sale : null;
-      const sku = p.default_code && typeof p.default_code === 'string' ? p.default_code : null;
-
-      toUpsert.push({
-        odoo_id: p.id,
-        odoo_default_code: sku,
-        sku,
-        nombre: p.name || `Producto Odoo ${p.id}`,
-        categoria,
-        subcategoria,
-        descripcion,
-        precio_venta: typeof p.list_price === 'number' ? p.list_price : null,
-        // Todos los productos Odoo se publican en el landing. El frontend
-        // decide si muestra el precio (si precio_venta > 0) o sólo el CTA
-        // "Cotizar" (si precio_venta == 0/null).
-        precio_publico: true,
-        stock: Math.max(0, Math.floor(p.qty_available || 0)),
-        stock_minimo: 3,
-        unidad: 'unidad',
-        activo: !!p.active,
-        fuente: 'odoo',
-        ultima_sync_at: nowIso,
-        updated_at: nowIso,
-      });
-    }
-
-    // Bulk upsert in chunks of 200 to avoid request-size limits.
-    const chunkSize = 200;
-    for (let i = 0; i < toUpsert.length; i += chunkSize) {
-      const chunk = toUpsert.slice(i, i + chunkSize);
-
-      // Count what already exists so we can report created vs updated.
-      const { data: existing } = await admin
-        .from('parmonca_repuestos')
-        .select('odoo_id')
-        .in('odoo_id', chunk.map(r => r.odoo_id));
-      const existingIds = new Set((existing || []).map(r => r.odoo_id));
-
-      const { error: upsertErr } = await admin
-        .from('parmonca_repuestos')
-        .upsert(chunk, { onConflict: 'odoo_id' });
-
-      if (upsertErr) {
-        console.error('Upsert chunk failed:', upsertErr);
-        summary.errors += chunk.length;
-        errorMsg = upsertErr.message;
+      // Sin categorías mapeadas (p. ej. CR antes de descubrir sus IDs) no
+      // traemos nada en vez de traer datos mal categorizados.
+      if (inst.categIds.length === 0) {
+        console.warn(`Sync ${inst.pais}: sin categorías mapeadas — se omite.`);
         continue;
       }
 
-      for (const r of chunk) {
-        if (existingIds.has(r.odoo_id)) summary.updated += 1;
-        else summary.created += 1;
+      try {
+        // ── FETCH FROM ODOO ───────────────────────────────────────────
+        const domain: unknown[] = [
+          '&',
+          ['categ_id', 'in', inst.categIds],
+          ['active', '=', true],
+        ];
+        const fields = [
+          'id', 'name', 'default_code', 'list_price', 'qty_available',
+          'description_sale', 'categ_id', 'active', 'company_id',
+        ];
+
+        const rows = await inst.client.searchRead<OdooProduct>(
+          'product.template',
+          domain,
+          fields,
+          { limit: 1000, order: 'name asc' },
+        );
+        stats.fetched = rows.length;
+        summary.fetched += rows.length;
+
+        // ── MAP ─────────────────────────────────────────────────────
+        const nowIso = new Date().toISOString();
+        const toUpsert: RepuestoRow[] = [];
+        for (const p of rows) {
+          const categId = Array.isArray(p.categ_id) ? p.categ_id[0] : 0;
+          // Domain filter guarantees categId is mapped; fall back defensively.
+          const categoria: RepuestoRow['categoria'] = inst.categMap[categId] ?? 'otros';
+
+          const subcategoria = Array.isArray(p.categ_id) ? p.categ_id[1] : null;
+          const descripcion = p.description_sale && typeof p.description_sale === 'string' ? p.description_sale : null;
+          const sku = p.default_code && typeof p.default_code === 'string' ? p.default_code : null;
+
+          toUpsert.push({
+            odoo_id: p.id,
+            odoo_default_code: sku,
+            sku,
+            nombre: p.name || `Producto Odoo ${p.id}`,
+            categoria,
+            subcategoria,
+            descripcion,
+            precio_venta: typeof p.list_price === 'number' ? p.list_price : null,
+            // Todos los productos Odoo se publican en el landing. El frontend
+            // decide si muestra el precio (si precio_venta > 0) o sólo el CTA
+            // "Cotizar" (si precio_venta == 0/null).
+            precio_publico: true,
+            stock: Math.max(0, Math.floor(p.qty_available || 0)),
+            stock_minimo: 3,
+            unidad: 'unidad',
+            pais: inst.pais,
+            moneda: inst.moneda,
+            activo: !!p.active,
+            fuente: 'odoo',
+            ultima_sync_at: nowIso,
+            updated_at: nowIso,
+          });
+        }
+
+        // ── UPSERT (chunked, conflict por (odoo_id, pais)) ───────────
+        const chunkSize = 200;
+        for (let i = 0; i < toUpsert.length; i += chunkSize) {
+          const chunk = toUpsert.slice(i, i + chunkSize);
+
+          // Count what already exists (en este país) para reportar creados vs actualizados.
+          const { data: existing } = await admin
+            .from('parmonca_repuestos')
+            .select('odoo_id')
+            .eq('pais', inst.pais)
+            .in('odoo_id', chunk.map(r => r.odoo_id));
+          const existingIds = new Set((existing || []).map(r => r.odoo_id));
+
+          const { error: upsertErr } = await admin
+            .from('parmonca_repuestos')
+            .upsert(chunk, { onConflict: 'odoo_id,pais' });
+
+          if (upsertErr) {
+            console.error(`Upsert chunk failed (${inst.pais}):`, upsertErr);
+            stats.errors += chunk.length;
+            summary.errors += chunk.length;
+            errorMsg = upsertErr.message;
+            continue;
+          }
+
+          for (const r of chunk) {
+            if (existingIds.has(r.odoo_id)) { stats.updated += 1; summary.updated += 1; }
+            else { stats.created += 1; summary.created += 1; }
+          }
+        }
+
+        // ── BACKFILL IMAGES (incremental, capped, por país) ──────────
+        const imgRes = await backfillImages(admin, inst.client, inst.pais);
+        images.synced += imgRes.synced;
+        images.skipped += imgRes.skipped;
+        images.generic += imgRes.generic;
+        images.errors += imgRes.errors;
+      } catch (instErr) {
+        const m = instErr instanceof Error ? instErr.message : String(instErr);
+        console.error(`Sync ${inst.pais} failed:`, m);
+        stats.errors += 1;
+        summary.errors += 1;
+        errorMsg = `[${inst.pais}] ${m}`;
       }
     }
-
-    // ── BACKFILL IMAGES (incremental, capped) ───────────────────────
-    const images = await backfillImages(admin, client);
 
     // ── CLOSE LOG ROW (success) ─────────────────────────────────────
     await admin
@@ -383,11 +426,11 @@ async function runSync(byCron: boolean) {
         repuestos_actualizados: summary.updated,
         repuestos_desactivados: 0,
         error: errorMsg,
-        detalles: { fetched: summary.fetched, errors: summary.errors, images },
+        detalles: { fetched: summary.fetched, errors: summary.errors, images, porPais },
       })
       .eq('id', logId);
 
-    return NextResponse.json({ success: true, logId, ...summary, images });
+    return NextResponse.json({ success: true, logId, ...summary, images, porPais });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('Odoo sync failed:', message);

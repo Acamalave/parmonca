@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ClipboardList, X, Plus, Minus, Trash2, ArrowRight, Package, Wrench, Info } from 'lucide-react';
 import { useCotizacionCart } from '@/lib/cotizacion-cart';
+import { usePais } from '@/context/PaisContext';
 import { formatCurrency, cn } from '@/lib/utils';
 
 /**
@@ -14,7 +15,11 @@ import { formatCurrency, cn } from '@/lib/utils';
  */
 export function CotizacionCart() {
   const { items, totalUnidades, totalEstimado, setCantidad, removeItem } = useCotizacionCart();
+  const { moneda, locale } = usePais();
   const [open, setOpen] = useState(false);
+  const fmt = (n: number) => formatCurrency(n, moneda, locale);
+  // Impuesto al consumo según país: ITBMS en Panamá, IVA en Costa Rica.
+  const impuesto = moneda === 'CRC' ? 'IVA' : 'ITBMS';
 
   return (
     <>
@@ -164,7 +169,7 @@ export function CotizacionCart() {
                       </button>
                     </div>
                     <p className="text-[12px] font-bold font-mono text-[var(--color-text-primary)]">
-                      {item.precio > 0 ? formatCurrency(item.precio * item.cantidad) : <span className="text-[10px] font-sans font-normal text-[var(--color-text-muted)]">Por cotizar</span>}
+                      {item.precio > 0 ? fmt(item.precio * item.cantidad) : <span className="text-[10px] font-sans font-normal text-[var(--color-text-muted)]">Por cotizar</span>}
                     </p>
                   </div>
                 </div>
@@ -180,9 +185,9 @@ export function CotizacionCart() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider">Estimado</p>
-                  <p className="text-[10px] text-[var(--color-text-muted)] italic">No incluye ITBMS · sujeto a cotización formal</p>
+                  <p className="text-[10px] text-[var(--color-text-muted)] italic">No incluye {impuesto} · sujeto a cotización formal</p>
                 </div>
-                <p className="text-[20px] font-mono font-bold text-[var(--color-text-primary)]">{formatCurrency(totalEstimado)}</p>
+                <p className="text-[20px] font-mono font-bold text-[var(--color-text-primary)]">{fmt(totalEstimado)}</p>
               </div>
             )}
             <Link
