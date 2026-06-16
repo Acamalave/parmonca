@@ -639,6 +639,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       id: customerMessageId,
+      // El correo al cliente puede fallar sin tumbar el flujo (la cotización ya
+      // quedó persistida). Lo reportamos para que el front no prometa un PDF que
+      // no salió (#16).
+      customerEmailOk: !!customerMessageId,
       cotizacionId,
       numero: cotizacionNumero,
     });
