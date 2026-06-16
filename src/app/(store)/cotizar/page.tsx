@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense, useMemo, useEffect } from 'react';
+import { useState, Suspense, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -26,6 +26,7 @@ import { fetchProducto } from '@/lib/productos-live';
 import { createClient } from '@/lib/supabase/client';
 import type { StoreProduct } from '@/lib/store-data';
 import { useCotizacionCart } from '@/lib/cotizacion-cart';
+import { usePais } from '@/context/PaisContext';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Wizard configuration
@@ -289,7 +290,15 @@ function CotizarContent() {
   const [empresa, setEmpresa] = useState('');
   const [email, setEmail] = useState('');
   const [telefono, setTelefono] = useState('');
-  const [pais, setPais] = useState('Panamá');
+  const { pais: storePais } = usePais();
+  const [pais, setPais] = useState(storePais === 'CR' ? 'Costa Rica' : 'Panamá');
+  // Si el visitante eligió país en la tienda, prellenamos el formulario con él
+  // (Panamá/Costa Rica), salvo que ya lo haya cambiado a mano.
+  const paisTouched = useRef(false);
+  useEffect(() => {
+    if (!paisTouched.current) setPais(storePais === 'CR' ? 'Costa Rica' : 'Panamá');
+  }, [storePais]);
+  const handlePaisChange = (v: string) => { paisTouched.current = true; setPais(v); };
   const [ciudad, setCiudad] = useState('');
   const [ruc, setRuc] = useState('');
   const [mensaje, setMensaje] = useState('');
@@ -361,6 +370,7 @@ function CotizarContent() {
             cantidad: i.cantidad,
             precio_unitario: i.precio || 0,
             precio_total: (i.precio || 0) * i.cantidad,
+            moneda: i.moneda,
             imagen: i.imagen,
           }))
         : [];
@@ -777,7 +787,7 @@ function CotizarContent() {
                   icon={MapPin}
                   label="País*"
                   value={pais}
-                  onChange={setPais}
+                  onChange={handlePaisChange}
                   options={['Panamá', 'Costa Rica', 'Venezuela', 'Guatemala', 'Honduras', 'Nicaragua', 'Haití']}
                 />
                 <FieldInput icon={MapPin} label="Ciudad" value={ciudad} onChange={setCiudad} placeholder="Ciudad o zona" />

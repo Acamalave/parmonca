@@ -9,6 +9,23 @@ export function formatCurrency(amount: number, currency = 'USD', locale?: string
   return new Intl.NumberFormat(loc, { style: 'currency', currency }).format(amount);
 }
 
+/**
+ * Deriva la moneda y datos asociados a partir del país de una cotización.
+ * Panamá → USD/ITBMS, Costa Rica → CRC/IVA. Cualquier otro país cae en USD
+ * (los demás mercados aún no manejan precio local). El match es tolerante a
+ * acentos/mayúsculas porque el país viene de un <select> de texto.
+ */
+export function monedaDePais(pais?: string | null): {
+  moneda: 'USD' | 'CRC';
+  locale: string;
+  impuesto: string;
+} {
+  const esCR = (pais || '').toLowerCase().includes('costa rica');
+  return esCR
+    ? { moneda: 'CRC', locale: 'es-CR', impuesto: 'IVA' }
+    : { moneda: 'USD', locale: 'es-PA', impuesto: 'ITBMS' };
+}
+
 export function formatDate(date: string): string {
   return new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(date));
 }
