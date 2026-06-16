@@ -108,6 +108,42 @@ const FINANCIAMIENTOS: OptionCard[] = [
 ];
 
 // ────────────────────────────────────────────────────────────────────────────
+// Teléfono por país: código de marcación + cantidad de dígitos nacionales.
+// ────────────────────────────────────────────────────────────────────────────
+const PAISES_TEL: Record<string, { dial: string; digits: number }> = {
+  'Panamá': { dial: '+507', digits: 8 },
+  'Costa Rica': { dial: '+506', digits: 8 },
+  'Venezuela': { dial: '+58', digits: 10 },
+  'Guatemala': { dial: '+502', digits: 8 },
+  'Honduras': { dial: '+504', digits: 8 },
+  'Nicaragua': { dial: '+505', digits: 8 },
+  'Haití': { dial: '+509', digits: 8 },
+};
+const PAISES_LISTA = Object.keys(PAISES_TEL);
+const telInfo = (pais: string) => PAISES_TEL[pais] || { dial: '', digits: 8 };
+
+/** Dígitos nacionales del teléfono, quitando el código de marcación. */
+function nationalDigits(telefono: string, pais: string): string {
+  const info = telInfo(pais);
+  let t = (telefono || '').trim();
+  if (info.dial && t.startsWith(info.dial)) t = t.slice(info.dial.length);
+  else t = t.replace(/^\+\d{1,4}/, ''); // quita cualquier +código previo
+  return t.replace(/\D/g, '');
+}
+
+/** ¿El teléfono tiene la cantidad de dígitos esperada para el país? */
+function telefonoValido(telefono: string, pais: string): boolean {
+  return nationalDigits(telefono, pais).length === telInfo(pais).digits;
+}
+
+/** Aplica el código de marcación del país, conservando los dígitos ya escritos. */
+function aplicarDial(telefono: string, pais: string): string {
+  const info = telInfo(pais);
+  const nat = nationalDigits(telefono, pais);
+  return nat ? `${info.dial} ${nat}` : `${info.dial} `;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // UI primitives
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -222,14 +258,19 @@ function CotizarContent() {
   // flow legacy ?producto=slug.
   const cart = useCotizacionCart();
   const useCart = cart.items.length > 0;
+  const [sent, setSent] = useState(false);
+  // #16: true salvo que el envío del correo al cliente haya fallado.
+  const [emailEnviado, setEmailEnviado] = useState(true);
 
   // Detección de "vine del carrito pero el carrito está vacío":
   // pasa cuando alguien guarda el link `/cotizar?desde=carrito` o cuando
   // el carrito se vacía en otra pestaña. En ese caso no tiene sentido el
   // wizard — mostramos un fallback que invita a volver al catálogo.
   const desdeCarrito = searchParams.get('desde') === 'carrito';
+  // `!sent`: tras enviar limpiamos el carrito (useCart pasa a false); sin este
+  // guard, esta pantalla de "vacío" tapaba la de éxito y parecía un error (#15).
   const carritoVacioInesperado =
-    cart.hydrated && desdeCarrito && !useCart && !productoSlug;
+    cart.hydrated && desdeCarrito && !useCart && !productoSlug && !sent;
 
   // Producto en vivo desde Supabase; fallback a catálogo estático si
   // todavía no cargó o el slug no existe en la BD.
@@ -286,25 +327,35 @@ function CotizarContent() {
   const [stepIndex, setStepIndex] = useState(0);
 
   // Contact
+  const { pais: storePais } = usePais();
+  const paisInicial = storePais === 'CR' ? 'Costa Rica' : 'Panamá';
   const [nombre, setNombre] = useState('');
   const [empresa, setEmpresa] = useState('');
   const [email, setEmail] = useState('');
-  const [telefono, setTelefono] = useState('');
-  const { pais: storePais } = usePais();
-  const [pais, setPais] = useState(storePais === 'CR' ? 'Costa Rica' : 'Panamá');
+  const [pais, setPais] = useState(paisInicial);
+  // El teléfono arranca con el código de marcación del país (#13).
+  const [telefono, setTelefono] = useState(`${telInfo(paisInicial).dial} `);
   // Si el visitante eligió país en la tienda, prellenamos el formulario con él
   // (Panamá/Costa Rica), salvo que ya lo haya cambiado a mano.
   const paisTouched = useRef(false);
   useEffect(() => {
-    if (!paisTouched.current) setPais(storePais === 'CR' ? 'Costa Rica' : 'Panamá');
+    if (paisTouched.current) return;
+    const nombrePais = storePais === 'CR' ? 'Costa Rica' : 'Panamá';
+    setPais(nombrePais);
+    setTelefono(prev => aplicarDial(prev, nombrePais));
   }, [storePais]);
-  const handlePaisChange = (v: string) => { paisTouched.current = true; setPais(v); };
+  // Al cambiar país: marca como tocado y reescribe el código de área del
+  // teléfono conservando los dígitos ya escritos (#13).
+  const handlePaisChange = (v: string) => {
+    paisTouched.current = true;
+    setPais(v);
+    setTelefono(prev => aplicarDial(prev, v));
+  };
   const [ciudad, setCiudad] = useState('');
   const [ruc, setRuc] = useState('');
   const [mensaje, setMensaje] = useState('');
 
   const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
   // Snapshot del carrito antes de limpiarlo, para mostrar el resumen
   // multi-ítem en la pantalla de "¡Cotización enviada!".
@@ -343,10 +394,10 @@ function CotizarContent() {
       case 'flota': return !!tamanoFlota;
       case 'presupuesto': return !!presupuesto;
       case 'financiamiento': return !!financiamiento;
-      case 'contacto': return !!nombre && !!email && !!telefono && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      case 'contacto': return !!nombre && !!email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && telefonoValido(telefono, pais);
       default: return true;
     }
-  }, [currentStep, industria, operacion, frecuencia, plazo, tamanoFlota, presupuesto, financiamiento, nombre, email, telefono]);
+  }, [currentStep, industria, operacion, frecuencia, plazo, tamanoFlota, presupuesto, financiamiento, nombre, email, telefono, pais]);
 
   // ── Submit ──
   const handleSubmit = async () => {
@@ -421,6 +472,10 @@ function CotizarContent() {
         }),
       });
       if (!res.ok) throw new Error('Error al enviar');
+
+      // #16: el correo puede fallar sin tumbar el flujo; ajustamos el mensaje.
+      const data = await res.json().catch(() => null) as { customerEmailOk?: boolean } | null;
+      setEmailEnviado(data?.customerEmailOk !== false);
 
       track('quote_submitted', {
         producto_slug: product?.slug,
@@ -500,7 +555,9 @@ function CotizarContent() {
             Recibimos tu solicitud por {equipoLabel}. Un asesor PARMONCA te contactará en menos de 2 horas hábiles con la cotización formal.
           </p>
           <p className="text-[var(--color-text-muted)] text-[12px] mt-2">
-            Te enviamos también un PDF con el detalle a <strong className="text-[var(--color-text-secondary)]">{email}</strong>.
+            {emailEnviado
+              ? <>Te enviamos también un PDF con el detalle a <strong className="text-[var(--color-text-secondary)]">{email}</strong>.</>
+              : <>Tu asesor te hará llegar la cotización formal en PDF a <strong className="text-[var(--color-text-secondary)]">{email}</strong> a la brevedad.</>}
           </p>
         </div>
 
@@ -775,22 +832,33 @@ function CotizarContent() {
                 <FieldInput icon={Building2} label="Empresa" value={empresa} onChange={setEmpresa} placeholder="Nombre de la empresa" />
               </div>
 
-              {/* Email + Teléfono */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <FieldInput icon={Mail} type="email" label="Email*" value={email} onChange={setEmail} placeholder="tu@empresa.com" />
-                <FieldInput icon={Phone} label="Teléfono*" value={telefono} onChange={setTelefono} placeholder="+507 6000 0000" />
-              </div>
-
-              {/* País + Ciudad */}
+              {/* País + Ciudad (#13: el país va antes del teléfono y define su código) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FieldSelect
                   icon={MapPin}
                   label="País*"
                   value={pais}
                   onChange={handlePaisChange}
-                  options={['Panamá', 'Costa Rica', 'Venezuela', 'Guatemala', 'Honduras', 'Nicaragua', 'Haití']}
+                  options={PAISES_LISTA}
                 />
                 <FieldInput icon={MapPin} label="Ciudad" value={ciudad} onChange={setCiudad} placeholder="Ciudad o zona" />
+              </div>
+
+              {/* Email + Teléfono (#14: longitud validada por país) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <FieldInput icon={Mail} type="email" label="Email*" value={email} onChange={setEmail} placeholder="tu@empresa.com" />
+                <FieldInput
+                  icon={Phone}
+                  label="Teléfono*"
+                  type="tel"
+                  inputMode="tel"
+                  value={telefono}
+                  onChange={setTelefono}
+                  placeholder={`${telInfo(pais).dial} ${'0'.repeat(telInfo(pais).digits)}`}
+                  error={nationalDigits(telefono, pais).length > 0 && !telefonoValido(telefono, pais)
+                    ? `Ingresa ${telInfo(pais).digits} dígitos para ${pais}`
+                    : undefined}
+                />
               </div>
 
               {/* RUC opcional */}
@@ -970,6 +1038,8 @@ function FieldInput({
   onChange,
   placeholder,
   type = 'text',
+  inputMode,
+  error,
   autoFocus,
 }: {
   icon: React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
@@ -978,6 +1048,8 @@ function FieldInput({
   onChange: (v: string) => void;
   placeholder?: string;
   type?: string;
+  inputMode?: 'text' | 'tel' | 'email' | 'numeric';
+  error?: string;
   autoFocus?: boolean;
 }) {
   return (
@@ -988,12 +1060,18 @@ function FieldInput({
       </label>
       <input
         type={type}
+        inputMode={inputMode}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         autoFocus={autoFocus}
-        className="w-full h-11 px-4 rounded-xl bg-[var(--color-surface-glass)] border border-[var(--color-border)] text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#E8821C]/40 transition-all"
+        aria-invalid={!!error}
+        className={cn(
+          'w-full h-11 px-4 rounded-xl bg-[var(--color-surface-glass)] border text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none transition-all',
+          error ? 'border-rose-500/60 focus:border-rose-500/60' : 'border-[var(--color-border)] focus:border-[#E8821C]/40'
+        )}
       />
+      {error && <p className="mt-1 text-[11px] text-rose-400">{error}</p>}
     </div>
   );
 }
