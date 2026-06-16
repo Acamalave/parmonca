@@ -37,9 +37,16 @@ const categoryLabel = (c: string | null): StoreProduct['categoriaLabel'] => {
     case 'Apilador Electrico': return 'Apilador Eléctrico';
     case 'Traspaleta Electrica': return 'Traspaleta Eléctrica';
     case 'Mastil Retractil': return 'Mástil Retráctil';
+    case 'Mastil con Pantografo': return 'Mástil con Pantógrafo';
+    case 'Plataforma Elevadora': return 'Plataforma Elevadora';
     default: return (c || 'Equipo industrial') as StoreProduct['categoriaLabel'];
   }
 };
+
+/** Convierte un texto de categoría a slug accent-safe (fallback). */
+const slugify = (c: string): string =>
+  c.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'otro';
 
 const categorySlug = (c: string | null): StoreProduct['categoria'] => {
   switch (c) {
@@ -48,7 +55,11 @@ const categorySlug = (c: string | null): StoreProduct['categoria'] => {
     case 'Apilador Electrico': return 'apilador-electrico';
     case 'Traspaleta Electrica': return 'traspaleta-electrica';
     case 'Mastil Retractil': return 'mastil-retractil';
-    default: return 'montacarga-electrico';
+    case 'Mastil con Pantografo': return 'mastil-con-pantografo';
+    case 'Plataforma Elevadora': return 'plataforma-elevadora';
+    // Antes caía a 'montacarga-electrico' (mal-etiquetaba categorías nuevas);
+    // ahora derivamos un slug fiel para no clasificar mal.
+    default: return c ? slugify(c) : 'otro';
   }
 };
 
