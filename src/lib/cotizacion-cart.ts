@@ -17,6 +17,8 @@ import { useEffect, useState, useCallback, useSyncExternalStore } from 'react';
 
 const STORAGE_KEY = 'parmonca_cotizacion_cart_v1';
 
+export type MonedaCarrito = 'USD' | 'CRC';
+
 export type CartItem = {
   /** ID estable: "producto-<slug>" o "repuesto-<uuid>" */
   key: string;
@@ -29,6 +31,8 @@ export type CartItem = {
   imagen: string | null;
   /** Precio guardado al momento de agregar (puede ser 0 si "a cotizar") */
   precio: number;
+  /** Moneda del precio: USD (Panamá / maquinaria) o CRC (Costa Rica) */
+  moneda: MonedaCarrito;
   cantidad: number;
 };
 
@@ -51,7 +55,12 @@ function readFromStorage(): CartState {
     if (!raw) return { items: [] };
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.items)) return { items: [] };
-    return parsed as CartState;
+    // Backfill de moneda para carritos guardados antes de multi-país.
+    const items = (parsed.items as CartItem[]).map(i => ({
+      ...i,
+      moneda: i.moneda === 'CRC' ? 'CRC' : 'USD',
+    } as CartItem));
+    return { items };
   } catch {
     return { items: [] };
   }
@@ -110,7 +119,8 @@ export function useCotizacionCart() {
     // Sanitización: cantidad mínima 1 entero, precio no-negativo y finito.
     const safeCantidad = Math.max(1, Math.floor(Number.isFinite(cantidad) ? cantidad : 1));
     const safePrecio = Number.isFinite(item.precio) && item.precio >= 0 ? item.precio : 0;
-    const safeItem = { ...item, precio: safePrecio };
+    const safeMoneda: MonedaCarrito = item.moneda === 'CRC' ? 'CRC' : 'USD';
+    const safeItem = { ...item, precio: safePrecio, moneda: safeMoneda };
     setState(prev => {
       const existing = prev.items.find(i => i.key === safeItem.key);
       if (existing) {
@@ -146,10 +156,19 @@ export function useCotizacionCart() {
   const totalUnidades = items.reduce((a, i) => a + i.cantidad, 0);
   const totalEstimado = items.reduce((a, i) => a + i.precio * i.cantidad, 0);
 
+  // Subtotales por moneda — un carrito puede mezclar USD (PA/maquinaria) y CRC
+  // (CR) si el visitante cambió de país con ítems ya agregados. Sumar todo en
+  // un solo número no tendría sentido, así que agrupamos.
+  const totalesPorMoneda = items.reduce<Record<MonedaCarrito, number>>((acc, i) => {
+    if (i.precio > 0) acc[i.moneda] = (acc[i.moneda] || 0) + i.precio * i.cantidad;
+    return acc;
+  }, { USD: 0, CRC: 0 });
+
   return {
     items,
     totalUnidades,
     totalEstimado,
+    totalesPorMoneda,
     addItem,
     setCantidad,
     removeItem,

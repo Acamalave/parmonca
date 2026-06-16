@@ -2,6 +2,9 @@ import { createClient } from '@/lib/supabase/client';
 
 export type CategoriaRepuesto = 'llantas' | 'asientos' | 'traspaletas_manuales' | 'tanques' | 'otros';
 
+export type Pais = 'PA' | 'CR';
+export type Moneda = 'USD' | 'CRC';
+
 export type Repuesto = {
   id: string;
   sku: string | null;
@@ -12,6 +15,8 @@ export type Repuesto = {
   descripcion: string | null;
   imagen_url: string | null;
   precio_venta: number | null;
+  pais: Pais;
+  moneda: Moneda;
   stock: number;
   stock_minimo: number;
   unidad: string | null;
@@ -20,12 +25,17 @@ export type Repuesto = {
   ultima_sync_at: string | null;
 };
 
-export async function fetchRepuestos(categoria?: CategoriaRepuesto): Promise<Repuesto[]> {
+const SELECT_COLS =
+  'id, sku, nombre, categoria, subcategoria, marca, descripcion, imagen_url, precio_venta, pais, moneda, stock, stock_minimo, unidad, compatible_con, destacado, ultima_sync_at';
+
+export async function fetchRepuestos(categoria?: CategoriaRepuesto, pais: Pais = 'PA'): Promise<Repuesto[]> {
   const supabase = createClient();
-  // Sólo productos con stock disponible — agotados no se muestran en el landing.
+  // Sólo productos con stock disponible del país seleccionado — agotados o de
+  // otra instancia no se muestran en el landing.
   let q = supabase
     .from('parmonca_repuestos')
-    .select('id, sku, nombre, categoria, subcategoria, marca, descripcion, imagen_url, precio_venta, stock, stock_minimo, unidad, compatible_con, destacado, ultima_sync_at')
+    .select(SELECT_COLS)
+    .eq('pais', pais)
     .gt('stock', 0)
     .order('destacado', { ascending: false })
     .order('stock', { ascending: false });
@@ -41,7 +51,7 @@ export async function fetchRepuesto(id: string): Promise<Repuesto | null> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from('parmonca_repuestos')
-    .select('id, sku, nombre, categoria, subcategoria, marca, descripcion, imagen_url, precio_venta, stock, stock_minimo, unidad, compatible_con, destacado, ultima_sync_at')
+    .select(SELECT_COLS)
     .eq('id', id)
     .single();
   if (error || !data) return null;
@@ -54,17 +64,25 @@ export function stockBadge(r: Repuesto): { label: string; color: 'emerald' | 'am
   return { label: 'En stock', color: 'emerald' };
 }
 
+/** Configuración de formato monetario por moneda. CRC no usa decimales. */
+const MONEDA_FMT: Record<Moneda, { locale: string; currency: string; decimals: number }> = {
+  USD: { locale: 'es-PA', currency: 'USD', decimals: 2 },
+  CRC: { locale: 'es-CR', currency: 'CRC', decimals: 0 },
+};
+
 /**
- * Format price for display. Returns null when the product has no price, so the
+ * Format price for display using the row's own currency (USD para Panamá,
+ * CRC para Costa Rica). Returns null when the product has no price, so the
  * UI can render the "Cotizar" CTA instead.
  */
 export function formatPrecio(r: Repuesto): string | null {
   if (!r.precio_venta || r.precio_venta <= 0) return null;
-  return new Intl.NumberFormat('es-PA', {
+  const fmt = MONEDA_FMT[r.moneda] ?? MONEDA_FMT.USD;
+  return new Intl.NumberFormat(fmt.locale, {
     style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    currency: fmt.currency,
+    minimumFractionDigits: fmt.decimals,
+    maximumFractionDigits: fmt.decimals,
   }).format(r.precio_venta);
 }
 

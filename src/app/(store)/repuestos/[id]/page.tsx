@@ -154,6 +154,7 @@ export default function RepuestoDetailPage({ params }: { params: Promise<{ id: s
                 categoria: `Repuesto · ${r.categoria.replace(/_/g, ' ')}`,
                 imagen: r.imagen_url,
                 precio: r.precio_venta || 0,
+                moneda: r.moneda,
               });
               return (
                 <div className="flex items-end justify-between flex-wrap gap-3">

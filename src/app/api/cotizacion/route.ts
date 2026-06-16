@@ -4,6 +4,7 @@ import { renderToBuffer } from '@react-pdf/renderer';
 import { createAnonClient, createAdminClient } from '@/lib/supabase/server';
 import { CotizacionPDF, type CotizacionData, type LineItem } from '@/lib/pdf/CotizacionPDF';
 import { sendMail } from '@/lib/mailer';
+import { formatCurrency, monedaDePais } from '@/lib/utils';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -123,11 +124,12 @@ async function notifySlack(body: CotizacionRequest, numero: string) {
   try {
     const modalidad = body.modalidad === 'alquiler' ? 'Alquiler' : 'Compra';
     const producto = body.producto ? `${body.producto.marca} ${body.producto.modelo}` : 'Sin producto';
+    const { moneda, locale } = monedaDePais(body.pais);
     await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        text: `*Nueva cotización ${numero}* (${modalidad})\n*Cliente:* ${body.nombre}${body.empresa ? ` — ${body.empresa}` : ''}\n*Email:* ${body.email}\n*Producto:* ${producto}\n*Total:* $${body.total.toLocaleString()}`,
+        text: `*Nueva cotización ${numero}* (${modalidad})\n*Cliente:* ${body.nombre}${body.empresa ? ` — ${body.empresa}` : ''}\n*Email:* ${body.email}\n*Producto:* ${producto}\n*Total:* ${formatCurrency(body.total, moneda, locale)}`,
       }),
     });
   } catch (err) {
@@ -180,6 +182,7 @@ interface CotizacionRequest {
     cantidad?: number;
     precio_unitario?: number;
     precio_total?: number;
+    moneda?: 'USD' | 'CRC';
     imagen?: string | null;
   }>;
   cantidad: number;
@@ -254,7 +257,9 @@ export async function POST(request: NextRequest) {
       bgSoft: '#F9FAFB',
     };
 
-    const fmtMoney = (n: number) => `$${(Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    // Moneda derivada del país de la cotización (PA→USD/ITBMS, CR→CRC/IVA).
+    const { moneda, locale, impuesto: impuestoLabel } = monedaDePais(body.pais);
+    const fmtMoney = (n: number) => formatCurrency(Number(n) || 0, moneda, locale);
 
     const accesoriosHTML = (!esLineItems && body.accesorios.length > 0)
       ? body.accesorios.map(a => `
@@ -445,7 +450,7 @@ export async function POST(request: NextRequest) {
                 </tr>
                 ${body.modalidad === 'venta' ? `
                 <tr>
-                  <td style="padding:10px 0;color:${COLORS.textMuted};font-size:13px;border-bottom:1px solid ${COLORS.border};">Impuesto (7%)</td>
+                  <td style="padding:10px 0;color:${COLORS.textMuted};font-size:13px;border-bottom:1px solid ${COLORS.border};">Impuesto (${impuestoLabel})</td>
                   <td align="right" style="padding:10px 0;color:${COLORS.text};font-size:13px;font-weight:600;border-bottom:1px solid ${COLORS.border};">${fmtMoney(body.impuesto)}</td>
                 </tr>
                 ` : ''}
@@ -617,7 +622,7 @@ export async function POST(request: NextRequest) {
         await sendMail({
           fromName: 'PARMONCA CRM',
           to: internalRecipients,
-          subject: `[${modalidadLabel}] ${displayNumero} — ${body.nombre}${productoLabel} ($${body.total.toLocaleString()})`,
+          subject: `[${modalidadLabel}] ${displayNumero} — ${body.nombre}${productoLabel} (${fmtMoney(body.total)})`,
           html: emailHTMLFinal,
           attachments,
         });

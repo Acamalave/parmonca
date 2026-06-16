@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ClipboardList, X, Plus, Minus, Trash2, ArrowRight, Package, Wrench, Info } from 'lucide-react';
 import { useCotizacionCart } from '@/lib/cotizacion-cart';
+import { usePais } from '@/context/PaisContext';
 import { formatCurrency, cn } from '@/lib/utils';
 
 /**
@@ -13,8 +14,18 @@ import { formatCurrency, cn } from '@/lib/utils';
  * sino una solicitud de cotización formal.
  */
 export function CotizacionCart() {
-  const { items, totalUnidades, totalEstimado, setCantidad, removeItem } = useCotizacionCart();
+  const { items, totalUnidades, totalesPorMoneda, setCantidad, removeItem } = useCotizacionCart();
+  const { moneda } = usePais();
   const [open, setOpen] = useState(false);
+  // Cada línea se formatea en SU moneda (no la del país actual), porque el
+  // carrito puede mezclar USD/CRC si se cambió de país con ítems agregados.
+  const fmtMoneda = (n: number, m: 'USD' | 'CRC') =>
+    formatCurrency(n, m, m === 'CRC' ? 'es-CR' : 'es-PA');
+  // Impuesto al consumo según país: ITBMS en Panamá, IVA en Costa Rica.
+  const impuesto = moneda === 'CRC' ? 'IVA' : 'ITBMS';
+  // Monedas con monto > 0 presentes en el carrito.
+  const monedasConMonto = (Object.keys(totalesPorMoneda) as Array<'USD' | 'CRC'>)
+    .filter((m) => totalesPorMoneda[m] > 0);
 
   return (
     <>
@@ -164,7 +175,7 @@ export function CotizacionCart() {
                       </button>
                     </div>
                     <p className="text-[12px] font-bold font-mono text-[var(--color-text-primary)]">
-                      {item.precio > 0 ? formatCurrency(item.precio * item.cantidad) : <span className="text-[10px] font-sans font-normal text-[var(--color-text-muted)]">Por cotizar</span>}
+                      {item.precio > 0 ? fmtMoneda(item.precio * item.cantidad, item.moneda) : <span className="text-[10px] font-sans font-normal text-[var(--color-text-muted)]">Por cotizar</span>}
                     </p>
                   </div>
                 </div>
@@ -176,13 +187,22 @@ export function CotizacionCart() {
         {/* Footer con CTA */}
         {items.length > 0 && (
           <footer className="border-t border-[var(--color-border)] px-5 py-4 space-y-3 bg-[var(--color-surface)]">
-            {totalEstimado > 0 && (
-              <div className="flex items-center justify-between">
-                <div>
+            {monedasConMonto.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
                   <p className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider">Estimado</p>
-                  <p className="text-[10px] text-[var(--color-text-muted)] italic">No incluye ITBMS · sujeto a cotización formal</p>
+                  <div className="text-right">
+                    {monedasConMonto.map((m) => (
+                      <p key={m} className="text-[20px] font-mono font-bold text-[var(--color-text-primary)] leading-tight">
+                        {fmtMoneda(totalesPorMoneda[m], m)}
+                      </p>
+                    ))}
+                  </div>
                 </div>
-                <p className="text-[20px] font-mono font-bold text-[var(--color-text-primary)]">{formatCurrency(totalEstimado)}</p>
+                <p className="text-[10px] text-[var(--color-text-muted)] italic">
+                  No incluye {impuesto} · sujeto a cotización formal
+                  {monedasConMonto.length > 1 && ' · incluye ítems en distintas monedas'}
+                </p>
               </div>
             )}
             <Link

@@ -1,6 +1,7 @@
 /* eslint-disable jsx-a11y/alt-text */
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
+import { monedaDePais } from '@/lib/utils';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -84,8 +85,16 @@ const PERIODO_LABEL: Record<string, string> = {
   '5_anos': '5 años',
 };
 
-const formatCurrency = (n: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(Number(n) || 0);
+// Formatea según moneda. Para CRC usamos el código "CRC" en vez del símbolo ₡
+// porque la fuente Helvetica de react-pdf no incluye ese glifo (saldría vacío).
+// USD conserva el formato histórico "$1,234.56".
+const formatCurrency = (n: number, moneda: 'USD' | 'CRC' = 'USD') => {
+  const v = Number(n) || 0;
+  if (moneda === 'CRC') {
+    return `CRC ${new Intl.NumberFormat('es-CR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v)}`;
+  }
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(v);
+};
 
 const formatDate = (iso: string) => {
   try {
@@ -386,6 +395,7 @@ function PageEquipo({
   isMaquinaria: boolean;
 }) {
   const specs = item.specs || {};
+  const { moneda } = monedaDePais(data.cliente.pais);
 
   const specsList: { label: string; value: string }[] = [
     { label: 'Condición', value: 'NUEVO' },
@@ -413,8 +423,8 @@ function PageEquipo({
       <View style={s.equipoTableRow}>
         <Text style={s.colEquipo}>{`MARCA ${(item.marca || '').toUpperCase()} - MODELO ${item.modelo}`}</Text>
         <Text style={s.colCant}>{item.cantidad.toFixed(2)}</Text>
-        <Text style={s.colPrecio}>{formatCurrency(item.precio_unitario)}</Text>
-        <Text style={s.colTotal}>{formatCurrency(item.precio_total)}</Text>
+        <Text style={s.colPrecio}>{formatCurrency(item.precio_unitario, moneda)}</Text>
+        <Text style={s.colTotal}>{formatCurrency(item.precio_total, moneda)}</Text>
       </View>
 
       {/* Imagen + meta */}
@@ -475,6 +485,7 @@ function PageResumen({
   pageIdx: number;
   totalPages: number;
 }) {
+  const { moneda, impuesto: impuestoLabel } = monedaDePais(data.cliente.pais);
   return (
     <Page size="LETTER" style={s.page}>
       <Header data={data} page={pageIdx} total={totalPages} />
@@ -496,27 +507,27 @@ function PageResumen({
               : `MARCA ${(it.marca || '').toUpperCase()} - MODELO ${it.modelo}`}
           </Text>
           <Text style={s.colCant}>{it.cantidad.toFixed(2)}</Text>
-          <Text style={s.colPrecio}>{formatCurrency(it.precio_unitario)}</Text>
-          <Text style={s.colTotal}>{formatCurrency(it.precio_total)}</Text>
+          <Text style={s.colPrecio}>{formatCurrency(it.precio_unitario, moneda)}</Text>
+          <Text style={s.colTotal}>{formatCurrency(it.precio_total, moneda)}</Text>
         </View>
       ))}
 
       <View style={s.resumenWrap}>
         <View style={s.resumenRow}>
           <Text>Subtotal</Text>
-          <Text>{formatCurrency(data.subtotal)}</Text>
+          <Text>{formatCurrency(data.subtotal, moneda)}</Text>
         </View>
         {data.modalidad === 'venta' && (
           <View style={s.resumenRow}>
-            <Text>Impuesto (7% ITBMS)</Text>
-            <Text>{formatCurrency(data.impuesto)}</Text>
+            <Text>Impuesto ({impuestoLabel})</Text>
+            <Text>{formatCurrency(data.impuesto, moneda)}</Text>
           </View>
         )}
         <View style={s.resumenTotalRow}>
           <Text style={s.resumenTotalLabel}>
             Total {data.modalidad === 'alquiler' ? 'del plazo' : 'estimado'}
           </Text>
-          <Text style={s.resumenTotalValue}>{formatCurrency(data.total)}</Text>
+          <Text style={s.resumenTotalValue}>{formatCurrency(data.total, moneda)}</Text>
         </View>
       </View>
 

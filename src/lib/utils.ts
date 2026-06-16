@@ -2,8 +2,28 @@ export function cn(...classes: (string | boolean | undefined | null)[]) {
   return classes.filter(Boolean).join(' ');
 }
 
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+export function formatCurrency(amount: number, currency = 'USD', locale?: string): string {
+  // El locale por defecto preserva el comportamiento histórico (USD en-US).
+  // Intl ajusta los decimales por moneda automáticamente (CRC → 0 decimales).
+  const loc = locale ?? (currency === 'CRC' ? 'es-CR' : 'en-US');
+  return new Intl.NumberFormat(loc, { style: 'currency', currency }).format(amount);
+}
+
+/**
+ * Deriva la moneda y datos asociados a partir del país de una cotización.
+ * Panamá → USD/ITBMS, Costa Rica → CRC/IVA. Cualquier otro país cae en USD
+ * (los demás mercados aún no manejan precio local). El match es tolerante a
+ * acentos/mayúsculas porque el país viene de un <select> de texto.
+ */
+export function monedaDePais(pais?: string | null): {
+  moneda: 'USD' | 'CRC';
+  locale: string;
+  impuesto: string;
+} {
+  const esCR = (pais || '').toLowerCase().includes('costa rica');
+  return esCR
+    ? { moneda: 'CRC', locale: 'es-CR', impuesto: 'IVA' }
+    : { moneda: 'USD', locale: 'es-PA', impuesto: 'ITBMS' };
 }
 
 export function formatDate(date: string): string {

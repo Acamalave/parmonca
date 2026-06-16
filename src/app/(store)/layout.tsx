@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { Menu, X, Zap, Sun, Moon } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
+import { PaisProvider } from '@/context/PaisContext';
+import { PaisSelector } from '@/components/PaisSelector';
 import { CotizacionCart } from '@/components/CotizacionCart';
 
 export default function StoreLayout({ children }: { children: React.ReactNode }) {
@@ -12,6 +14,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
   const { isDark, toggleTheme } = useTheme();
 
   return (
+    <PaisProvider>
     <div className="min-h-screen mesh-bg">
       {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 z-50 glass-strong">
@@ -31,6 +34,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
           </div>
 
           <div className="flex items-center gap-2">
+            <PaisSelector />
             <button
               onClick={toggleTheme}
               className="p-2 rounded-full text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-hover)] transition-all"
@@ -101,5 +105,6 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
         </div>
       </footer>
     </div>
+    </PaisProvider>
   );
 }
