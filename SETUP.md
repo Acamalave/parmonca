@@ -181,17 +181,18 @@ instancia de Odoo** (`ml.parts`), no instancias separadas:
 El catálogo de productos es **compartido** (`company_id=false`). Se diferencia:
 - **Stock** → por la bodega de cada compañía (se lee `qty_available` en el
   contexto de esa compañía).
-- **Precio** → del `list_price` (USD). Costa Rica **aún no tiene lista de precios
-  en colones** en Odoo, así que sus productos se publican **sin precio ("Cotizar")**
-  hasta que exista.
+- **Precio** → del `list_price` (USD). Costa Rica se muestra **tal como está en
+  Odoo: en USD** (aún no hay lista de precios en colones). Cuando Odoo tenga una
+  lista en CRC, se cambia la `moneda` de CR a `'CRC'` en `getPaisesOdoo()` y se
+  ajusta el sync para leer ese precio.
 
 ### Cómo funciona
 
 - **Detección de país**: `middleware.ts` lee `x-vercel-ip-country` y fija la
   cookie `parmonca_pais` (`PA` por defecto, `CR` si la IP es de Costa Rica). El
   visitante puede cambiarlo con el selector 🇵🇦/🇨🇷 del navbar.
-- **Moneda**: PA → USD (`es-PA`), CR → CRC (`es-CR`). Impuesto en carrito: ITBMS
-  (PA) / IVA (CR).
+- **Moneda**: PA → USD; CR → **USD por ahora** (como está en Odoo; cuando haya
+  lista en CRC se cambia a colones). Impuesto en cotización: ITBMS (PA) / IVA (CR).
 - **Sync**: el cron (`*/15 * * * *` → `/api/odoo/sync`) usa UNA conexión
   (`getOdooClient()`) y recorre `getPaisesOdoo()` (en `src/lib/odoo.ts`): para
   cada país lee el catálogo con el contexto de su compañía y hace upsert en
@@ -204,15 +205,16 @@ El catálogo de productos es **compartido** (`company_id=false`). Se diferencia:
 |---|---|---|
 | `ODOO_PA_COMPANY_ID` | `4` | Compañía de Panamá |
 | `ODOO_CR_COMPANY_ID` | `5` | Compañía de Costa Rica |
-| `ODOO_CR_CON_PRECIO` | `false` | Poner `true` cuando Odoo tenga lista de precios en CRC para CR |
 
-### Activar precios de CR (cuando Odoo los tenga)
+### Pasar CR a colones (cuando Odoo lo tenga)
 
-Hoy CR ya muestra catálogo + stock con "Cotizar". Para mostrar precios reales:
+Hoy CR muestra los precios **en USD, tal como están en Odoo**. Para mostrarlos en
+colones:
 1. El equipo de Odoo crea una **lista de precios en CRC** para PARMONCA S.A.
-   (hoy la instancia tiene **0 pricelists**), o define la moneda/precio CR.
-2. Ajustar el sync para leer ese precio y poner `ODOO_CR_CON_PRECIO=true` en Vercel.
-3. Redesplegar; el sync llena `precio_venta` de CR y la web muestra precios en CRC.
+   (hoy la instancia tiene **0 pricelists**).
+2. En `getPaisesOdoo()` cambiar la `moneda` de CR a `'CRC'` y ajustar el sync para
+   leer el precio de esa lista; actualizar también `monedaDePais()` en `utils.ts`.
+3. Redesplegar; la web muestra los precios de CR en ₡.
 
 > Nota: el script `scripts/explore-odoo.mjs` queda como utilidad de exploración,
 > pero CR **no** requiere credenciales `ODOO_CR_*` separadas (es la misma instancia).
