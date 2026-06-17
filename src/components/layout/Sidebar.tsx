@@ -25,6 +25,7 @@ import {
   Moon,
   UsersRound,
   PlusCircle,
+  MessageSquare,
 } from 'lucide-react';
 
 type NavItem = {
@@ -37,6 +38,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { label: 'Mi Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Mensajes', href: '/mensajes', icon: MessageSquare },
   { label: 'Cotizaciones', href: '/cotizaciones', icon: FileText },
   { label: 'Clientes', href: '/clientes', icon: Users },
   { label: 'Pipeline', href: '/pipeline', icon: Kanban },
