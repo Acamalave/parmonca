@@ -158,10 +158,13 @@ export type PaisOdoo = {
 export function getPaisesOdoo(): PaisOdoo[] {
   const paCompany = Number(process.env.ODOO_PA_COMPANY_ID || 4); // PARMONCA CORP
   const crCompany = Number(process.env.ODOO_CR_COMPANY_ID || 5); // PARMONCA S.A.
-  const crConPrecio = process.env.ODOO_CR_CON_PRECIO === 'true';
+  // Costa Rica se muestra TAL COMO está en Odoo: el list_price está en USD
+  // (no hay lista de precios en colones), así que CR usa moneda USD y muestra
+  // el precio. Cuando Odoo tenga lista en CRC, cambiar `moneda` a 'CRC' y
+  // ajustar el sync para leer ese precio.
   return [
     { pais: 'PA', companyId: paCompany, moneda: 'USD', conPrecio: true },
-    { pais: 'CR', companyId: crCompany, moneda: 'CRC', conPrecio: crConPrecio },
+    { pais: 'CR', companyId: crCompany, moneda: 'USD', conPrecio: true },
   ];
 }
 

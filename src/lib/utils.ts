@@ -20,9 +20,11 @@ export function monedaDePais(pais?: string | null): {
   locale: string;
   impuesto: string;
 } {
+  // Costa Rica se cotiza en USD (es como están los precios en Odoo; aún no hay
+  // lista en colones), pero su impuesto es IVA. Panamá: USD/ITBMS.
   const esCR = (pais || '').toLowerCase().includes('costa rica');
   return esCR
-    ? { moneda: 'CRC', locale: 'es-CR', impuesto: 'IVA' }
+    ? { moneda: 'USD', locale: 'es-PA', impuesto: 'IVA' }
     : { moneda: 'USD', locale: 'es-PA', impuesto: 'ITBMS' };
 }
 
