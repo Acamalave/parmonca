@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient, createClient } from '@/lib/supabase/server';
-import { getOdooInstances, type OdooClient } from '@/lib/odoo';
+import { getOdooClient, getPaisesOdoo, ODOO_CATEG_MAP, ODOO_CATEG_IDS, type OdooClient } from '@/lib/odoo';
 
 /**
  * POST /api/odoo/sync
@@ -297,38 +297,35 @@ async function runSync(byCron: boolean) {
   };
 
   try {
-    // PARMONCA tiene una instancia de Odoo por país (PA siempre; CR si está
-    // configurada). Sincronizamos cada una hacia su propio (pais, moneda).
-    const instances = getOdooInstances();
+    // Costa Rica NO es una instancia separada: es la compañía PARMONCA S.A.
+    // (id 5) dentro de la MISMA instancia que Panamá (PARMONCA CORP, id 4).
+    // Una sola conexión; el catálogo es compartido y diferenciamos el STOCK por
+    // el contexto de compañía (su bodega) y el PRECIO por país.
+    const client = getOdooClient();
+    const paises = getPaisesOdoo();
 
-    for (const inst of instances) {
+    const domain: unknown[] = ['&', ['categ_id', 'in', ODOO_CATEG_IDS], ['active', '=', true]];
+    const fields = [
+      'id', 'name', 'default_code', 'list_price', 'qty_available',
+      'description_sale', 'categ_id', 'active', 'company_id',
+    ];
+
+    for (const pais of paises) {
       const stats = { fetched: 0, created: 0, updated: 0, errors: 0 };
-      porPais[inst.pais] = stats;
-
-      // Sin categorías mapeadas (p. ej. CR antes de descubrir sus IDs) no
-      // traemos nada en vez de traer datos mal categorizados.
-      if (inst.categIds.length === 0) {
-        console.warn(`Sync ${inst.pais}: sin categorías mapeadas — se omite.`);
-        continue;
-      }
+      porPais[pais.pais] = stats;
 
       try {
-        // ── FETCH FROM ODOO ───────────────────────────────────────────
-        const domain: unknown[] = [
-          '&',
-          ['categ_id', 'in', inst.categIds],
-          ['active', '=', true],
-        ];
-        const fields = [
-          'id', 'name', 'default_code', 'list_price', 'qty_available',
-          'description_sale', 'categ_id', 'active', 'company_id',
-        ];
-
-        const rows = await inst.client.searchRead<OdooProduct>(
+        // ── FETCH: catálogo compartido, pero qty_available en el contexto de
+        //    la compañía del país → stock de SU bodega. ──────────────────
+        const rows = await client.searchRead<OdooProduct>(
           'product.template',
           domain,
           fields,
-          { limit: 1000, order: 'name asc' },
+          {
+            limit: 1000,
+            order: 'name asc',
+            context: { allowed_company_ids: [pais.companyId], company_id: pais.companyId },
+          },
         );
         stats.fetched = rows.length;
         summary.fetched += rows.length;
@@ -338,12 +335,16 @@ async function runSync(byCron: boolean) {
         const toUpsert: RepuestoRow[] = [];
         for (const p of rows) {
           const categId = Array.isArray(p.categ_id) ? p.categ_id[0] : 0;
-          // Domain filter guarantees categId is mapped; fall back defensively.
-          const categoria: RepuestoRow['categoria'] = inst.categMap[categId] ?? 'otros';
+          const categoria: RepuestoRow['categoria'] = ODOO_CATEG_MAP[categId] ?? 'otros';
 
           const subcategoria = Array.isArray(p.categ_id) ? p.categ_id[1] : null;
           const descripcion = p.description_sale && typeof p.description_sale === 'string' ? p.description_sale : null;
           const sku = p.default_code && typeof p.default_code === 'string' ? p.default_code : null;
+
+          // Precio: list_price (USD) para países con precio configurado. Costa
+          // Rica aún no tiene lista en colones en Odoo → precio null y la web
+          // muestra "Cotizar" en vez de un monto en la moneda equivocada.
+          const precio = pais.conPrecio && typeof p.list_price === 'number' ? p.list_price : null;
 
           toUpsert.push({
             odoo_id: p.id,
@@ -353,16 +354,13 @@ async function runSync(byCron: boolean) {
             categoria,
             subcategoria,
             descripcion,
-            precio_venta: typeof p.list_price === 'number' ? p.list_price : null,
-            // Todos los productos Odoo se publican en el landing. El frontend
-            // decide si muestra el precio (si precio_venta > 0) o sólo el CTA
-            // "Cotizar" (si precio_venta == 0/null).
+            precio_venta: precio,
             precio_publico: true,
             stock: Math.max(0, Math.floor(p.qty_available || 0)),
             stock_minimo: 3,
             unidad: 'unidad',
-            pais: inst.pais,
-            moneda: inst.moneda,
+            pais: pais.pais,
+            moneda: pais.moneda,
             activo: !!p.active,
             fuente: 'odoo',
             ultima_sync_at: nowIso,
@@ -375,11 +373,10 @@ async function runSync(byCron: boolean) {
         for (let i = 0; i < toUpsert.length; i += chunkSize) {
           const chunk = toUpsert.slice(i, i + chunkSize);
 
-          // Count what already exists (en este país) para reportar creados vs actualizados.
           const { data: existing } = await admin
             .from('parmonca_repuestos')
             .select('odoo_id')
-            .eq('pais', inst.pais)
+            .eq('pais', pais.pais)
             .in('odoo_id', chunk.map(r => r.odoo_id));
           const existingIds = new Set((existing || []).map(r => r.odoo_id));
 
@@ -388,7 +385,7 @@ async function runSync(byCron: boolean) {
             .upsert(chunk, { onConflict: 'odoo_id,pais' });
 
           if (upsertErr) {
-            console.error(`Upsert chunk failed (${inst.pais}):`, upsertErr);
+            console.error(`Upsert chunk failed (${pais.pais}):`, upsertErr);
             stats.errors += chunk.length;
             summary.errors += chunk.length;
             errorMsg = upsertErr.message;
@@ -402,17 +399,17 @@ async function runSync(byCron: boolean) {
         }
 
         // ── BACKFILL IMAGES (incremental, capped, por país) ──────────
-        const imgRes = await backfillImages(admin, inst.client, inst.pais);
+        const imgRes = await backfillImages(admin, client, pais.pais);
         images.synced += imgRes.synced;
         images.skipped += imgRes.skipped;
         images.generic += imgRes.generic;
         images.errors += imgRes.errors;
-      } catch (instErr) {
-        const m = instErr instanceof Error ? instErr.message : String(instErr);
-        console.error(`Sync ${inst.pais} failed:`, m);
+      } catch (paisErr) {
+        const m = paisErr instanceof Error ? paisErr.message : String(paisErr);
+        console.error(`Sync ${pais.pais} failed:`, m);
         stats.errors += 1;
         summary.errors += 1;
-        errorMsg = `[${inst.pais}] ${m}`;
+        errorMsg = `[${pais.pais}] ${m}`;
       }
     }
 

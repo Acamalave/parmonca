@@ -48,8 +48,7 @@ update public.parmonca_profiles set rol = 'gerente' where email = 'nuevo@parmonc
 |---|---|---|
 | `SLACK_WEBHOOK_URL` | Slack → App → Incoming Webhooks | Notifica al equipo cuando llega una cotización |
 | `NEXT_PUBLIC_WHATSAPP_NUMBER` | Reemplazar placeholder con número real | Botón flotante de WhatsApp |
-| `ODOO_CR_URL` / `ODOO_CR_DB` / `ODOO_CR_LOGIN` / `ODOO_CR_API_KEY` | Instancia de **Costa Rica** (separada) | Sync de repuestos/precios CR (CRC) — ver §9 |
-| `ODOO_CR_CATEG_MAP` | Salida del script `scripts/explore-odoo.mjs` | Mapeo de categorías de la instancia CR — ver §9 |
+| `ODOO_CR_CON_PRECIO` | `true` cuando Odoo tenga lista de precios CRC para CR | Mostrar precios de CR (hoy CR sale como "Cotizar") — ver §9 |
 
 **Para configurar Slack:**
 ```bash
@@ -172,75 +171,48 @@ Abrir http://localhost:3000
 
 ---
 
-## 9. Catálogo y precios por país (Odoo multi-instancia)
+## 9. Catálogo y precios por país (Odoo multi-compañía)
 
-PARMONCA opera en **Panamá** y **Costa Rica**. En Odoo cada país vive en una
-**instancia separada** (no son multi-company ni listas de precios — verificado:
-la instancia de PA tiene 3 compañías, todas en USD, sin pricelists). La web
-muestra catálogo, stock y precio según la ubicación del visitante.
+PARMONCA opera **Panamá** y **Costa Rica** como **dos compañías dentro de la MISMA
+instancia de Odoo** (`ml.parts`), no instancias separadas:
+- `PARMONCA CORP` (id **4**, Panamá)
+- `PARMONCA S.A.` (id **5**, Costa Rica)
+
+El catálogo de productos es **compartido** (`company_id=false`). Se diferencia:
+- **Stock** → por la bodega de cada compañía (se lee `qty_available` en el
+  contexto de esa compañía).
+- **Precio** → del `list_price` (USD). Costa Rica **aún no tiene lista de precios
+  en colones** en Odoo, así que sus productos se publican **sin precio ("Cotizar")**
+  hasta que exista.
 
 ### Cómo funciona
 
 - **Detección de país**: `middleware.ts` lee `x-vercel-ip-country` y fija la
-  cookie `parmonca_pais` (`PA` por defecto, `CR` si la IP es de Costa Rica).
-  El visitante puede cambiarlo con el selector 🇵🇦/🇨🇷 del navbar; esa elección
-  manual sobreescribe la autodetección.
-- **Moneda**: PA → USD (`es-PA`), CR → CRC (`es-CR`, sin decimales). El impuesto
-  mostrado en el carrito es ITBMS (PA) o IVA (CR).
-- **Sync**: el cron (`*/15 * * * *` en `vercel.json` → `/api/odoo/sync`) recorre
-  las instancias configuradas (`getOdooInstances()` en `src/lib/odoo.ts`) y
-  hace upsert en `parmonca_repuestos` con su `pais`/`moneda`. La unicidad es por
-  `(odoo_id, pais)` y `(sku, pais)`, así PA y CR no colisionan.
-- Si una instancia no está configurada (o no tiene categorías mapeadas), el sync
-  **la omite** sin romper las demás.
+  cookie `parmonca_pais` (`PA` por defecto, `CR` si la IP es de Costa Rica). El
+  visitante puede cambiarlo con el selector 🇵🇦/🇨🇷 del navbar.
+- **Moneda**: PA → USD (`es-PA`), CR → CRC (`es-CR`). Impuesto en carrito: ITBMS
+  (PA) / IVA (CR).
+- **Sync**: el cron (`*/15 * * * *` → `/api/odoo/sync`) usa UNA conexión
+  (`getOdooClient()`) y recorre `getPaisesOdoo()` (en `src/lib/odoo.ts`): para
+  cada país lee el catálogo con el contexto de su compañía y hace upsert en
+  `parmonca_repuestos` con `(odoo_id, pais)`. Unicidad: `(odoo_id, pais)` y
+  `(sku, pais)`.
 
-### Activar Costa Rica (pasos)
+### Variables de entorno (opcionales)
 
-1. **Pedir accesos** de la instancia de Odoo de CR (URL, DB, usuario con lectura
-   de inventario, API key). El API key se genera en Odoo:
-   *Preferencias → Seguridad de la cuenta → Nueva clave API*.
+| Variable | Default | Para qué |
+|---|---|---|
+| `ODOO_PA_COMPANY_ID` | `4` | Compañía de Panamá |
+| `ODOO_CR_COMPANY_ID` | `5` | Compañía de Costa Rica |
+| `ODOO_CR_CON_PRECIO` | `false` | Poner `true` cuando Odoo tenga lista de precios en CRC para CR |
 
-2. **Descubrir los IDs de categoría** de esa instancia (casi seguro difieren de
-   los de PA). Ejecutar el script incluido:
+### Activar precios de CR (cuando Odoo los tenga)
 
-   ```bash
-   ODOO_CR_URL=https://... ODOO_CR_DB=... ODOO_CR_LOGIN=... ODOO_CR_API_KEY=... \
-     node scripts/explore-odoo.mjs
-   ```
+Hoy CR ya muestra catálogo + stock con "Cotizar". Para mostrar precios reales:
+1. El equipo de Odoo crea una **lista de precios en CRC** para PARMONCA S.A.
+   (hoy la instancia tiene **0 pricelists**), o define la moneda/precio CR.
+2. Ajustar el sync para leer ese precio y poner `ODOO_CR_CON_PRECIO=true` en Vercel.
+3. Redesplegar; el sync llena `precio_venta` de CR y la web muestra precios en CRC.
 
-   Imprime compañías, monedas y todas las categorías con productos, y sugiere un
-   JSON para `ODOO_CR_CATEG_MAP`. **Revisar manualmente** que el mapeo a
-   `llantas` / `asientos` / `traspaletas_manuales` / `tanques` sea correcto (el
-   match por palabra clave es solo orientativo).
-
-3. **Configurar las env vars en Vercel** (producción):
-
-   ```bash
-   npx vercel env add ODOO_CR_URL production
-   npx vercel env add ODOO_CR_DB production
-   npx vercel env add ODOO_CR_LOGIN production
-   npx vercel env add ODOO_CR_API_KEY production
-   npx vercel env add ODOO_CR_CATEG_MAP production   # pegar el JSON, ej: {"31":"llantas","48":"asientos"}
-   ```
-
-4. **Eliminar el índice único interino** (¡crítico!). Mientras el código nuevo no
-   estaba desplegado, se agregó un `UNIQUE(odoo_id)` global a `parmonca_repuestos`
-   para que el cron del código viejo no fallara. Los `odoo_id` de la instancia de
-   CR pueden chocar con los de PA, así que **antes del primer sync de CR** hay que
-   quitarlo (la unicidad correcta es `(odoo_id, pais)`, que ya existe):
-
-   ```sql
-   DROP INDEX IF EXISTS public.parmonca_repuestos_odoo_id_global_key;
-   ```
-
-5. **Redesplegar** (`npx vercel --prod`) y disparar el sync manual desde el panel
-   admin o esperar la próxima corrida del cron. El catálogo de CR aparece solo.
-
-> Mientras `ODOO_CR_*` no esté definido, la web funciona con Panamá únicamente y,
-> al elegir Costa Rica, muestra un mensaje de "muy pronto" en vez de un catálogo
-> vacío.
-
-> **Orden importante al activar CR:** primero desplegar el código nuevo (PR de
-> precios multi-país), luego el `DROP INDEX` del paso 4, y recién después
-> configurar `ODOO_CR_*`. Si se dropea el índice global **antes** de desplegar el
-> código nuevo, el cron viejo volvería a fallar.
+> Nota: el script `scripts/explore-odoo.mjs` queda como utilidad de exploración,
+> pero CR **no** requiere credenciales `ODOO_CR_*` separadas (es la misma instancia).

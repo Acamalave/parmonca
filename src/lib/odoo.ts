@@ -4,16 +4,16 @@
  * Uses Odoo's `/jsonrpc` endpoint with API-key authentication (Odoo 14+).
  * No deps — just native fetch.
  *
- * PARMONCA opera con DOS instancias de Odoo SEPARADAS (no multi-company ni
- * pricelists — verificado en la instancia de Panamá: 3 compañías todas en USD,
- * 0 listas de precios, sin Costa Rica). Cada país tiene su propia base:
+ * PARMONCA opera Panamá y Costa Rica como DOS COMPAÑÍAS dentro de la MISMA
+ * instancia de Odoo (verificado en ml.parts): PARMONCA CORP (id 4, Panamá) y
+ * PARMONCA S.A. (id 5, Costa Rica). El catálogo es compartido (company_id=false);
+ * se diferencia el stock por compañía (bodega) y el precio por país.
  *
- *   Panamá (USD) — instancia actual:
+ *   Env (una sola instancia):
  *     ODOO_URL, ODOO_DB, ODOO_LOGIN, ODOO_API_KEY
- *   Costa Rica (CRC) — instancia separada (opcional, se activa al definirla):
- *     ODOO_CR_URL, ODOO_CR_DB, ODOO_CR_LOGIN, ODOO_CR_API_KEY
- *     ODOO_CR_CATEG_MAP  (JSON opcional: {"<categId>":"llantas", ...}) — los
- *                        IDs de categoría de CR casi seguro difieren de los de PA.
+ *   Opcionales:
+ *     ODOO_PA_COMPANY_ID (def 4), ODOO_CR_COMPANY_ID (def 5)
+ *     ODOO_CR_CON_PRECIO=true  → cuando Odoo tenga lista de precios en CRC.
  */
 
 type OdooConfig = {
@@ -103,13 +103,18 @@ export class OdooClient {
     model: string,
     domain: unknown[],
     fields: string[],
-    opts: { limit?: number; offset?: number; order?: string } = {},
+    opts: { limit?: number; offset?: number; order?: string; context?: Record<string, unknown> } = {},
   ): Promise<T[]> {
     return this.executeKw<T[]>(
       model,
       'search_read',
       [domain, fields],
-      { limit: opts.limit, offset: opts.offset, order: opts.order },
+      {
+        limit: opts.limit,
+        offset: opts.offset,
+        order: opts.order,
+        ...(opts.context ? { context: opts.context } : {}),
+      },
     );
   }
 }
@@ -133,66 +138,34 @@ export type Pais = 'PA' | 'CR';
 export type Moneda = 'USD' | 'CRC';
 
 /**
- * Mapa de categorías de la instancia de Costa Rica.
- *
- * ⚠️ Los IDs de categoría de CR casi seguro difieren de los de Panamá. Hasta
- * conocer la instancia de CR no podemos fijarlos, así que se leen de la env var
- * ODOO_CR_CATEG_MAP (JSON: {"<id>":"llantas", ...}). Mientras no exista, el sync
- * de CR no traerá productos (categIds vacío) en vez de traer datos incorrectos.
+ * Costa Rica NO es una instancia separada: es la compañía `PARMONCA S.A.`
+ * (Costa Rica) dentro de la MISMA instancia de Odoo que Panamá (`PARMONCA CORP`).
+ * Por eso sincronizamos con una sola conexión y diferenciamos por compañía:
+ *   - el catálogo (product.template) es compartido (company_id=false),
+ *   - el STOCK se lee en el contexto de cada compañía (su bodega),
+ *   - el PRECIO sale del list_price (USD). Costa Rica aún NO tiene lista de
+ *     precios en colones en Odoo, así que `conPrecio=false` → la web muestra
+ *     "Cotizar" en vez de un monto en la moneda equivocada. Cuando exista la
+ *     lista CRC, poner ODOO_CR_CON_PRECIO=true.
  */
-function parseCrCategMap(): Record<number, CategoriaRepuesto> {
-  const raw = process.env.ODOO_CR_CATEG_MAP;
-  if (!raw) return {};
-  try {
-    const obj = JSON.parse(raw) as Record<string, CategoriaRepuesto>;
-    const out: Record<number, CategoriaRepuesto> = {};
-    for (const [k, v] of Object.entries(obj)) {
-      const id = Number(k);
-      if (Number.isFinite(id) && ['llantas', 'asientos', 'traspaletas_manuales', 'tanques'].includes(v)) {
-        out[id] = v;
-      }
-    }
-    return out;
-  } catch {
-    console.warn('ODOO_CR_CATEG_MAP no es JSON válido — se ignora.');
-    return {};
-  }
-}
-
-export type OdooInstance = {
+export type PaisOdoo = {
   pais: Pais;
+  companyId: number;
   moneda: Moneda;
-  client: OdooClient;
-  categMap: Record<number, CategoriaRepuesto>;
-  categIds: number[];
+  conPrecio: boolean;
 };
 
-/**
- * Devuelve las instancias de Odoo configuradas. Panamá siempre (env actual).
- * Costa Rica sólo si ODOO_CR_URL/DB/LOGIN/API_KEY están definidas — así el
- * código queda listo para CR sin romper mientras no haya credenciales.
- */
-export function getOdooInstances(): OdooInstance[] {
-  const instances: OdooInstance[] = [
-    {
-      pais: 'PA',
-      moneda: 'USD',
-      client: OdooClient.fromEnv(''),
-      categMap: ODOO_CATEG_MAP,
-      categIds: ODOO_CATEG_IDS,
-    },
+export function getPaisesOdoo(): PaisOdoo[] {
+  const paCompany = Number(process.env.ODOO_PA_COMPANY_ID || 4); // PARMONCA CORP
+  const crCompany = Number(process.env.ODOO_CR_COMPANY_ID || 5); // PARMONCA S.A.
+  const crConPrecio = process.env.ODOO_CR_CON_PRECIO === 'true';
+  return [
+    { pais: 'PA', companyId: paCompany, moneda: 'USD', conPrecio: true },
+    { pais: 'CR', companyId: crCompany, moneda: 'CRC', conPrecio: crConPrecio },
   ];
+}
 
-  if (process.env.ODOO_CR_URL && process.env.ODOO_CR_DB && process.env.ODOO_CR_LOGIN && process.env.ODOO_CR_API_KEY) {
-    const crCategMap = parseCrCategMap();
-    instances.push({
-      pais: 'CR',
-      moneda: 'CRC',
-      client: OdooClient.fromEnv('CR_'),
-      categMap: crCategMap,
-      categIds: Object.keys(crCategMap).map(Number),
-    });
-  }
-
-  return instances;
+/** Cliente único hacia la instancia de Odoo (env ODOO_*). */
+export function getOdooClient(): OdooClient {
+  return OdooClient.fromEnv('');
 }
