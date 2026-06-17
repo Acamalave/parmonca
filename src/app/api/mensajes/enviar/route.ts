@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { whatsappConfigurado, enviarWhatsappTexto } from '@/lib/whatsapp';
+import { metaConfigurado, enviarMensajeMeta } from '@/lib/meta-messaging';
 
 /**
  * POST /api/mensajes/enviar  { conversacionId, texto }
@@ -29,8 +30,10 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
   if (!conv) return NextResponse.json({ error: 'conversacion_no_encontrada' }, { status: 404 });
 
-  const esWhatsapp = conv.canal === 'whatsapp';
-  const puedeEnviar = esWhatsapp && whatsappConfigurado();
+  const esMeta = conv.canal === 'messenger' || conv.canal === 'instagram';
+  const puedeEnviar =
+    (conv.canal === 'whatsapp' && whatsappConfigurado()) ||
+    (esMeta && metaConfigurado());
 
   // Insert con RLS (autor_id = auth.uid(), conversación visible).
   const { data: msg, error: insErr } = await supabase
@@ -49,11 +52,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: insErr?.message || 'insert_fallido' }, { status: 403 });
   }
 
-  // Envío real por WhatsApp (si aplica). El historial ya quedó guardado.
+  // Envío real por el canal (si aplica). El historial ya quedó guardado.
   let envio: { ok: boolean; error?: string } = { ok: true };
   if (puedeEnviar) {
     const to = conv.contacto_externo_id || conv.contacto_telefono || '';
-    const r = await enviarWhatsappTexto(to, texto.trim());
+    const r = conv.canal === 'whatsapp'
+      ? await enviarWhatsappTexto(to, texto.trim())
+      : await enviarMensajeMeta(to, texto.trim());
     envio = r;
     await supabase
       .from('parmonca_mensajes')
