@@ -260,5 +260,26 @@ Instagram, Messenger** (Meta). LinkedIn/TikTok no tienen API de DM.
 > solo se pueden enviar **plantillas aprobadas**. El envío de texto libre actual
 > aplica dentro de la ventana; las plantillas son una mejora posterior.
 
-> **Instagram / Messenger:** misma bandeja; se agregan conectando la página de
-> Facebook + IG Business y pasando el App Review de Meta (webhooks análogos).
+### Activar Instagram + Messenger (Fase 2)
+
+Messenger e Instagram comparten la misma plataforma de Meta y un webhook único.
+
+1. **Meta:** conectar la **Página de Facebook** y la **cuenta de Instagram
+   Business** a la app; obtener un **Page Access Token**; pasar el App Review con
+   los permisos `pages_messaging` / `instagram_manage_messages`.
+2. **Env vars en Vercel:**
+
+   | Variable | De dónde |
+   |---|---|
+   | `MESSENGER_PAGE_TOKEN` | Page Access Token (envía Messenger e IG) |
+   | `META_VERIFY_TOKEN` | Cadena arbitraria para el handshake |
+   | `META_APP_SECRET` | App secret (si no se define, usa `WHATSAPP_APP_SECRET`) |
+
+3. **Webhook en Meta** (productos Messenger e Instagram):
+   - URL: `https://parmonca.com/api/webhooks/meta`
+   - Verify token: `META_VERIFY_TOKEN`
+   - Suscribir el campo **messages** en ambos productos.
+4. **Redesplegar.** Los DMs de Messenger e Instagram entran a la misma bandeja;
+   las respuestas se envían por la Send API de la Página.
+
+> Aplica la misma **ventana de 24h** de Meta para texto libre.
