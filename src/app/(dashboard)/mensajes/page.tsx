@@ -86,7 +86,7 @@ export default function MensajesPage() {
     if (!t || !selId || !profile?.id) return;
     setEnviando(true);
     setTexto('');
-    const m = await enviarMensaje(selId, t, profile.id);
+    const m = await enviarMensaje(selId, t);
     if (m) setMensajes(prev => [...prev, m]);
     await recargarConvs();
     setEnviando(false);
@@ -229,7 +229,7 @@ export default function MensajesPage() {
               </button>
             </div>
             <p className="px-4 pb-2 text-[10px] text-[var(--color-text-muted)]">
-              Fase 0: las respuestas se guardan en el historial. El envío real por WhatsApp/Instagram se conecta en la Fase 1.
+              Las respuestas de WhatsApp se envían al cliente cuando el canal esté conectado (cuenta de WhatsApp Business). Mientras tanto quedan guardadas en el historial.
             </p>
           </>
         )}

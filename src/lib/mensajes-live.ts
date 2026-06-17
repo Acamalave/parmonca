@@ -55,25 +55,24 @@ export async function fetchMensajes(conversacionId: string): Promise<Mensaje[]> 
 }
 
 /**
- * Registra una respuesta saliente. En Fase 0 sólo guarda el mensaje (historial);
- * en Fase 1 esta misma acción además llamará a la API del canal (WhatsApp, etc.).
+ * Envía una respuesta saliente vía la API server-side: registra el mensaje
+ * (con RLS) y, si el canal es WhatsApp y está configurado, lo manda por la
+ * Cloud API. Si WhatsApp no está configurado aún, sólo queda en el historial.
  */
-export async function enviarMensaje(conversacionId: string, texto: string, autorId: string): Promise<Mensaje | null> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('parmonca_mensajes')
-    .insert({
-      conversacion_id: conversacionId,
-      direccion: 'saliente',
-      tipo: 'texto',
-      texto,
-      autor_id: autorId,
-      estado_envio: 'enviado',
-    })
-    .select('id, conversacion_id, direccion, tipo, texto, adjunto_url, autor_id, estado_envio, created_at')
-    .single();
-  if (error) { console.error('enviarMensaje:', error); return null; }
-  return data as Mensaje;
+export async function enviarMensaje(conversacionId: string, texto: string): Promise<Mensaje | null> {
+  try {
+    const res = await fetch('/api/mensajes/enviar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversacionId, texto }),
+    });
+    if (!res.ok) { console.error('enviarMensaje:', await res.text()); return null; }
+    const j = await res.json() as { mensaje: Mensaje };
+    return j.mensaje;
+  } catch (err) {
+    console.error('enviarMensaje:', err);
+    return null;
+  }
 }
 
 /** Marca la conversación como leída (no_leidos = 0). */
