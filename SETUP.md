@@ -218,3 +218,47 @@ colones:
 
 > Nota: el script `scripts/explore-odoo.mjs` queda como utilidad de exploración,
 > pero CR **no** requiere credenciales `ODOO_CR_*` separadas (es la misma instancia).
+
+---
+
+## 10. Bandeja de mensajes (inbox omnicanal)
+
+Inbox tipo ManyChat dentro del CRM, en `/mensajes`. Tablas
+`parmonca_conversaciones` + `parmonca_mensajes` (RLS: admin/gerente ven todo,
+asesor solo lo asignado). Realtime activo. Canales viables: **WhatsApp,
+Instagram, Messenger** (Meta). LinkedIn/TikTok no tienen API de DM.
+
+### Estado
+- **Fase 0 (hecha):** bandeja, historial, asignación, estados, tiempo real. Las
+  respuestas se guardan aunque no haya canal conectado.
+- **Fase 1 (código listo, falta configurar Meta):** webhook de entrada +
+  envío real por WhatsApp Cloud API.
+
+### Activar WhatsApp (Fase 1)
+
+1. **Meta:** Business Manager + verificación del negocio → **WhatsApp Business
+   Account (WABA)** → registrar un **número dedicado** (no el del botón actual) →
+   crear una app y un **System User** con token permanente.
+2. **Env vars en Vercel (producción):**
+
+   | Variable | De dónde |
+   |---|---|
+   | `WHATSAPP_TOKEN` | Token permanente del System User |
+   | `WHATSAPP_PHONE_NUMBER_ID` | ID del número en la WABA |
+   | `WHATSAPP_VERIFY_TOKEN` | Cadena arbitraria (la inventas; se usa en el handshake) |
+   | `WHATSAPP_APP_SECRET` | App secret (verifica la firma del webhook) |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Ya configurada (el webhook la usa para escribir) |
+
+3. **Configurar el webhook en Meta:**
+   - URL de callback: `https://parmonca.com/api/webhooks/whatsapp`
+   - Verify token: el mismo de `WHATSAPP_VERIFY_TOKEN`
+   - Suscribir el campo **messages**.
+4. **Redesplegar.** Entrantes → crean/actualizan conversación y se ven en vivo;
+   las respuestas del equipo se envían por la Cloud API.
+
+> **Ventana de 24h (Meta):** fuera de las 24h desde el último mensaje del cliente
+> solo se pueden enviar **plantillas aprobadas**. El envío de texto libre actual
+> aplica dentro de la ventana; las plantillas son una mejora posterior.
+
+> **Instagram / Messenger:** misma bandeja; se agregan conectando la página de
+> Facebook + IG Business y pasando el App Review de Meta (webhooks análogos).
