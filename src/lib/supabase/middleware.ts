@@ -35,6 +35,7 @@ export async function updateSession(request: NextRequest) {
 
   const protectedRoutes = [
     '/dashboard',
+    '/mensajes',
     '/cotizaciones',
     '/clientes',
     '/facturas',
